@@ -13,6 +13,12 @@ const MAX_CLICKS_PER_FRAME = 3;
 const STATUS_CYCLE_MS = 15000;
 /** How long one page of calling points holds before the next flips up. */
 const CALLING_PAGE_MS = 6000;
+/**
+ * requestAnimationFrame stops whenever Chromium decides the page is hidden or
+ * occluded, which a kiosk compositor can do without warning; a timer keeps
+ * the flaps settling (in coarser steps) until frames come back.
+ */
+const WATCHDOG_MS = 250;
 const SEPARATOR = ' • ';
 
 /**
@@ -43,6 +49,7 @@ let flapMs = 40;
 let clickEnabled = false;
 let audio = null;
 let frame = null;
+let watchdog = null;
 
 /** 0 shows the word, 1 shows the time. Shared by every delayed service. */
 let statusPhase = 0;
@@ -71,6 +78,8 @@ export function configure(options = {}) {
 export function detach() {
   if (frame !== null) cancelAnimationFrame(frame);
   frame = null;
+  clearTimeout(watchdog);
+  watchdog = null;
   flaps.clear();
   clearInterval(statusTimer);
   clearInterval(callingTimer);
@@ -102,12 +111,20 @@ function paint(cell, text, width) {
   chars.forEach((flap, index) => {
     const wanted = target[index];
     const wantedIndex = indexOf(wanted);
-    if (flap.dataset.target === wanted) return;
+    // Already there, or still on its way there. A flap whose target matches
+    // but is neither is one that was abandoned mid-flight (the loop stalled,
+    // or detach() dropped it); it must be re-driven, not skipped.
+    if (flap.dataset.target === wanted && (flap.textContent === wanted || flaps.has(flap))) return;
     flap.dataset.target = wanted;
 
     const currentIndex = indexOf(flap.textContent || ' ');
     let distance = (wantedIndex - currentIndex + ALPHABET.length) % ALPHABET.length;
-    if (distance === 0) return;
+    if (distance === 0) {
+      // Retargeted onto the character it happens to be showing right now:
+      // stop it here, or it would keep stepping past.
+      flaps.delete(flap);
+      return;
+    }
     if (distance > MAX_STEPS) {
       // Start closer so no single flap holds the board up.
       const start = (wantedIndex - MAX_STEPS + ALPHABET.length) % ALPHABET.length;
@@ -231,6 +248,16 @@ function start() {
   // compositor) must not leave a stale handle wedging the whole board.
   if (frame !== null) cancelAnimationFrame(frame);
   frame = requestAnimationFrame(tick);
+  armWatchdog();
+}
+
+/** If no frame arrives in time, step the flaps from a timer instead. */
+function armWatchdog() {
+  clearTimeout(watchdog);
+  watchdog = setTimeout(() => {
+    watchdog = null;
+    if (flaps.size) tick(performance.now());
+  }, WATCHDOG_MS);
 }
 
 // Coming back from a hidden tab, pick up any flaps left mid-flight.
@@ -239,12 +266,22 @@ document.addEventListener('visibilitychange', () => {
 });
 
 function tick(now) {
+  // Whichever of the frame and the watchdog got here first owns this step;
+  // drop the other so the two never run the loop side by side.
+  if (frame !== null) cancelAnimationFrame(frame);
+  frame = null;
+  clearTimeout(watchdog);
+  watchdog = null;
+
   let clicks = 0;
   for (const flap of flaps) {
     if (now < flap.__nextAt) continue;
-    flap.__index = (flap.__index + 1) % ALPHABET.length;
+    // Stepping is paced by the clock, not by frames: after a stall, a flap
+    // takes every step it has missed at once and still lands on its target.
+    const steps = Math.min(flap.__remaining, 1 + Math.floor((now - flap.__nextAt) / flapMs));
+    flap.__index = (flap.__index + steps) % ALPHABET.length;
     flap.textContent = ALPHABET[flap.__index];
-    flap.__remaining -= 1;
+    flap.__remaining -= steps;
     flap.__nextAt = now + flapMs;
 
     // Restart the flip animation for this step.
@@ -257,7 +294,10 @@ function tick(now) {
       if (clickEnabled && clicks < MAX_CLICKS_PER_FRAME) { click(); clicks += 1; }
     }
   }
-  frame = flaps.size ? requestAnimationFrame(tick) : null;
+  if (flaps.size) {
+    frame = requestAnimationFrame(tick);
+    armWatchdog();
+  }
 }
 
 function click() {
