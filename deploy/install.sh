@@ -18,7 +18,7 @@ say "Installing system packages"
 sudo apt-get update
 sudo apt-get install -y \
   python3 python3-venv python3-pip \
-  cage chromium-browser \
+  cage chromium \
   alsa-utils curl ca-certificates \
   wlr-randr
 
@@ -98,14 +98,29 @@ RTT_TOKEN=$(quote "${RTT_TOKEN:-}")
 ENV
 chmod 600 "$ENV_FILE"
 
-say "Installing user services"
+say "Installing services"
+# The backend is a user service so it can find the repo and venv under $HOME.
 mkdir -p "$HOME/.config/systemd/user"
 install -m 644 deploy/describer.service "$HOME/.config/systemd/user/describer.service"
-install -m 644 deploy/kiosk.service "$HOME/.config/systemd/user/kiosk.service"
 systemctl --user daemon-reload
-systemctl --user enable describer.service kiosk.service
-# Keep the services running when nobody is logged in.
+systemctl --user enable describer.service
+# Keep the backend running when nobody is logged in.
 sudo loginctl enable-linger "$USER"
+
+# The kiosk is a system service on tty1: cage needs a real seat, which a
+# lingering user session never gets. It runs as this user so it can reach the
+# audio and video devices the same way an interactive login would.
+sudo usermod -aG video,render,input,audio "$USER"
+sed -e "s|@USER@|$USER|g" -e "s|@UID@|$(id -u)|g" deploy/kiosk.service \
+  | sudo install -m 644 /dev/stdin /etc/systemd/system/kiosk.service
+# The old user-level kiosk unit, if one is left from an earlier install.
+if [ -f "$HOME/.config/systemd/user/kiosk.service" ]; then
+  systemctl --user disable --now kiosk.service || true
+  rm -f "$HOME/.config/systemd/user/kiosk.service"
+fi
+sudo systemctl daemon-reload
+sudo systemctl set-default graphical.target
+sudo systemctl enable kiosk.service
 
 say "Done"
 cat <<MSG
@@ -113,8 +128,8 @@ Next steps:
   1. Check your credentials in $ENV_FILE
      (RDM_API_KEY for the Rail Data Marketplace, RTT_TOKEN for Realtime
       Trains — the fallback source)
-  2. systemctl --user restart describer kiosk
+  2. systemctl --user restart describer && sudo systemctl restart kiosk
   3. Board:    http://$(hostname -I | awk '{print $1}'):8080/
      Settings: http://$(hostname -I | awk '{print $1}'):8080/admin
-  Logs: journalctl --user -u describer -f
+  Logs: journalctl --user -u describer -f   and   sudo journalctl -u kiosk -f
 MSG

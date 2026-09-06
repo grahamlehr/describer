@@ -23,10 +23,13 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
 ## Stack
 
 - **Python 3.11+** backend using **FastAPI** + **uvicorn**.
-- **Kiosk browser**: Chromium launched by a systemd user service in
-  `--kiosk` mode against `http://localhost:8080/`. On Lite this needs a
-  minimal Wayland/cage or X session; prefer `cage` (kiosk compositor) over
-  a full desktop.
+- **Kiosk browser**: Chromium launched by a systemd **system** service bound
+  to tty1, in `--kiosk` mode against `http://localhost:8080/`. On Lite this
+  needs a minimal Wayland/cage or X session; prefer `cage` (kiosk compositor)
+  over a full desktop. It cannot be a user service: cage needs a logind seat
+  for DRM and input, and a lingering user session has none, so cage exits in
+  a restart loop and the console keeps its login prompt. The binary on current
+  Pi OS is `/usr/bin/chromium`; there is no `chromium-browser`.
 - **Frontend**: plain HTML/CSS/JS served by FastAPI. No build step, no
   frameworks, no npm. Themes are CSS + small JS modules. Live updates via
   Server-Sent Events from the backend so the page never polls the API
@@ -185,7 +188,8 @@ uvicorn describer.main:app --reload --port 8080
 ```
 Then open `http://localhost:8080/` for the board, `/admin` for settings.
 
-Pi: run `deploy/install.sh` once, then `systemctl --user status describer kiosk`.
+Pi: run `deploy/install.sh` once, then `systemctl --user status describer`
+and `sudo systemctl status kiosk`.
 
 ## Out of scope for v1
 

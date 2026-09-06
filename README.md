@@ -52,19 +52,26 @@ git clone <this repo> ~/describer && cd ~/describer
 ```
 
 The script installs system packages, builds the venv, fetches Piper and a
-voice, and installs two systemd **user** services:
+voice, and installs two systemd services:
 
-- `describer.service` — the FastAPI backend on port 8080
-- `kiosk.service` — `cage` running Chromium in `--kiosk` against localhost
+- `describer.service` — a **user** service running the FastAPI backend on
+  port 8080
+- `kiosk.service` — a **system** service on tty1 running `cage` and Chromium
+  in `--kiosk` against localhost. It has to be a system service: cage needs a
+  logind seat for the display and input devices, and a lingering user session
+  never gets one.
 
 `install.sh` asks for both sets of credentials and writes them to
 `/etc/describer/describer.env` (mode 600). To change them later, edit that
 file and:
 
 ```bash
-systemctl --user restart describer kiosk
-systemctl --user status describer kiosk
+systemctl --user restart describer
+sudo systemctl restart kiosk
+systemctl --user status describer
+sudo systemctl status kiosk
 journalctl --user -u describer -f
+sudo journalctl -u kiosk -f
 ```
 
 ## Configuration

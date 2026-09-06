@@ -1,15 +1,28 @@
 [Unit]
 Description=Describer kiosk (cage + Chromium)
-After=describer.service
-Requires=describer.service
+# A system unit, not a user one: cage needs a logind seat with the DRM and
+# input devices, and a lingering user session never gets one. Binding to tty1
+# and evicting its getty gives cage the console the login prompt was using.
+After=systemd-user-sessions.service getty@tty1.service
+Conflicts=getty@tty1.service
 
 [Service]
 Type=simple
-Environment=XDG_RUNTIME_DIR=/run/user/%U
+# Filled in by deploy/install.sh from the installing user.
+User=@USER@
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+StandardInput=tty-force
+StandardOutput=journal
+StandardError=journal
+Environment=XDG_RUNTIME_DIR=/run/user/@UID@
+Environment=XDG_SESSION_TYPE=wayland
 Environment=WLR_LIBINPUT_NO_DEVICES=1
-# Wait for the backend to answer before painting anything.
+# Wait for the backend (a user service) to answer before painting anything.
 ExecStartPre=/bin/sh -c 'until curl -sf http://localhost:8080/api/state >/dev/null; do sleep 1; done'
-ExecStart=/usr/bin/cage -d -- /usr/bin/chromium-browser \
+ExecStart=/usr/bin/cage -d -- /usr/bin/chromium \
   --kiosk \
   --noerrdialogs \
   --disable-infobars \
@@ -23,4 +36,4 @@ Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical.target
