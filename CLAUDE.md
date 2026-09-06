@@ -444,3 +444,168 @@ sources:
 - `test_rtt.py` additionally covers the token exchange (both token kinds),
   set-down/pick-up filtering, passing points, and dropping calling points
   before dropping the board when the allowance runs low.
+
+
+---
+
+# Addendum 3 — Board layout, and what a theme module may override
+
+Written after the splitflap board was found truncating its status column on
+the real display. The cause turned out to be structural rather than cosmetic,
+so this records the sizing model, the measurements behind its constants, and
+the extended theme contract. It supersedes the "Themes" description in the
+main body where they disagree.
+
+## What was actually wrong
+
+The splitflap status column showed `EXP 15:` and stopped. Each character is a
+flap of `min-width: 0.86em` with an `0.08em` gap, so nine of them need
+`8.4em`, and the shared row grid gives the status column `6.8em` — room for
+seven. `CANCELLED` was being cut the same way; only `ON TIME` fitted, which is
+why it went unnoticed.
+
+Widening that one column is not enough. A splitflap row is 39 fixed-width
+characters (5 time + 20 destination + 2 platform + 9 status + 3 operator).
+At the shared `2.5vh` type size that is about 39 × 0.94em × 27px ≈ 990px of
+tiles in a 906px half-screen. **The row never fitted**; the overflow was
+simply hidden. A tile grid cannot reflow, condense or ellipsise, so the type
+size has to be derived from the width rather than chosen.
+
+## The sizing model
+
+`.rows` is a size container (`container-type: size`), and everything inside is
+expressed against it:
+
+```css
+--rows: 8;              /* configured rows, set per board from board.js */
+--calling-share: 0.9;   /* the stops block, 0 when it is hidden */
+--slot: calc(100cqh / (var(--rows) + var(--calling-share)));
+--row-font: min(calc(100cqw / var(--char-budget)), calc(var(--slot) * 0.6));
+```
+
+- **Height.** Each row takes `flex: 0 0 var(--slot)`, so the *configured*
+  number of services fills the container exactly, on a whole screen or on
+  half of one. Sizing from the configured count rather than the count in hand
+  keeps the type still as trains drop off the board.
+- **Width.** `--char-budget` is how many characters of the theme's own font
+  one row must afford. The font is whichever of the two constraints binds.
+
+Measured budgets (1920×1080, two boards, so `100cqw` = 906px):
+
+| Theme | Budget | Why | Resulting type |
+|-------|--------|-----|----------------|
+| modern | 30 | proportional; the fixed columns are 17.6em and the destination needs ~10em | 30px / 62px |
+| crt | 33 | monospace at 0.613em per character, so 20 characters cost 12.3em | 27px / 57px |
+| splitflap | 39 | one tile per character, and tiles cannot be condensed | 23px / 48px |
+
+(Second figure is the single-board layout.)
+
+### The trap that cost the most time
+
+`.stale` is `hidden` — that is `display: none` — for all but a few seconds a
+day. With auto-placement that shifted `.rows` out of the `1fr` track into an
+`auto` one, and a size-contained element in an auto track resolves to **zero
+height**: `100cqh` became 0, the type became 0px, and the board rendered
+blank. Every child of `.board` now names its own `grid-row`. Do not remove
+those.
+
+## Theme module contract
+
+`board.js` still owns the data and the DOM. A theme module may export any of:
+
+| Export | Called | For |
+|--------|--------|-----|
+| `attach(boardsEl, options, api)` | on switch | `api.render()` repaints on the theme's own schedule |
+| `configure(options)` | on config change | live theme options |
+| `detach()` | on switch away | **must** clear timers and caches |
+| `renderText(cell, text)` | per cell | replaces `textContent` |
+| `statusText(service)` | per status cell | return `null` to accept the default wording |
+| `renderCallingPoints(list, points)` | per board | replaces the marquee |
+| `afterRender(boardsEl)` | after a pass | anything left over |
+
+`statusText` and `renderCallingPoints` are new. A theme that wants to repaint
+on a timer keeps the state itself and calls `api.render()`; `board.js` then
+asks it again for the wording, so the timer and the render never disagree.
+
+## Splitflap specifics
+
+- **Delays alternate.** `statusText` returns `Delayed` and the expected time
+  on a 15 s cycle, so nine characters of `Exp 15:23` are never needed. The
+  phase is shared by every delayed service on screen, so they flip together.
+  `CANCELLED` still needs its nine flaps; the budget above provides them.
+- **Names abbreviate before they truncate.** `ABBREVIATIONS` is an ordered
+  list applied one rule at a time and only while the name is still too long,
+  so `London Charing Cross` becomes `London Charing X` and stops there. A
+  trailing `via …` is dropped before any word is cut.
+- **Calling points page.** A mechanical board cannot scroll. The stops are
+  packed into full-width pages that never split a station name, and turned
+  every 6 s. The row width is *measured* from a rendered flap rather than
+  assumed from the CSS, so it survives a font or size change.
+
+## Calling points belong to their service
+
+They now render inside `.rows`, directly under the top service, in every
+theme — they describe that train, not the board. `board.js` moves the block
+after the first row on each pass and gives it a share of the height, or none
+when it is hidden.
+
+## Verifying this by hand
+
+- The animation needs `requestAnimationFrame`, which a hidden browser pane
+  does not run: the flaps freeze mid-alphabet. For a still, park them first:
+  `for (const f of document.querySelectorAll(".flap")) { f.textContent = f.dataset.target; f.__nextAt = Infinity; }`
+- `setInterval` is throttled in a background tab, so the 15 s status cycle and
+  the 6 s page turn only run while the pane is displayed.
+- Theme CSS is cached hard. Switching themes re-points the link at a URL the
+  browser already has, so an edited theme file will not take effect; append a
+  query string to every stylesheet href when testing.
+- Truncation is easier measured than seen:
+  `[...document.querySelectorAll(".cell")].filter(c => c.scrollWidth - c.clientWidth > 1)`.
+  That test reads a splitflap cell wrong: its text lives in flap children, so
+  the cell never overflows. Sum the flap widths and the gaps instead, or just
+  count them — a cell whose flap count is not the `--chars` for its field is
+  the bug below, not a long name.
+- A board with fixture data proves very little. The recorded fixtures hold
+  short destinations; the names that break a layout are `London Charing Cross`,
+  `Ashford International` and `Abbey Wood via Whitechapel`. Test with those.
+- An RTT board with no calling points usually means the rate-limit guard
+  dropped the detail calls (see Addendum 2), not a rendering fault.
+
+## A row must be in the tree before its cells are painted
+
+`renderRows` used to build a row from the template, paint all five cells, and
+`append` it afterwards. A detached element has no computed style, so
+`getComputedStyle(cell).getPropertyValue('--chars')` came back empty and
+`renderText` fell back to the length of the text it was handed. Every splitflap
+cell therefore got a grid exactly as wide as its own text: `OXFORD` was six
+flaps, `ON TIME` was seven, and `ABBEY WOOD VIA WHITECHAPEL` was twenty-six,
+which is where the overflow came from. Nothing was ever padded, and the
+abbreviation table never fired, because a name is never longer than itself.
+
+`append` now happens first; it still doubles as the ordering step, since
+appending a row that is already in `.rows` moves it. `setText` short-circuits
+on `dataset.rendered`, so a cell painted wrong once stays wrong — anything
+reading layout out of CSS has to run against a connected node.
+
+## Open items
+
+- Verified at 1280×720 and 1920×1080, one and two boards, all three themes:
+  rows fill 100% of the height, no page overflow in either axis, and no cell
+  clips except in `modern` and `crt` (see below). The model is width-bound at
+  both sizes and the two are proportional, so 720p is not a separate case —
+  what fits at 1080p fits at 720p, smaller.
+- `modern` and `crt` still ellipsise a destination past about 10.4em
+  (`Abbey Wood via Whitechapel`, `London Charing Cross` on a split screen).
+  That is the proportional themes working as designed, but they have no
+  equivalent of splitflap's `ABBREVIATIONS`; giving them one would buy back
+  several characters.
+- Splitflap at 720×2 boards renders at 15.5px. It measures correctly and it is
+  what the 39-character budget allows in half of 1280, but it wants judging on
+  the real screen, not in a browser pane.
+- `0.6` in `--row-font` and `0.9` for `--calling-share` are judged by eye, not
+  derived. `--calling-share` was 1.3, which reserved 89px for 53px of label and
+  stops; 0.9 is the measured content plus air, and it is the safe ceiling only
+  because the block's type is capped at half the row's. They are still the
+  first things to adjust if the board looks wrong.
+- `--calling-share` has a second home in `board.js`, which sets it per board to
+  the same number or to 0. Change both.

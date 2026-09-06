@@ -25,6 +25,9 @@ body {
 .station-name { text-transform: uppercase; font-weight: 400; }
 .board-mode, .cell.operator, .cell.platform { color: var(--phosphor-dim); }
 
+/* A monospace face needs 0.61em per character, so a full-width destination
+   costs more here than in the proportional themes. */
+.rows { --char-budget: 33; }
 .row { padding: 0.3vh 0; text-transform: uppercase; }
 .row.selected { background: rgba(255, 176, 0, 0.10); }
 body[data-phosphor="green"] .row.selected { background: rgba(51, 255, 102, 0.10); }

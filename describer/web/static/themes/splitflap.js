@@ -9,6 +9,34 @@ const ALPHABET = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,:'-&/()•";
 const MAX_STEPS = 14;
 /** Clicks per frame, so a whole board changing at once does not buzz. */
 const MAX_CLICKS_PER_FRAME = 3;
+/** A delayed service alternates between the word and the time, as Solari boards do. */
+const STATUS_CYCLE_MS = 15000;
+/** How long one page of calling points holds before the next flips up. */
+const CALLING_PAGE_MS = 6000;
+const SEPARATOR = ' • ';
+
+/**
+ * How a real board shortens a name that will not fit, in the order it gives
+ * ground: each rule is applied only while the name is still too long, so
+ * "London Charing Cross" becomes "London Charing X" and stops there.
+ */
+const ABBREVIATIONS = [
+  [/\bCross\b/gi, 'X'],
+  [/\bInternational\b/gi, 'Intl'],
+  [/\bParkway\b/gi, 'Pkwy'],
+  [/\bJunction\b/gi, 'Jn'],
+  [/\bTerminal (\d)\b/gi, 'T$1'],
+  [/\bStreet\b/gi, 'St'],
+  [/\bRoad\b/gi, 'Rd'],
+  [/\bAirport\b/gi, 'Aprt'],
+  [/\bNorth\b/gi, 'N'],
+  [/\bSouth\b/gi, 'S'],
+  [/\bEast\b/gi, 'E'],
+  [/\bWest\b/gi, 'W'],
+  [/\bCentral\b/gi, 'Ctl'],
+  // The via clause is the least of the name; lose it before cutting words.
+  [/\s+via\s+.*$/i, ''],
+];
 
 const flaps = new Set();
 let flapMs = 40;
@@ -16,8 +44,22 @@ let clickEnabled = false;
 let audio = null;
 let frame = null;
 
-export function attach(_boardsEl, options) {
+/** 0 shows the word, 1 shows the time. Shared by every delayed service. */
+let statusPhase = 0;
+let statusTimer = null;
+let callingTimer = null;
+let requestRender = null;
+const callingLists = new Set();
+
+export function attach(_boardsEl, options, api) {
   configure(options);
+  requestRender = api?.render || null;
+  statusTimer = setInterval(() => {
+    statusPhase ^= 1;
+    // The phase lives here, so board.js must ask us again for the wording.
+    requestRender?.();
+  }, STATUS_CYCLE_MS);
+  callingTimer = setInterval(turnCallingPage, CALLING_PAGE_MS);
 }
 
 export function configure(options = {}) {
@@ -30,13 +72,30 @@ export function detach() {
   if (frame !== null) cancelAnimationFrame(frame);
   frame = null;
   flaps.clear();
+  clearInterval(statusTimer);
+  clearInterval(callingTimer);
+  statusTimer = callingTimer = requestRender = null;
+  callingLists.clear();
   document.body.style.removeProperty('--flap-ms');
   if (audio) { audio.close(); audio = null; }
 }
 
+/**
+ * board.js asks before printing the status column. "Exp 15:23" needs nine
+ * flaps and a delayed train is the one row people stare at, so alternate
+ * between the word and the time instead of shrinking either.
+ */
+export function statusText(service) {
+  if (service.status !== 'expected' || !service.expected_time) return null;
+  return statusPhase ? service.expected_time : 'Delayed';
+}
+
 /** board.js calls this for every cell instead of setting textContent. */
 export function renderText(cell, text) {
-  const width = Number(getComputedStyle(cell).getPropertyValue('--chars')) || text.length || 1;
+  paint(cell, text, Number(getComputedStyle(cell).getPropertyValue('--chars')) || text.length || 1);
+}
+
+function paint(cell, text, width) {
   const target = normalise(text, width);
   const chars = ensureFlaps(cell, width);
 
@@ -65,8 +124,85 @@ export function renderText(cell, text) {
   start();
 }
 
+/* ------------------------------------------------------- calling points */
+
+/**
+ * board.js hands us the stops for the top service. A mechanical board cannot
+ * scroll, so fill one full-width row and turn the page instead.
+ */
+export function renderCallingPoints(list, points) {
+  const key = points.join(SEPARATOR);
+  const width = measureWidth(list);
+  if (list.__key !== key || list.__width !== width) {
+    list.__key = key;
+    list.__width = width;
+    list.__pages = paginate(points, width);
+    list.__page = 0;
+  }
+  callingLists.add(list);
+  paintPage(list);
+}
+
+function paintPage(list) {
+  const pages = list.__pages || [];
+  if (!pages.length) return;
+  paint(list, pages[list.__page % pages.length], list.__width || 1);
+}
+
+function turnCallingPage() {
+  for (const list of callingLists) {
+    if (!list.isConnected) {
+      callingLists.delete(list);
+      continue;
+    }
+    if ((list.__pages || []).length < 2) continue;
+    list.__page = (list.__page + 1) % list.__pages.length;
+    paintPage(list);
+  }
+}
+
+/** How many flaps fit the row, measured rather than assumed from the CSS. */
+function measureWidth(list) {
+  const available = list.parentElement ? list.parentElement.clientWidth : 0;
+  if (!available) return 0;
+  ensureFlaps(list, Math.max(list.children.length, 1));
+  const gap = parseFloat(getComputedStyle(list).columnGap) || 0;
+  const flap = list.firstElementChild.getBoundingClientRect().width + gap;
+  return flap > 0 ? Math.max(1, Math.floor((available + gap) / flap)) : 0;
+}
+
+/** Pack stops into full rows without splitting a station name across pages. */
+function paginate(points, width) {
+  if (!width) return [];
+  const pages = [];
+  let line = '';
+  for (const point of points) {
+    const joined = line ? line + SEPARATOR + point : point;
+    if (joined.length <= width) {
+      line = joined;
+      continue;
+    }
+    if (line) pages.push(line);
+    // A name longer than the whole row is the one case we have to cut.
+    line = point.length <= width ? point : point.slice(0, width);
+  }
+  if (line) pages.push(line);
+  return pages;
+}
+
 function normalise(text, width) {
-  return String(text).toUpperCase().slice(0, width).padEnd(width, ' ');
+  return fit(String(text), width).toUpperCase().padEnd(width, ' ');
+}
+
+/** Shorten a name only as far as it takes to fit the flaps we have. */
+function fit(text, width) {
+  if (text.length <= width) return text;
+  let shortened = text;
+  for (const [pattern, replacement] of ABBREVIATIONS) {
+    shortened = shortened.replace(pattern, replacement).trim();
+    if (shortened.length <= width) return shortened;
+  }
+  return shortened.slice(0, width);
 }
 
 function indexOf(char) {

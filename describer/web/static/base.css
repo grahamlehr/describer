@@ -22,13 +22,17 @@ html, body {
 
 .board {
   display: grid;
-  grid-template-rows: auto auto 1fr auto auto;
+  /* header | stale | rows (the calling points ride inside these) | messages.
+     Every child names its row: the stale flag is display:none most of the
+     time, and auto-placement would then slide the rows out of the 1fr track. */
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-width: 0;
   padding: 1.2vh 1.4vw;
   overflow: hidden;
 }
 
 .board-header {
+  grid-row: 1;
   display: grid;
   grid-template-columns: 1fr auto auto auto;
   align-items: baseline;
@@ -47,7 +51,7 @@ html, body {
 .clock { font-size: 3.2vh; font-variant-numeric: tabular-nums; }
 .clock[hidden] { display: none; }
 
-.stale { font-size: 1.8vh; padding: 0.4vh 0; }
+.stale { grid-row: 2; font-size: 1.8vh; padding: 0.4vh 0; }
 
 /* Which feed is live. Deliberately quiet: it matters only when it changes. */
 .source {
@@ -58,32 +62,54 @@ html, body {
 }
 .source[hidden] { display: none; }
 
-.rows { display: flex; flex-direction: column; gap: 0.4vh; margin-top: 1vh; min-height: 0; }
+/*
+ * The rows own the height. Every configured slot claims an equal share, so a
+ * board set to eight services fills the screen whether it has the display to
+ * itself or half of it, and the type size stays put as trains come and go.
+ *
+ * Type is then whichever is smaller: the share of the height a row was given,
+ * or the width one row of characters can afford. Splitflap raises the budget
+ * because its characters are fixed-width tiles that cannot be condensed.
+ */
+.rows {
+  grid-row: 3;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 1vh;
+  container-type: size;
+  --rows: 8;
+  --calling-share: 0.9;
+  --char-budget: 30;
+  --slot: calc(100cqh / (var(--rows) + var(--calling-share)));
+  --row-font: min(calc(100cqw / var(--char-budget)), calc(var(--slot) * 0.6));
+}
 
 /* time | destination | platform | status | operator */
 .row {
   display: grid;
   grid-template-columns: 4.8em minmax(0, 1fr) 2.8em 6.8em 3.2em;
-  align-items: baseline;
+  align-items: center;
   gap: 0.8vw;
-  font-size: 3vh;
-  line-height: 1.35;
+  flex: 0 0 var(--slot);
+  font-size: var(--row-font);
+  line-height: 1.2;
   white-space: nowrap;
 }
-.boards[data-count="2"] .row { font-size: 2.5vh; }
 
 .cell { overflow: hidden; text-overflow: ellipsis; }
 .cell.destination { font-weight: 600; }
 .cell.platform, .cell.status { text-align: right; }
 .cell.operator { font-size: 0.62em; text-align: right; opacity: 0.8; }
 
+/* Lives inside .rows, directly under the service it describes. */
 .calling-points {
-  margin-top: 0.8vh;
-  padding-top: 0.6vh;
-  font-size: 2vh;
+  flex: 0 0 calc(var(--slot) * var(--calling-share));
+  padding: 0.4vh 0 0.8vh;
+  font-size: calc(var(--row-font) * 0.5);
   overflow: hidden;
+  min-height: 0;
 }
-.boards[data-count="2"] .calling-points { font-size: 1.7vh; }
 .calling-points-label { opacity: 0.7; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.8em; }
 .calling-points-track { overflow: hidden; white-space: nowrap; }
 .calling-points-list { display: inline-block; will-change: transform; }
@@ -97,6 +123,7 @@ html, body {
 }
 
 .messages {
+  grid-row: 4;
   margin-top: auto;
   padding-top: 0.8vh;
   font-size: 1.7vh;

@@ -21,6 +21,8 @@ const SCROLL_SPEED = 60;
 let state = null;
 let theme = null;
 let themeName = null;
+/** Handed to themes so one can repaint on its own schedule. */
+const themeApi = { render: () => { render(); } };
 /** Clock offset so the board follows the Pi's clock, not the browser's. */
 let clockOffsetMs = 0;
 
@@ -42,11 +44,15 @@ async function applyTheme(name, options) {
     cell.textContent = cell.dataset.text || '';
     delete cell.dataset.rendered;
   }
+  for (const list of boardsEl.querySelectorAll('.calling-points-list')) {
+    list.textContent = '';
+    list.classList.remove('scrolling');
+  }
 
   try {
     const module = await import(`/static/themes/${name}.js`);
     theme = module;
-    theme.attach?.(boardsEl, options);
+    theme.attach?.(boardsEl, options, themeApi);
   } catch (err) {
     // A theme with no JS module is normal (modern); anything else is a bug.
     if (!String(err).includes('Failed to fetch dynamically imported module')) {
@@ -86,6 +92,9 @@ function rowFor(rowsEl, service) {
 
 function renderRows(boardEl, board, station) {
   const rowsEl = boardEl.querySelector('.rows');
+  // The height is shared between the configured slots, not the ones in use, so
+  // the type does not resize every time a train drops off the board.
+  rowsEl.style.setProperty('--rows', String(station.rows));
   const services = board.services.slice(0, station.rows);
   const seen = new Set();
 
@@ -96,17 +105,25 @@ function renderRows(boardEl, board, station) {
     row.dataset.index = String(index);
     row.classList.toggle('selected', index === 0);
 
+    // In the tree before its cells are painted: a detached element has no
+    // computed style, and splitflap sizes each field from the CSS --chars it
+    // reads there. Painting first gave every cell a grid as wide as its own
+    // text, so nothing was ever abbreviated or padded. append() on a row that
+    // is already here re-orders it in place, so this stays the ordering step.
+    rowsEl.append(row);
+
     const place = board.mode === 'arrivals' ? service.origin : service.destination;
     setText(row.querySelector('[data-field="time"]'), service.scheduled_time || '');
     setText(row.querySelector('[data-field="destination"]'), place || '');
     setText(row.querySelector('[data-field="platform"]'), service.platform || '-');
     setText(row.querySelector('[data-field="status"]'), statusText(service));
     setText(row.querySelector('[data-field="operator"]'), service.operator_code || '');
-    rowsEl.append(row); // append re-orders an existing row in place
   });
 
-  for (const row of Array.from(rowsEl.children)) {
-    if (!seen.has(row.dataset.id)) row.remove();
+  for (const child of Array.from(rowsEl.children)) {
+    if (child.classList.contains('row') && !seen.has(child.dataset.id)) child.remove();
+    // The placeholder outlives its welcome as soon as there is anything to show.
+    if (child.classList.contains('empty') && services.length) child.remove();
   }
 
   if (!services.length) {
@@ -119,6 +136,9 @@ function renderRows(boardEl, board, station) {
 }
 
 function statusText(service) {
+  // A theme with less room may word this its own way; null means "you decide".
+  const custom = theme?.statusText?.(service);
+  if (custom != null) return custom;
   switch (service.status) {
     case 'cancelled': return 'Cancelled';
     case 'on_time': return 'On time';
@@ -131,8 +151,20 @@ function statusText(service) {
 function renderCallingPoints(boardEl, services, show) {
   const wrap = boardEl.querySelector('.calling-points');
   const list = wrap.querySelector('.calling-points-list');
+  const rowsEl = boardEl.querySelector('.rows');
   const first = services[0];
   const points = show && first ? first.calling_points.map((p) => p.name) : [];
+
+  // These stops belong to the top service, so they read directly under its row.
+  const topRow = rowsEl.querySelector('.row');
+  if (topRow && wrap.previousElementSibling !== topRow) {
+    rowsEl.insertBefore(wrap, topRow.nextSibling);
+  }
+
+  // A hidden block claims no share of the height; the rows take it instead.
+  // 0.9 of a row is a label and one line of stops with a little air; measured
+  // rather than guessed, and it must match the default in base.css.
+  rowsEl.style.setProperty('--calling-share', points.length ? '0.9' : '0');
 
   if (!points.length) {
     wrap.hidden = true;
@@ -140,9 +172,17 @@ function renderCallingPoints(boardEl, services, show) {
     list.classList.remove('scrolling');
     return;
   }
+  wrap.hidden = false;
+
+  // A theme may page through them instead of scrolling; splitflap does.
+  if (theme?.renderCallingPoints) {
+    list.classList.remove('scrolling');
+    list.style.removeProperty('--scroll-distance');
+    theme.renderCallingPoints(list, points);
+    return;
+  }
 
   const text = points.join(' • ');
-  wrap.hidden = false;
   if (list.textContent !== text) {
     list.textContent = text;
     list.classList.remove('scrolling');

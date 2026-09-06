@@ -5,6 +5,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from describer import main as main_module
 from describer.config import Config, save_config
 from describer.rail import sources as sources_module
 from describer.rail.ldbws import parse_board
@@ -25,6 +26,9 @@ def client(monkeypatch, tmp_path, rdm_credentials, departures_payload):
             pass
 
     monkeypatch.setattr(sources_module, "LdbwsClient", FakeClient)
+    # Startup calls load_dotenv, which would put a developer's real .env back
+    # over what clean_credentials just took away. The tests own the environment.
+    monkeypatch.setattr(main_module, "load_dotenv", lambda *a, **k: None)
     path = tmp_path / "config.yaml"
     save_config(Config(stations=[{"crs": "PAD"}]), path)
     monkeypatch.setenv("DESCRIBER_CONFIG", str(path))

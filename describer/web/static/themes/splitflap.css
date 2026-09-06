@@ -21,9 +21,31 @@ body {
 .source { display: none; }
 .messages, .empty, .calling-points { color: var(--flap-dim); }
 .calling-points { border-top: 1px solid #222; text-transform: uppercase; }
-.calling-points-list { color: var(--flap-fg); }
 
-.row { gap: 0.5vw; padding: 0.25vh 0; }
+/* A full-width row of flaps under the top service. It cannot scroll, so
+   splitflap.js pages through the stops instead. */
+.calling-points-list {
+  display: flex;
+  gap: 0.08em;
+  color: var(--flap-fg);
+  will-change: auto;
+}
+.calling-points-list.scrolling { animation: none; }
+.calling-points-track { display: block; }
+
+/* Nine flaps of "CANCELLED" need more room than the shared layout allows;
+   platform and operator have slack to lend. */
+.row {
+  grid-template-columns: 4.9em minmax(0, 1fr) 2.1em 8.7em 3.0em;
+  gap: 0.4vw;
+  padding: 0.25vh 0;
+}
+/* A row is 39 fixed-width tiles that cannot be condensed, so the character
+   size is bound by the width far more often than by the height. */
+.rows { --char-budget: 39; }
+
+/* The stops read as a real board row, so they use the row's character size. */
+.calling-points-list { font-size: var(--row-font); }
 .row[data-status="cancelled"] .cell.status { color: var(--cancelled); }
 
 /* Fixed-width character grid; splitflap.js reads --chars for each field. */
