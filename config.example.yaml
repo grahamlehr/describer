@@ -18,7 +18,7 @@ stations:
 display:
   theme: modern             # modern | crt | splitflap | 1990s
   clock: true               # show the live clock in the board header
-  show_calling_points: true # expand the first row to scroll its calling points
+  show_calling_points: true # expand the first row to page through its calling points
   resolution: auto          # auto | 1080p | 720p — force the HDMI mode; a 4K panel makes the Pi crawl
   themes:
     crt:

@@ -4,7 +4,6 @@
   --phosphor: #ffb000;          /* amber by default */
   --phosphor-dim: #a86f00;
   --bg: #0a0700;
-  --cancelled: #ff6a3d;
 }
 body[data-phosphor="green"] {
   --phosphor: #33ff66;
@@ -31,8 +30,7 @@ body {
 .row { padding: 0.3vh 0; text-transform: uppercase; }
 .row.selected { background: rgba(255, 176, 0, 0.10); }
 body[data-phosphor="green"] .row.selected { background: rgba(51, 255, 102, 0.10); }
-.row[data-status="cancelled"] .cell.status,
-.row[data-status="cancelled"] .cell.destination { color: var(--cancelled); }
+/* A monochrome tube has one colour: a cancelled service blinks, nothing more. */
 .row[data-status="cancelled"] { animation: crt-blink 1.4s steps(1) infinite; }
 
 .calling-points { border-top: 1px solid var(--phosphor-dim); text-transform: uppercase; }

@@ -15,8 +15,11 @@ const rowTemplate = document.getElementById('row-template');
 
 const MODE_LABELS = { departures: 'Departures', arrivals: 'Arrivals' };
 const SOURCE_LABELS = { rdm: 'Darwin', rtt: 'RTT' };
-/** Pixels per second the calling-point marquee travels. */
-const SCROLL_SPEED = 60;
+/** How long one page of calling points holds before the next. */
+const CALLING_PAGE_MS = 5000;
+const CALLING_SEPARATOR = ' \u2022 ';
+/** Pages of stops for each list that board.js paints itself; themes keep their own. */
+const callingPages = new WeakMap();
 
 let state = null;
 let theme = null;
@@ -46,7 +49,7 @@ async function applyTheme(name, options) {
   }
   for (const list of boardsEl.querySelectorAll('.calling-points-list')) {
     list.textContent = '';
-    list.classList.remove('scrolling');
+    callingPages.delete(list);
   }
 
   try {
@@ -155,6 +158,11 @@ function renderCallingPoints(boardEl, services, show) {
   const first = services[0];
   const points = show && first ? first.calling_points.map((p) => p.name) : [];
 
+  // An arrival has already made its stops; a departure has them ahead of it.
+  const label = boardEl.dataset.mode === 'arrivals' ? 'Called at' : 'Calling at';
+  const labelEl = wrap.querySelector('.calling-points-label');
+  if (labelEl.textContent !== label) labelEl.textContent = label;
+
   // These stops belong to the top service, so they read directly under its row.
   const topRow = rowsEl.querySelector('.row');
   if (topRow && wrap.previousElementSibling !== topRow) {
@@ -162,41 +170,81 @@ function renderCallingPoints(boardEl, services, show) {
   }
 
   // A hidden block claims no share of the height; the rows take it instead.
-  // 0.9 of a row is a label and one line of stops with a little air; measured
-  // rather than guessed, and it must match the default in base.css.
+  // 0.9 of a row is one line of label and stops at 0.9 of the row's type with
+  // a little air; judged by eye, and it must match the default in base.css.
   rowsEl.style.setProperty('--calling-share', points.length ? '0.9' : '0');
 
   if (!points.length) {
     wrap.hidden = true;
     list.textContent = '';
-    list.classList.remove('scrolling');
+    callingPages.delete(list);
     return;
   }
   wrap.hidden = false;
 
-  // A theme may page through them instead of scrolling; splitflap does.
+  // A theme may paint the stops its own way; splitflap builds them from flaps.
   if (theme?.renderCallingPoints) {
-    list.classList.remove('scrolling');
-    list.style.removeProperty('--scroll-distance');
+    callingPages.delete(list);
     theme.renderCallingPoints(list, points);
     return;
   }
 
-  const text = points.join(' • ');
-  if (list.textContent !== text) {
+  // Otherwise pack them into pages that fit the line, and turn a page every
+  // few seconds. Repaginate only when the stops or the room for them change.
+  // The font is part of the key: a theme's stylesheet and web font land after
+  // the switch, and pages measured in the old face do not fit the new one.
+  const width = wrap.querySelector('.calling-points-track').clientWidth;
+  const style = getComputedStyle(list);
+  const key = [points.join(CALLING_SEPARATOR), style.font, style.letterSpacing, style.textTransform].join('|');
+  let paged = callingPages.get(list);
+  if (!paged || paged.key !== key || paged.width !== width) {
+    paged = { key, width, pages: paginateCallingPoints(list, points, width), page: 0 };
+    callingPages.set(list, paged);
+  }
+  paintCallingPage(list, paged);
+}
+
+/**
+ * Pack stops into lines that fit `width`, never splitting a name across pages.
+ * Measured by painting candidates into the list itself, so the theme's font,
+ * letter-spacing and text-transform all count. Runs only when the stops change.
+ */
+function paginateCallingPoints(list, points, width) {
+  if (!width) return [points.join(CALLING_SEPARATOR)];
+  const fits = (text) => {
     list.textContent = text;
-    list.classList.remove('scrolling');
-    // Measure after layout, then start the marquee only if it overflows.
-    requestAnimationFrame(() => {
-      const overflow = list.scrollWidth - wrap.querySelector('.calling-points-track').clientWidth;
-      if (overflow > 8) {
-        list.style.setProperty('--scroll-distance', `${-overflow - 24}px`);
-        list.style.setProperty('--scroll-duration', `${(overflow + 24) / SCROLL_SPEED + 4}s`);
-        list.classList.add('scrolling');
-      }
-    });
+    return list.getBoundingClientRect().width <= width;
+  };
+  const pages = [];
+  let line = '';
+  for (const point of points) {
+    const joined = line ? line + CALLING_SEPARATOR + point : point;
+    if (fits(joined)) {
+      line = joined;
+      continue;
+    }
+    if (line) pages.push(line);
+    // A single name wider than the line is clipped by the track; nothing to do.
+    line = point;
+  }
+  if (line) pages.push(line);
+  return pages;
+}
+
+function paintCallingPage(list, paged) {
+  const text = paged.pages[paged.page % paged.pages.length] || '';
+  if (list.textContent !== text) list.textContent = text;
+}
+
+function turnCallingPages() {
+  for (const list of boardsEl.querySelectorAll('.calling-points-list')) {
+    const paged = callingPages.get(list);
+    if (!paged || paged.pages.length < 2) continue;
+    paged.page = (paged.page + 1) % paged.pages.length;
+    paintCallingPage(list, paged);
   }
 }
+setInterval(turnCallingPages, CALLING_PAGE_MS);
 
 function renderBoard(boardEl, board, station, display) {
   boardEl.dataset.mode = board.mode;
@@ -277,3 +325,7 @@ function connect() {
 connect();
 setInterval(tickClock, 250);
 tickClock();
+// Anything measured before a theme's stylesheet or web font arrived is wrong;
+// repaint once they have, and the calling points repaginate in the new face.
+themeLink.addEventListener('load', () => { render(); });
+document.fonts?.addEventListener('loadingdone', () => { render(); });

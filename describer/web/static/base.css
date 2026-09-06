@@ -102,25 +102,25 @@ html, body {
 .cell.platform, .cell.status { text-align: right; }
 .cell.operator { font-size: 0.62em; text-align: right; opacity: 0.8; }
 
-/* Lives inside .rows, directly under the service it describes. */
+/* Lives inside .rows, directly under the service it describes. One line,
+   label and stops together, at 0.9 of the row's type: the stops read as
+   part of the service, a size below its destination. Too many to fit are
+   paged by board.js, so nothing here moves. The line is centred in its
+   share of the slot by hand; a single-line flex box has no align-content. */
 .calling-points {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
   flex: 0 0 calc(var(--slot) * var(--calling-share));
-  padding: 0.4vh 0 0.8vh;
-  font-size: calc(var(--row-font) * 0.5);
+  font-size: calc(var(--row-font) * 0.9);
+  line-height: 1.2;
+  padding-top: max(0px, calc((var(--slot) * var(--calling-share) - 1.2em) / 2));
   overflow: hidden;
   min-height: 0;
 }
-.calling-points-label { opacity: 0.7; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.8em; }
-.calling-points-track { overflow: hidden; white-space: nowrap; }
-.calling-points-list { display: inline-block; will-change: transform; }
-/* Scrolls only when the list overflows; distance is set from JS. */
-.calling-points-list.scrolling {
-  animation: calling-scroll var(--scroll-duration, 20s) linear infinite;
-}
-@keyframes calling-scroll {
-  0%, 8% { transform: translateX(0); }
-  92%, 100% { transform: translateX(var(--scroll-distance, 0px)); }
-}
+.calling-points-label { flex: 0 0 auto; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.7em; }
+.calling-points-track { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
+.calling-points-list { display: inline-block; }
 
 .messages {
   grid-row: 4;
@@ -157,6 +157,3 @@ html, body {
 }
 .connection[hidden] { display: none; }
 
-@media (prefers-reduced-motion: reduce) {
-  .calling-points-list.scrolling { animation: none; }
-}

@@ -40,9 +40,7 @@ body {
   gap: 0.08em;
   color: var(--flap-fg);
   font-weight: 600;
-  will-change: auto;
 }
-.calling-points-list.scrolling { animation: none; }
 
 /* Nine flaps of "CANCELLED" need more room than the shared layout allows;
    platform and operator have slack to lend. */

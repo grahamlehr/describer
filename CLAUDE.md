@@ -78,7 +78,7 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
 - Rows show: scheduled time, destination (or origin for arrivals),
   platform, expected time or status ("On time", "Exp 14:37", "Delayed",
   "Cancelled"), operator. Selected row (usually the first) expands to
-  scroll its calling points.
+  show its calling points, paged every 5 s.
 - Configurable number of rows and clock display. Always show station name
   and a live clock.
 
@@ -524,7 +524,7 @@ those.
 | `detach()` | on switch away | **must** clear timers and caches |
 | `renderText(cell, text)` | per cell | replaces `textContent` |
 | `statusText(service)` | per status cell | return `null` to accept the default wording |
-| `renderCallingPoints(list, points)` | per board | replaces the marquee |
+| `renderCallingPoints(list, points)` | per board | replaces the default paging |
 | `afterRender(boardsEl)` | after a pass | anything left over |
 
 `statusText` and `renderCallingPoints` are new. A theme that wants to repaint
@@ -552,6 +552,16 @@ They now render inside `.rows`, directly under the top service, in every
 theme — they describe that train, not the board. `board.js` moves the block
 after the first row on each pass and gives it a share of the height, or none
 when it is hidden.
+
+The block is one line: the label and the stops together at 0.9 of the row's
+type, so the stops read a size below the destination. The marquee is gone.
+`board.js` packs the stops into pages that fit the line, never splitting a
+name, and turns a page every 5 s; splitflap still does its own paging through
+`renderCallingPoints`. Pages are measured by painting candidates into the
+list, so the font is part of the cache key: a theme's stylesheet and web font
+arrive after the switch, and a page measured in the old face does not fit the
+new one. `board.js` therefore re-renders on the stylesheet's `load` and on
+`document.fonts` `loadingdone`.
 
 ## Verifying this by hand
 
