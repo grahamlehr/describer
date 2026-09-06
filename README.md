@@ -160,6 +160,7 @@ stations:
 | `crt`       | Amber or green phosphor, scanlines, curvature, blinking cursor. |
 | `splitflap` | Solari mechanical board; characters flip to their target.    |
 | `1990s`     | Ceefax-style Teletext page: white-on-blue bars, yellow times. |
+| `nse`       | Network SouthEast sign over a flip-dot indicator; discs flip column by column and the stops scroll. |
 
 A theme is a CSS file in `describer/web/static/themes/` plus a same-named JS
 module. The module may export `attach`, `configure`, `detach`, `renderText`

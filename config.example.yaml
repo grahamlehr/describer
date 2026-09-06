@@ -16,7 +16,7 @@ stations:
     announce: true          # speak announcements for this station
 
 display:
-  theme: modern             # modern | crt | splitflap | 1990s
+  theme: modern             # modern | crt | splitflap | 1990s | nse
   clock: true               # show the live clock in the board header
   show_calling_points: true # expand the first row to page through its calling points
   resolution: auto          # auto | 1080p | 720p — force the HDMI mode; a 4K panel makes the Pi crawl
@@ -28,6 +28,9 @@ display:
     splitflap:
       click_sound: false    # play a click as flaps settle
       flap_ms: 40           # milliseconds per flap step (lower = faster)
+    nse:
+      dot_colour: yellow    # yellow | white | green — the lit face of each disc
+      click_sound: false    # rattle as the discs flip
 
 # Two independent upstreams. The primary is used while it works; after
 # failover_after consecutive failures the fallback takes over, and the primary

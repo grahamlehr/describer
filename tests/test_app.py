@@ -54,6 +54,8 @@ def test_static_assets_are_served(client):
     assert client.get("/static/themes/splitflap.css").status_code == 200
     assert client.get("/static/themes/1990s.css").status_code == 200
     assert client.get("/static/themes/1990s.js").status_code == 200
+    assert client.get("/static/themes/nse.css").status_code == 200
+    assert client.get("/static/themes/nse.js").status_code == 200
 
 
 def test_state_endpoint(client):

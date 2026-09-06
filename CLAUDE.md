@@ -501,6 +501,7 @@ Measured budgets (1920×1080, two boards, so `100cqw` = 906px):
 | modern | 30 | proportional; the fixed columns are 17.6em and the destination needs ~10em | 30px / 62px |
 | crt | 33 | monospace at 0.613em per character, so 20 characters cost 12.3em | 27px / 57px |
 | splitflap | 39 | one tile per character, and tiles cannot be condensed | 23px / 48px |
+| nse | 23 | 34 dot-matrix characters at 0.6em, no operator column | 37px / 68px |
 
 (Second figure is the single-board layout.)
 
@@ -545,6 +546,27 @@ asks it again for the wording, so the timer and the render never disagree.
   packed into full-width pages that never split a station name, and turned
   every 6 s. The row width is *measured* from a rendered flap rather than
   assumed from the CSS, so it survives a font or size change.
+
+## nse specifics
+
+- Every cell is a `<canvas>`; `nse.js` paints a 5×7 dot font from a column
+  bitmap and only repaints a canvas whose discs are turning. A text change is
+  swept left to right, `COLUMN_MS` per dot column, paced by the clock so a
+  stalled frame catches up. Backing stores follow the CSS box through one
+  `ResizeObserver`, so a font or size change redraws crisp.
+- The character pitch is `PITCH_EM` (0.1) of the host's font size in the JS and
+  `0.6em` per character in the CSS. Change both.
+- The operator column is `--chars: 0` and hidden; `renderText` leaves it empty.
+- The board is the indicator's casing: column labels (`TIME`, `TO`/`FROM`,
+  `PLAT`, `EXPECTED`) are printed along the top in logo blue, and the
+  `.board-header` (logo, station, mode, clock) is moved to the *last* grid row
+  by CSS. The three-slash logo is a skewed gradient on `.board-header::before`
+  with the wordmark on `::after`.
+- The stops scroll one dot column per tick when they do not fit the line, as
+  the real signs did; stops that fit stand still.
+- A cell asked for before `nse.css` has arrived (`--chars` computes to the
+  empty string) is queued and painted from `afterRender`; `board.js` will not
+  ask again for text that has not changed.
 
 ## Calling points belong to their service
 

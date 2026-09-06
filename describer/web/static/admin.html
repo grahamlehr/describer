@@ -46,6 +46,7 @@
           <option value="crt">CRT</option>
           <option value="splitflap">Split-flap</option>
           <option value="1990s">1990s (Teletext)</option>
+          <option value="nse">Network SouthEast (flip-dot)</option>
         </select>
       </label>
       <label class="check"><input type="checkbox" name="display.clock"> Show clock</label>
@@ -79,6 +80,17 @@
       <label>Flap speed (ms per step)
         <input type="number" name="display.themes.splitflap.flap_ms" min="10" max="200" step="1">
       </label>
+    </div>
+    <h3>Network SouthEast theme</h3>
+    <div class="grid">
+      <label>Dot colour
+        <select name="display.themes.nse.dot_colour">
+          <option value="yellow">Yellow</option>
+          <option value="white">White</option>
+          <option value="green">Green</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" name="display.themes.nse.click_sound"> Rattle as discs flip</label>
     </div>
   </section>
 

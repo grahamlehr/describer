@@ -63,14 +63,22 @@ class SplitflapThemeConfig(BaseModel):
     flap_ms: int = Field(default=40, ge=10, le=200)
 
 
+class NseThemeConfig(BaseModel):
+    #: Colour of a disc's lit face.
+    dot_colour: Literal["yellow", "white", "green"] = "yellow"
+    #: Rattle as the discs flip.
+    click_sound: bool = False
+
+
 class ThemesConfig(BaseModel):
     crt: CrtThemeConfig = CrtThemeConfig()
     splitflap: SplitflapThemeConfig = SplitflapThemeConfig()
+    nse: NseThemeConfig = NseThemeConfig()
 
 
 class DisplayConfig(BaseModel):
     #: Active theme; switchable live from /admin.
-    theme: Literal["modern", "crt", "splitflap", "1990s"] = "modern"
+    theme: Literal["modern", "crt", "splitflap", "1990s", "nse"] = "modern"
     #: Show the live clock in each board header.
     clock: bool = True
     #: Expand the first row to scroll its calling points.
