@@ -24,6 +24,8 @@ const callingPages = new WeakMap();
 let state = null;
 let theme = null;
 let themeName = null;
+/** The import of the current theme's module, so concurrent passes wait for it. */
+let themeLoading = null;
 /** Handed to themes so one can repaint on its own schedule. */
 const themeApi = { render: () => { render(); } };
 /** Clock offset so the board follows the Pi's clock, not the browser's. */
@@ -33,6 +35,10 @@ let clockOffsetMs = 0;
 
 async function applyTheme(name, options) {
   if (name === themeName) {
+    // A pass that lands while the module is still on its way (the stylesheet's
+    // load event fires one) must not paint plain text the theme will never be
+    // asked to redo: setText skips cells whose text has not changed.
+    await themeLoading;
     theme?.configure?.(options);
     return;
   }
@@ -52,16 +58,18 @@ async function applyTheme(name, options) {
     callingPages.delete(list);
   }
 
-  try {
-    const module = await import(`/static/themes/${name}.js`);
-    theme = module;
-    theme.attach?.(boardsEl, options, themeApi);
-  } catch (err) {
-    // A theme with no JS module is normal (modern); anything else is a bug.
-    if (!String(err).includes('Failed to fetch dynamically imported module')) {
-      console.error('Theme module failed', err);
-    }
-  }
+  themeLoading = import(`/static/themes/${name}.js`)
+    .then((module) => {
+      theme = module;
+      theme.attach?.(boardsEl, options, themeApi);
+    })
+    .catch((err) => {
+      // A theme with no JS module is normal (modern); anything else is a bug.
+      if (!String(err).includes('Failed to fetch dynamically imported module')) {
+        console.error('Theme module failed', err);
+      }
+    });
+  await themeLoading;
 }
 
 function setText(el, text) {
