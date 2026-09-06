@@ -23,6 +23,10 @@ const SCROLL_GAP = 12 * CHAR_W;
 const MAX_RATTLES_PER_FRAME = 4;
 /** Keeps flipping cells settling when Chromium stops delivering frames. */
 const WATCHDOG_MS = 250;
+/** How often the dot clock reads the clock board.js is writing. */
+const CLOCK_MS = 500;
+/** Longest each mirrored field may run before it is abbreviated. */
+const IDENT_CHARS = { station: 20, mode: 10, clock: 8 };
 const SEPARATOR = '  ';
 
 /**
@@ -110,17 +114,23 @@ let frame = null;
 let watchdog = null;
 let scrollTimer = null;
 let observer = null;
+let clockTimer = null;
+let root = null;
 let rattleEnabled = false;
 let audio = null;
 let onColour = '#f2d21c';
 let offColour = '#1c1c1c';
 
-export function attach(_boardsEl, options) {
+export function attach(boardsEl, options) {
   configure(options);
+  root = boardsEl;
   observer = new ResizeObserver((entries) => {
     for (const entry of entries) fitCanvas(entry.target, entry.contentRect);
   });
   scrollTimer = setInterval(scrollTick, SCROLL_MS);
+  // board.js writes the clock straight into .clock, with no theme hook, so the
+  // dot clock reads it back rather than being told.
+  clockTimer = setInterval(paintClocks, CLOCK_MS);
 }
 
 export function configure(options = {}) {
@@ -142,12 +152,17 @@ export function detach() {
   clearTimeout(watchdog);
   watchdog = null;
   clearInterval(scrollTimer);
-  scrollTimer = null;
+  clearInterval(clockTimer);
+  scrollTimer = clockTimer = null;
+  root = null;
   observer?.disconnect();
   observer = null;
   for (const canvas of cells) canvas.remove();
-  // The printed column labels belong to this casing; another theme has its own.
-  for (const head of document.querySelectorAll('.nse-columns')) head.remove();
+  // Everything this casing added: the printed labels and the lines of dots
+  // that mirror text board.js paints as plain text for other themes.
+  for (const el of document.querySelectorAll('.nse-columns, .nse-ident, .nse-message, .nse-label')) {
+    el.remove();
+  }
   cells.clear();
   flipping.clear();
   scrolling.clear();
@@ -187,13 +202,21 @@ export function renderText(cell, text) {
  * column of dots at a time. Stops that fit on the line stand still.
  */
 export function renderCallingPoints(list, points) {
-  const canvas = ensureCanvas(list);
-  const text = points.map((p) => fit(p, Infinity)).join(SEPARATOR).toUpperCase();
-  const width = lineWidth(list);
-  if (canvas.__scrollText === text && canvas.__lineWidth === width) return;
-  canvas.__scrollText = text;
+  paintScroll(list, points.map((p) => fit(p, Infinity)).join(SEPARATOR));
+}
+
+/**
+ * A full-width line of dots that scrolls when its text is too long for the
+ * line, and stands still when it is not. Used for the stops and the messages.
+ */
+function paintScroll(host, text) {
+  const canvas = ensureCanvas(host);
+  const wanted = String(text).toUpperCase();
+  const width = lineWidth(host);
+  if (canvas.__scrollText === wanted && canvas.__lineWidth === width) return;
+  canvas.__scrollText = wanted;
   canvas.__lineWidth = width;
-  const columns = columnsFor(text);
+  const columns = columnsFor(printable(wanted));
   if (columns.length <= width) {
     scrolling.delete(canvas);
     canvas.__strip = null;
@@ -226,13 +249,27 @@ function scrollTick() {
   if (scrolling.size) start();
 }
 
-/** How many dot columns the track affords, from the pitch the CSS gave it. */
-function lineWidth(list) {
-  const track = list.parentElement;
-  const available = track ? track.clientWidth : 0;
-  const pitch = dotPitch(list);
+/** How many dot columns the line affords, from the pitch the CSS gave it. */
+function lineWidth(host) {
+  const available = host.clientWidth || host.parentElement?.clientWidth || 0;
+  const pitch = dotPitch(host);
   if (!available || !pitch) return CHAR_W;
   return Math.max(CHAR_W, Math.floor(available / pitch));
+}
+
+/**
+ * Paint one line of dots at its natural width, up to `max` characters. The
+ * mirrors use this: their text is board.js's, so the width is not in the CSS.
+ */
+function paintText(host, text, max) {
+  const value = String(text ?? '');
+  const chars = Math.max(1, Math.min(value.length, max));
+  if (host.dataset.chars !== String(chars)) {
+    host.dataset.chars = String(chars);
+    host.style.setProperty('--chars', String(chars));
+  }
+  const canvas = ensureCanvas(host);
+  setTarget(canvas, columnsFor(normalise(value, chars)), chars * CHAR_W);
 }
 
 /* ------------------------------------------------------------- bitmaps */
@@ -253,8 +290,13 @@ function columnsFor(text) {
 }
 
 function normalise(text, chars, right = false) {
-  const fitted = fit(String(text), chars).toUpperCase();
+  const fitted = printable(fit(String(text), chars).toUpperCase());
   return right ? fitted.padStart(chars, ' ') : fitted.padEnd(chars, ' ');
+}
+
+/** Anything the 5x7 font has no glyph for is a blank dot, not a query mark. */
+function printable(text) {
+  return text.replace(/[^0-9A-Z&:.,'\-\/()• ]/g, ' ');
 }
 
 /** Shorten a name only as far as it takes to fit the columns we have. */
@@ -347,10 +389,14 @@ function start() {
 }
 
 function armWatchdog() {
-  clearTimeout(watchdog);
+  // Never push the deadline back. The scroll tick calls start() many times a
+  // second, and re-arming on each call meant the watchdog never fired at all,
+  // which is precisely when frames have stopped and it is needed: the stops
+  // froze at their first offset and the clock stuck part-swept.
+  if (watchdog !== null) return;
   watchdog = setTimeout(() => {
     watchdog = null;
-    if (flipping.size) tick(performance.now());
+    tick(performance.now());
   }, WATCHDOG_MS);
 }
 
@@ -489,22 +535,113 @@ export function afterRender(boardsEl) {
     pending.delete(cell);
     if (cell.isConnected) renderText(cell, text);
   }
+  root = boardsEl;
   for (const board of boardsEl.querySelectorAll('.board')) {
-    const rows = board.querySelector('.rows');
-    let head = rows.querySelector('.nse-columns');
-    if (!head) {
-      head = document.createElement('div');
-      head.className = 'nse-columns';
-      for (const cls of ['time', 'destination', 'platform', 'status']) {
-        const cell = document.createElement('span');
-        cell.className = `label ${cls}`;
-        head.append(cell);
-      }
-    }
-    if (rows.firstElementChild !== head) rows.prepend(head);
-    const labels = HEADINGS[board.dataset.mode] || HEADINGS.departures;
-    Array.from(head.children).forEach((cell, i) => {
-      if (cell.textContent !== labels[i]) cell.textContent = labels[i];
-    });
+    paintHeadings(board);
+    paintLabel(board);
+    paintMessage(board);
+    paintIdent(board);
   }
+}
+
+/** The one thing on the matrix that is printed rather than flipped. */
+function paintHeadings(board) {
+  const rows = board.querySelector('.rows');
+  let head = rows.querySelector('.nse-columns');
+  if (!head) {
+    head = document.createElement('div');
+    head.className = 'nse-columns';
+    for (const cls of ['time', 'destination', 'platform', 'status']) {
+      const cell = document.createElement('span');
+      cell.className = `label ${cls}`;
+      head.append(cell);
+    }
+  }
+  if (rows.firstElementChild !== head) rows.prepend(head);
+  const labels = HEADINGS[board.dataset.mode] || HEADINGS.departures;
+  Array.from(head.children).forEach((cell, i) => {
+    if (cell.textContent !== labels[i]) cell.textContent = labels[i];
+  });
+}
+
+/**
+ * "Calling at" belongs to the matrix, so it is flipped like the stops beside
+ * it. board.js keeps writing the words into its own element, which the
+ * stylesheet hides; this mirrors them into dots.
+ */
+function paintLabel(board) {
+  const wrap = board.querySelector('.calling-points');
+  const source = wrap.querySelector('.calling-points-label');
+  let label = wrap.querySelector('.nse-label');
+  if (!label) {
+    label = document.createElement('span');
+    label.className = 'nse-label';
+    wrap.prepend(label);
+  }
+  paintText(label, source.textContent, 12);
+}
+
+/**
+ * Service messages run along their own line of the matrix, scrolling when they
+ * are too long for it. A board with nothing to say gives the height back.
+ */
+function paintMessage(board) {
+  const rows = board.querySelector('.rows');
+  const source = board.querySelector('.messages');
+  let line = rows.querySelector('.nse-message');
+  if (!line) {
+    line = document.createElement('div');
+    line.className = 'nse-message';
+  }
+  // append() also re-orders: the message line stays below the service rows.
+  // It is kept even when empty, because its auto top margin is what holds
+  // both it and the identification line against the foot of a short board.
+  rows.append(line);
+  const text = source.hidden ? '' : source.textContent;
+  rows.style.setProperty('--message-share', text ? '0.9' : '0');
+  if (!text) {
+    // Nothing to say: drop the dots, and the line claims none of the height.
+    line.textContent = '';
+    return;
+  }
+  paintScroll(line, text);
+}
+
+/**
+ * The bottom line of the matrix: which station this is, whether it is showing
+ * departures or arrivals, and the time. All three change, so all three flip.
+ */
+function paintIdent(board) {
+  const rows = board.querySelector('.rows');
+  let ident = rows.querySelector('.nse-ident');
+  if (!ident) {
+    ident = document.createElement('div');
+    ident.className = 'nse-ident';
+    for (const part of ['station', 'mode', 'clock']) {
+      const span = document.createElement('span');
+      span.className = `nse-${part}`;
+      ident.append(span);
+    }
+  }
+  // Last, so it reads as the foot of the matrix whatever else is on it.
+  rows.append(ident);
+  paintText(ident.querySelector('.nse-station'), board.querySelector('.station-name').textContent, IDENT_CHARS.station);
+  paintText(ident.querySelector('.nse-mode'), board.querySelector('.board-mode').textContent, IDENT_CHARS.mode);
+  paintClock(board, ident.querySelector('.nse-clock'));
+}
+
+/** Every board's clock, read back from board.js on its own timer. */
+function paintClocks() {
+  for (const board of root?.querySelectorAll('.board') || []) {
+    const clock = board.querySelector('.nse-clock');
+    if (clock) paintClock(board, clock);
+  }
+}
+
+function paintClock(board, host) {
+  const source = board.querySelector('.clock');
+  // A board with its clock switched off shows no dots where the clock was.
+  host.hidden = source.hidden;
+  if (source.hidden) return;
+  paintText(host, source.textContent, IDENT_CHARS.clock);
 }

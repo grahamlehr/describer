@@ -24,37 +24,38 @@ body {
 }
 
 /* The board is the casing of the indicator: pale plastic with the column
-   labels printed along the top and the logo, station and clock along the
-   bottom, the black matrix set into the middle. The header element is first
-   in the DOM but lives in the last grid row. */
+   labels printed along the top and the logo along the bottom, the black matrix
+   set into the middle. Everything that changes is inside the matrix, so the
+   casing carries only what a printer could have put there. The header element
+   is first in the DOM but lives in the last grid row. */
 .board {
   padding: 0;
   background: var(--nse-casing);
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 .stale { grid-row: 1; }
 .rows { grid-row: 2; }
-.messages { grid-row: 3; }
-.board-header { grid-row: 4; }
+.board-header { grid-row: 3; }
 
-/* Bottom strip: the logo (three slashes over the wordmark), then the station,
-   its mode and the clock, all in the logo's blue Helvetica. */
+/* The station, the mode, the clock, the stops label and the service messages
+   are mirrored into the matrix as dots by nse.js; board.js keeps writing the
+   words into these, and the matrix reads them back. */
+.station-name, .board-mode, .clock, .messages, .calling-points-label {
+  display: none;
+}
+
+/* Bottom strip: the logo alone, three slashes over the wordmark. The column is
+   as wide as the wordmark, so the slashes stretch to match it. */
 .board-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  grid-template-areas:
-    "marks station mode clock"
-    "brand station mode clock";
-  align-items: center;
-  column-gap: 1.6vw;
-  padding: 1vh 1.4vw 1.2vh;
+  grid-template-columns: max-content;
+  justify-content: start;
+  padding: 0.9vh 1.4vw 1.1vh;
   color: var(--nse-blue);
 }
-/* The three slashes: red, blue, grey parallelograms, as wide as the wordmark. */
 .board-header::before {
   content: "";
-  grid-area: marks;
-  justify-self: stretch;
+  grid-row: 1;
   height: 2.9vh;
   margin: 0 0.5em 0.4vh 1em;
   background: linear-gradient(
@@ -69,43 +70,15 @@ body {
 }
 .board-header::after {
   content: "Network SouthEast";
-  grid-area: brand;
+  grid-row: 2;
   font-weight: 700;
   font-size: 3vh;
   line-height: 1;
   letter-spacing: -0.03em;
   white-space: nowrap;
 }
-.station-name {
-  grid-area: station;
-  align-self: center;
-  font-weight: 700;
-  font-size: 3.2vh;
-  padding-left: 1.6vw;
-  border-left: 0.25vw solid var(--nse-red);
-}
-.board-mode {
-  grid-area: mode;
-  color: var(--nse-red);
-  font-weight: 700;
-  font-size: 2vh;
-  letter-spacing: 0.08em;
-  opacity: 1;
-}
-.clock { grid-area: clock; font-weight: 700; font-size: 3.2vh; }
 /* A flip-dot sign has no feed to name. */
 .source { display: none; }
-
-/* Half a screen: the station and clock stack beside the logo. */
-.boards[data-count="2"] .board-header {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "marks station clock"
-    "brand station mode";
-}
-.boards[data-count="2"] .station-name { font-size: 2.8vh; }
-.boards[data-count="2"] .board-mode, .boards[data-count="2"] .clock { justify-self: end; }
-.boards[data-count="2"] .clock { font-size: 2.8vh; }
 
 .stale {
   background: var(--nse-red);
@@ -114,18 +87,49 @@ body {
   padding: 0.4vh 1.4vw;
 }
 
-/* The matrix, set into the casing. The printed column labels sit on the
-   casing just above it, and take their share out of the slot maths. */
+/* The matrix. Every line inside it claims a share of the height: the printed
+   labels, the stops, the message line (nothing to say gives it back, and
+   nse.js sets it) and the identification line along the foot. */
 .rows {
   --char-budget: 23;
   --heading-share: 0.7;
-  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--heading-share)));
+  --message-share: 0;
+  --ident-share: 0.85;
+  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--heading-share)
+    + var(--message-share) + var(--ident-share)));
   margin: 0 1.4vw;
   padding: 0 1vw 0.6vh;
   background: var(--nse-panel);
   border: 0.3vh solid var(--nse-frame);
   border-top: none;
   border-radius: 0 0 0.6vh 0.6vh;
+}
+
+/* The foot of the matrix: station, mode and time, flipped like everything
+   else. A size below the services, so it reads as the sign's own caption. */
+.nse-ident {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8em;
+  flex: 0 0 calc(var(--slot) * var(--ident-share));
+  font-size: calc(var(--row-font) * 0.9);
+  border-top: 1px solid var(--nse-frame);
+  padding-top: 0.25em;
+  overflow: hidden;
+}
+.nse-ident > span[hidden] { display: none; }
+
+/* Service messages, on their own line, scrolling when they do not fit. A
+   board with nothing to say keeps the line at no height: its auto top margin
+   is what pins it and the identification line to the foot of a short board. */
+.nse-message {
+  display: flex;
+  align-items: center;
+  flex: 0 0 calc(var(--slot) * var(--message-share));
+  margin-top: auto;
+  font-size: calc(var(--row-font) * 0.9);
+  overflow: hidden;
 }
 
 /* time | destination | platform | status. The operator column is gone: in
@@ -144,12 +148,14 @@ body {
 .cell[data-field="status"] { --chars: 9; }
 .cell[data-field="operator"] { --chars: 0; }
 
-/* A character is six dots by eight at a tenth of the type size each. */
-.cell .dots {
+/* A character is six dots by eight at a tenth of the type size each, so a
+   line of --chars characters is that many times 0.6em wide. */
+.dots {
   display: block;
   width: calc(var(--chars) * 0.6em);
   height: 0.8em;
 }
+.calling-points-list .dots, .nse-message .dots { width: 100%; }
 .cell.platform .dots, .cell.status .dots { margin-left: auto; }
 
 /* Column labels printed on the casing above the matrix, inserted by nse.js.
@@ -189,18 +195,10 @@ body {
   border-top: 1px solid var(--nse-frame);
   font-size: calc(var(--row-font) * 0.9);
 }
-.calling-points-label {
-  font-size: 0.42em;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--nse-print);
-  opacity: 1;
-}
+.nse-label { flex: 0 0 auto; }
 .calling-points-track { display: block; }
 .calling-points-list { display: block; width: 100%; }
-.calling-points-list .dots { display: block; width: 100%; height: 0.8em; }
 
 .empty { color: var(--nse-print); padding: 2vh 0; }
-.messages { color: var(--nse-blue); padding: 0.6vh 1.4vw 0; opacity: 1; }
 
 .boards[data-count="2"] .board + .board { border-left: 0.3vh solid var(--nse-grey); }

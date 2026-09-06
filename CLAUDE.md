@@ -557,11 +557,25 @@ asks it again for the wording, so the timer and the render never disagree.
 - The character pitch is `PITCH_EM` (0.1) of the host's font size in the JS and
   `0.6em` per character in the CSS. Change both.
 - The operator column is `--chars: 0` and hidden; `renderText` leaves it empty.
-- The board is the indicator's casing: column labels (`TIME`, `TO`/`FROM`,
-  `PLAT`, `EXPECTED`) are printed along the top in logo blue, and the
-  `.board-header` (logo, station, mode, clock) is moved to the *last* grid row
-  by CSS. The three-slash logo is a skewed gradient on `.board-header::before`
-  with the wordmark on `::after`.
+- The board is the indicator's casing, and the casing carries only what a
+  printer could have put there: the column labels (`TIME`, `TO`/`FROM`,
+  `PLAT`, `EXPECTED`) along the top in logo blue, and the logo alone along the
+  bottom, in the *last* grid row by CSS. The three-slash logo is a skewed
+  gradient on `.board-header::before` with the wordmark on `::after`.
+- **Everything that changes is dots.** `board.js` writes the station, mode,
+  clock, stops label and messages straight into its own elements with no theme
+  hook, so the stylesheet hides all five and `afterRender` mirrors each into a
+  line of dots it owns (`.nse-ident`, `.nse-message`, `.nse-label`). The clock
+  has no hook at all, so a timer reads `.clock` back every `CLOCK_MS`.
+- The matrix therefore has five claims on its height: `--rows`,
+  `--calling-share`, `--heading-share`, `--message-share` and `--ident-share`.
+  `nse.js` sets `--message-share` per board, to 0.9 or 0. The message line is
+  kept in the tree even when empty, because its `margin-top: auto` is what
+  pins it and the identification line to the foot of a half-empty board.
+- The watchdog must not be re-armed while one is pending. `scrollTick` calls
+  `start()` every 45 ms, and pushing the deadline back each time meant it never
+  fired — so when frames stopped, the stops froze at their first offset and the
+  clock stuck part-swept.
 - The stops scroll one dot column per tick when they do not fit the line, as
   the real signs did; stops that fit stand still.
 - A cell asked for before `nse.css` has arrived (`--chars` computes to the
