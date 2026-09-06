@@ -20,18 +20,29 @@ body {
 /* A mechanical board has no business naming a JSON feed. */
 .source { display: none; }
 .messages, .empty, .calling-points { color: var(--flap-dim); }
-.calling-points { border-top: 1px solid #222; text-transform: uppercase; }
 
-/* A full-width row of flaps under the top service. It cannot scroll, so
-   splitflap.js pages through the stops instead. */
+/* The stops are a board row in their own right: the label sits on the same
+   line at the row's type size, and the flaps match the destination. A
+   mechanical board cannot scroll, so splitflap.js pages through the stops. */
+.calling-points {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0;
+  border-top: 1px solid #222;
+  text-transform: uppercase;
+  font-size: var(--row-font);
+}
+.calling-points-label { flex: 0 0 auto; font-size: 0.55em; opacity: 1; letter-spacing: 0.12em; }
+.calling-points-track { flex: 1 1 auto; min-width: 0; display: block; }
 .calling-points-list {
   display: flex;
   gap: 0.08em;
   color: var(--flap-fg);
+  font-weight: 600;
   will-change: auto;
 }
 .calling-points-list.scrolling { animation: none; }
-.calling-points-track { display: block; }
 
 /* Nine flaps of "CANCELLED" need more room than the shared layout allows;
    platform and operator have slack to lend. */
@@ -44,8 +55,6 @@ body {
    size is bound by the width far more often than by the height. */
 .rows { --char-budget: 39; }
 
-/* The stops read as a real board row, so they use the row's character size. */
-.calling-points-list { font-size: var(--row-font); }
 .row[data-status="cancelled"] .cell.status { color: var(--cancelled); }
 
 /* Fixed-width character grid; splitflap.js reads --chars for each field. */
@@ -67,20 +76,10 @@ body {
   border-radius: 0.06em;
   text-align: center;
   color: inherit;
-  /* Only transform and opacity animate, so the Pi composites on the GPU. */
+  /* The flip (splitflap.js, Web Animations) only moves transform and opacity.
+     No will-change here: it would make every one of several hundred flaps a
+     permanent compositor layer, and each is repainted on every step anyway. */
   transform-origin: center top;
-  backface-visibility: hidden;
-  will-change: transform;
-}
-.flap.stepping { animation: flap-step var(--flap-ms, 40ms) ease-out; }
-
-@keyframes flap-step {
-  from { transform: rotateX(-88deg); opacity: 0.45; }
-  to   { transform: rotateX(0deg); opacity: 1; }
 }
 
 .cell.operator .flap, .cell.platform .flap { color: var(--flap-dim); }
-
-@media (prefers-reduced-motion: reduce) {
-  .flap.stepping { animation: none; }
-}

@@ -20,6 +20,16 @@ const CALLING_PAGE_MS = 6000;
  */
 const WATCHDOG_MS = 250;
 const SEPARATOR = ' • ';
+/**
+ * The flip, driven through the Web Animations API rather than a CSS class:
+ * restarting a class animation needs a forced layout per flap per step, which
+ * was hundreds of full-page reflows a frame on a busy board.
+ */
+const FLIP = [
+  { transform: 'rotateX(-88deg)', opacity: 0.45 },
+  { transform: 'rotateX(0deg)', opacity: 1 },
+];
+const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 
 /**
  * How a real board shortens a name that will not fit, in the order it gives
@@ -284,10 +294,12 @@ function tick(now) {
     flap.__remaining -= steps;
     flap.__nextAt = now + flapMs;
 
-    // Restart the flip animation for this step.
-    flap.classList.remove('stepping');
-    void flap.offsetWidth;
-    flap.classList.add('stepping');
+    // Restart the flip for this step. The flap is only promoted to its own
+    // compositor layer while this runs, not for the life of the board.
+    if (!reduceMotion?.matches && flap.animate) {
+      flap.__flip?.cancel();
+      flap.__flip = flap.animate(FLIP, { duration: flapMs, easing: 'ease-out' });
+    }
 
     if (flap.__remaining <= 0) {
       flaps.delete(flap);
