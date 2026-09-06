@@ -1,0 +1,73 @@
+{
+  "generatedAt": "2024-05-14T14:29:41.1234567+01:00",
+  "locationName": "London Paddington",
+  "crs": "PAD",
+  "platformAvailable": true,
+  "nrccMessages": [
+    {"value": "<p>Services running to and from this station are subject to <a href=\"#\">delays</a>.</p>"}
+  ],
+  "trainServices": [
+    {
+      "serviceID": "aaa111",
+      "std": "14:32",
+      "etd": "On time",
+      "platform": "9",
+      "operator": "Great Western Railway",
+      "operatorCode": "GW",
+      "length": 9,
+      "origin": [{"locationName": "London Paddington", "crs": "PAD"}],
+      "destination": [{"locationName": "Bristol Temple Meads", "crs": "BRI"}],
+      "subsequentCallingPoints": [
+        {"callingPoint": [
+          {"locationName": "Reading", "crs": "RDG", "st": "14:56", "et": "On time"},
+          {"locationName": "Swindon", "crs": "SWI", "st": "15:23", "et": "On time"},
+          {"locationName": "Bristol Parkway", "crs": "BPW", "st": "15:47", "et": "On time"},
+          {"locationName": "Bristol Temple Meads", "crs": "BRI", "st": "16:02", "et": "On time"}
+        ]}
+      ]
+    },
+    {
+      "serviceID": "bbb222",
+      "std": "14:36",
+      "etd": "14:51",
+      "platform": "12",
+      "operator": "Elizabeth line",
+      "operatorCode": "XR",
+      "delayReason": "This is due to a fault with the signalling system",
+      "origin": [{"locationName": "London Paddington", "crs": "PAD"}],
+      "destination": [{"locationName": "Abbey Wood", "crs": "ABW", "via": "via Whitechapel"}],
+      "subsequentCallingPoints": [
+        {"callingPoint": [
+          {"locationName": "Bond Street", "crs": "BDS", "st": "14:58", "et": "15:13"},
+          {"locationName": "Abbey Wood", "crs": "ABW", "st": "15:29", "et": "15:44"}
+        ]}
+      ]
+    },
+    {
+      "serviceID": "ccc333",
+      "std": "14:41",
+      "etd": "Cancelled",
+      "isCancelled": true,
+      "operator": "Great Western Railway",
+      "operatorCode": "GW",
+      "cancelReason": "This is due to a shortage of train crew",
+      "origin": [{"locationName": "London Paddington", "crs": "PAD"}],
+      "destination": [{"locationName": "Oxford", "crs": "OXF"}]
+    },
+    {
+      "serviceID": "ddd444",
+      "std": "14:45",
+      "etd": "Delayed",
+      "platform": "3",
+      "operator": "Heathrow Express",
+      "operatorCode": "HX",
+      "origin": [{"locationName": "London Paddington", "crs": "PAD"}],
+      "destination": [{"locationName": "Heathrow Terminal 5", "crs": "HXX"}],
+      "subsequentCallingPoints": [
+        {"callingPoint": [{"locationName": "Heathrow Terminal 5", "crs": "HXX", "st": "15:07", "et": "Delayed"}]}
+      ]
+    }
+  ],
+  "busServices": null,
+  "ferryServices": null
+}

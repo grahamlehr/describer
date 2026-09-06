@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Departures</title>
+<link rel="stylesheet" href="/static/base.css">
+<link id="theme-css" rel="stylesheet" href="/static/themes/modern.css">
+</head>
+<body data-theme="modern">
+  <main id="boards" class="boards" data-count="1"></main>
+
+  <div id="asleep" class="asleep" hidden>
+    <p>Display off</p>
+  </div>
+
+  <div id="connection" class="connection" hidden>Reconnecting&hellip;</div>
+
+  <template id="board-template">
+    <section class="board">
+      <header class="board-header">
+        <h1 class="station-name"></h1>
+        <div class="board-mode"></div>
+        <div class="clock"></div>
+      </header>
+      <div class="stale" hidden></div>
+      <div class="rows"></div>
+      <div class="calling-points" hidden>
+        <div class="calling-points-label">Calling at</div>
+        <div class="calling-points-track"><span class="calling-points-list"></span></div>
+      </div>
+      <footer class="messages" hidden></footer>
+    </section>
+  </template>
+
+  <template id="row-template">
+    <div class="row">
+      <span class="cell time" data-field="time"></span>
+      <span class="cell destination" data-field="destination"></span>
+      <span class="cell platform" data-field="platform"></span>
+      <span class="cell status" data-field="status"></span>
+      <span class="cell operator" data-field="operator"></span>
+    </div>
+  </template>
+
+  <script type="module" src="/static/board.js"></script>
+</body>
+</html>

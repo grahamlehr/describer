@@ -1,0 +1,54 @@
+/* modern — clean, high contrast, dark. The default. */
+
+:root {
+  --bg: #06080c;
+  --fg: #f2f5f8;
+  --muted: #8d97a5;
+  --rule: rgba(255, 255, 255, 0.10);
+  --on-time: #4ade80;
+  --late: #fbbf24;
+  --cancelled: #f87171;
+  --accent: #60a5fa;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Inter", "Helvetica Neue", system-ui, -apple-system, sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+
+.board-header { border-bottom: 2px solid var(--rule); padding-bottom: 0.8vh; }
+.station-name { letter-spacing: -0.01em; }
+.board-mode { color: var(--accent); }
+.clock { color: var(--fg); font-weight: 500; }
+
+.stale { color: var(--late); }
+
+.row {
+  padding: 0.35vh 0;
+  border-bottom: 1px solid var(--rule);
+  transition: background-color 200ms ease;
+}
+.row.selected { background: rgba(96, 165, 250, 0.08); }
+.cell.time { font-variant-numeric: tabular-nums; color: var(--fg); }
+.cell.platform { color: var(--muted); font-variant-numeric: tabular-nums; }
+.cell.operator { color: var(--muted); }
+
+.row[data-status="on_time"] .cell.status { color: var(--on-time); }
+.row[data-status="expected"] .cell.status,
+.row[data-status="delayed"] .cell.status { color: var(--late); }
+.row[data-status="cancelled"] .cell.status { color: var(--cancelled); }
+.row[data-status="cancelled"] .cell.time,
+.row[data-status="cancelled"] .cell.destination {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  opacity: 0.65;
+}
+
+.calling-points { border-top: 1px solid var(--rule); color: var(--muted); }
+.calling-points-label { color: var(--accent); }
+.calling-points-list { color: var(--fg); }
+
+.messages { color: var(--late); border-top: 1px solid var(--rule); }
+.empty { color: var(--muted); font-size: 2.4vh; padding: 2vh 0; }

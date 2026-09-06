@@ -1,0 +1,59 @@
+# Describer configuration. Copy to config.yaml (dev) or
+# /etc/describer/config.yaml (Pi). The file is the source of truth; the
+# admin page at /admin reads and writes this same file.
+#
+# The API key is NOT here. It lives in RDM_API_KEY (environment or .env).
+
+# One or two stations. Two render side by side, split screen.
+# List the same CRS twice with different modes to show departures and arrivals.
+stations:
+  - crs: PAD                # 3-letter CRS code of the station
+    mode: departures        # departures | arrivals
+    name: null              # optional display name override (null = use the API's)
+    rows: 8                 # number of service rows to render
+    announce: true          # speak announcements for this station
+
+display:
+  theme: modern             # modern | crt | splitflap
+  clock: true               # show the live clock in the board header
+  show_calling_points: true # expand the first row to scroll its calling points
+  themes:
+    crt:
+      phosphor: amber       # amber | green
+      scanlines: true       # scanline overlay
+      curvature: true       # barrel distortion and bloom (turn off if sluggish)
+    splitflap:
+      click_sound: false    # play a click as flaps settle
+      flap_ms: 40           # milliseconds per flap step (lower = faster)
+
+api:
+  # Rail Data Marketplace LDBWS (Darwin) REST base URL, no trailing slash.
+  base_url: https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120
+  poll_interval: 30         # seconds between polls per station (minimum 20)
+  timeout: 10.0             # HTTP timeout in seconds for one request
+  stale_after: 120          # a board older than this shows the "data stale" flag
+
+announcements:
+  enabled: true             # global on/off
+  lead_time: 120            # announce when a service is this many seconds away
+  volume: 0.8               # 0.0 to 1.0
+  voice: en_GB-alan-medium  # Piper voice name (without the .onnx extension)
+  voices_dir: voices        # directory holding the Piper .onnx voice files
+  piper_binary: piper       # Piper executable, on PATH or an absolute path
+  cache_dir: tts-cache      # synthesised clips are cached here, keyed by text hash
+  audio_device: hdmi        # hdmi | jack | default
+  chime: true               # two-tone chime before each announcement
+  announce_delays: true     # announce delays as they appear
+  announce_cancellations: true  # announce cancellations with the standard apology
+  max_calling_points: 8     # calling points read out before the final destination
+
+schedule:
+  enabled: false            # turn the display off outside the window below
+  on_time: "06:00"          # screen wakes at this time
+  off_time: "23:00"         # screen blanks at this time
+  # Optional per-weekday overrides. A day mapped to null is off all day.
+  # per_weekday:
+  #   sat: {on_time: "08:00", off_time: "23:30"}
+  #   sun: null
+  per_weekday: {}
+  power_method: wlr-randr   # wlr-randr (under cage) | vcgencmd | none

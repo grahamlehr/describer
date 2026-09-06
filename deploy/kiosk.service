@@ -1,0 +1,26 @@
+[Unit]
+Description=Describer kiosk (cage + Chromium)
+After=describer.service
+Requires=describer.service
+
+[Service]
+Type=simple
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+Environment=WLR_LIBINPUT_NO_DEVICES=1
+# Wait for the backend to answer before painting anything.
+ExecStartPre=/bin/sh -c 'until curl -sf http://localhost:8080/api/state >/dev/null; do sleep 1; done'
+ExecStart=/usr/bin/cage -d -- /usr/bin/chromium-browser \
+  --kiosk \
+  --noerrdialogs \
+  --disable-infobars \
+  --disable-session-crashed-bubble \
+  --disable-features=TranslateUI \
+  --check-for-update-interval=31536000 \
+  --autoplay-policy=no-user-gesture-required \
+  --ozone-platform=wayland \
+  --app=http://localhost:8080/
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

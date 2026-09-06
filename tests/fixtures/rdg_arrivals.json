@@ -1,0 +1,35 @@
+{
+  "generatedAt": "2024-05-14T14:30:02.7654321+01:00",
+  "locationName": "Reading",
+  "crs": "RDG",
+  "platformAvailable": true,
+  "nrccMessages": null,
+  "trainServices": [
+    {
+      "serviceID": "eee555",
+      "sta": "14:56",
+      "eta": "On time",
+      "platform": "8",
+      "operator": "Great Western Railway",
+      "operatorCode": "GW",
+      "origin": [{"locationName": "London Paddington", "crs": "PAD"}],
+      "destination": [{"locationName": "Bristol Temple Meads", "crs": "BRI"}],
+      "previousCallingPoints": [
+        {"callingPoint": [{"locationName": "London Paddington", "crs": "PAD", "st": "14:32", "et": "On time"}]}
+      ]
+    },
+    {
+      "serviceID": "fff666",
+      "sta": "15:02",
+      "eta": "15:09",
+      "platform": "10",
+      "operator": "South Western Railway",
+      "operatorCode": "SW",
+      "origin": [{"locationName": "London Waterloo", "crs": "WAT"}],
+      "destination": [{"locationName": "Reading", "crs": "RDG"}],
+      "previousCallingPoints": [
+        {"callingPoint": [{"locationName": "Wokingham", "crs": "WKM", "st": "14:52", "et": "14:59"}]}
+      ]
+    }
+  ]
+}

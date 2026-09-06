@@ -1,0 +1,62 @@
+/* splitflap — Solari mechanical board: cream characters on black flaps. */
+
+:root {
+  --flap-bg: #141414;
+  --flap-edge: #000;
+  --flap-fg: #f1e7ce;
+  --flap-dim: #b9ae95;
+  --cancelled: #e8734a;
+}
+
+body {
+  background: #050505;
+  color: var(--flap-fg);
+  font-family: "Roboto Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+
+.board-header { border-bottom: 2px solid #222; padding-bottom: 0.8vh; }
+.station-name { text-transform: uppercase; letter-spacing: 0.04em; }
+.board-mode, .clock { color: var(--flap-dim); }
+.messages, .empty, .calling-points { color: var(--flap-dim); }
+.calling-points { border-top: 1px solid #222; text-transform: uppercase; }
+.calling-points-list { color: var(--flap-fg); }
+
+.row { gap: 0.5vw; padding: 0.25vh 0; }
+.row[data-status="cancelled"] .cell.status { color: var(--cancelled); }
+
+/* Fixed-width character grid; splitflap.js reads --chars for each field. */
+.cell[data-field="time"] { --chars: 5; }
+.cell[data-field="destination"] { --chars: 20; }
+.cell[data-field="platform"] { --chars: 2; }
+.cell[data-field="status"] { --chars: 9; }
+.cell[data-field="operator"] { --chars: 3; }
+
+.cell { display: inline-flex; gap: 0.08em; }
+.cell.destination { flex: 1 1 auto; }
+
+.flap {
+  position: relative;
+  display: inline-block;
+  min-width: 0.86em;
+  padding: 0.06em 0.02em;
+  background: linear-gradient(to bottom, #1d1d1d 0 49%, var(--flap-edge) 49% 51%, #101010 51% 100%);
+  border-radius: 0.06em;
+  text-align: center;
+  color: inherit;
+  /* Only transform and opacity animate, so the Pi composites on the GPU. */
+  transform-origin: center top;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+.flap.stepping { animation: flap-step var(--flap-ms, 40ms) ease-out; }
+
+@keyframes flap-step {
+  from { transform: rotateX(-88deg); opacity: 0.45; }
+  to   { transform: rotateX(0deg); opacity: 1; }
+}
+
+.cell.operator .flap, .cell.platform .flap { color: var(--flap-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .flap.stepping { animation: none; }
+}

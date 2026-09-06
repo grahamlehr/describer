@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Describer — settings</title>
+<link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+<header class="top">
+  <h1>Describer</h1>
+  <nav><a href="/">Open board</a></nav>
+</header>
+
+<section class="status" id="status">
+  <h2>Status</h2>
+  <dl id="status-list"><dd>Loading&hellip;</dd></dl>
+</section>
+
+<form id="config-form">
+  <section>
+    <h2>Stations</h2>
+    <p class="hint">One or two. Two stations render side by side. List the same
+      station twice with different modes to show departures and arrivals.</p>
+    <div id="stations"></div>
+    <button type="button" id="add-station" class="secondary">Add station</button>
+  </section>
+
+  <section>
+    <h2>Display</h2>
+    <div class="grid">
+      <label>Theme
+        <select name="display.theme">
+          <option value="modern">Modern</option>
+          <option value="crt">CRT</option>
+          <option value="splitflap">Split-flap</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" name="display.clock"> Show clock</label>
+      <label class="check"><input type="checkbox" name="display.show_calling_points"> Show calling points</label>
+    </div>
+    <h3>CRT theme</h3>
+    <div class="grid">
+      <label>Phosphor
+        <select name="display.themes.crt.phosphor">
+          <option value="amber">Amber</option>
+          <option value="green">Green</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" name="display.themes.crt.scanlines"> Scanlines</label>
+      <label class="check"><input type="checkbox" name="display.themes.crt.curvature"> Curvature and bloom</label>
+    </div>
+    <h3>Split-flap theme</h3>
+    <div class="grid">
+      <label class="check"><input type="checkbox" name="display.themes.splitflap.click_sound"> Click sound</label>
+      <label>Flap speed (ms per step)
+        <input type="number" name="display.themes.splitflap.flap_ms" min="10" max="200" step="1">
+      </label>
+    </div>
+  </section>
+
+  <section>
+    <h2>Data feed</h2>
+    <div class="grid">
+      <label class="wide">LDBWS base URL
+        <input type="url" name="api.base_url" required>
+      </label>
+      <label>Poll interval (s)
+        <input type="number" name="api.poll_interval" min="20" max="600" step="1" required>
+      </label>
+      <label>Request timeout (s)
+        <input type="number" name="api.timeout" min="1" max="60" step="0.5" required>
+      </label>
+      <label>Stale after (s)
+        <input type="number" name="api.stale_after" min="30" max="3600" step="10" required>
+      </label>
+    </div>
+    <p class="hint">The API key comes from the <code>RDM_API_KEY</code> environment
+      variable and is never stored in this file.</p>
+  </section>
+
+  <section>
+    <h2>Announcements</h2>
+    <div class="grid">
+      <label class="check"><input type="checkbox" name="announcements.enabled"> Enabled</label>
+      <label class="check"><input type="checkbox" name="announcements.chime"> Two-tone chime</label>
+      <label class="check"><input type="checkbox" name="announcements.announce_delays"> Announce delays</label>
+      <label class="check"><input type="checkbox" name="announcements.announce_cancellations"> Announce cancellations</label>
+      <label>Lead time (s)
+        <input type="number" name="announcements.lead_time" min="0" max="1800" step="10">
+      </label>
+      <label>Volume
+        <input type="range" name="announcements.volume" min="0" max="1" step="0.05">
+      </label>
+      <label>Voice
+        <input type="text" name="announcements.voice" placeholder="en_GB-alan-medium">
+      </label>
+      <label>Voices directory
+        <input type="text" name="announcements.voices_dir">
+      </label>
+      <label>Piper binary
+        <input type="text" name="announcements.piper_binary">
+      </label>
+      <label>Clip cache directory
+        <input type="text" name="announcements.cache_dir">
+      </label>
+      <label>Audio output
+        <select name="announcements.audio_device">
+          <option value="hdmi">HDMI</option>
+          <option value="jack">3.5 mm jack</option>
+          <option value="default">System default</option>
+        </select>
+      </label>
+      <label>Max calling points spoken
+        <input type="number" name="announcements.max_calling_points" min="1" max="30" step="1">
+      </label>
+    </div>
+    <div class="row-actions">
+      <input type="text" id="test-text" placeholder="Test announcement text (optional)">
+      <button type="button" id="test-announce" class="secondary">Test announcement</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Display schedule</h2>
+    <div class="grid">
+      <label class="check"><input type="checkbox" name="schedule.enabled"> Enabled</label>
+      <label>On at <input type="time" name="schedule.on_time"></label>
+      <label>Off at <input type="time" name="schedule.off_time"></label>
+      <label>Power method
+        <select name="schedule.power_method">
+          <option value="wlr-randr">wlr-randr (cage)</option>
+          <option value="vcgencmd">vcgencmd</option>
+          <option value="none">None</option>
+        </select>
+      </label>
+    </div>
+    <h3>Per-weekday overrides</h3>
+    <p class="hint">Leave a day unticked to use the times above. Tick "Off all day"
+      to keep the screen dark.</p>
+    <div id="weekdays" class="weekdays"></div>
+  </section>
+
+  <div class="actions">
+    <button type="submit">Save and apply</button>
+    <button type="button" id="reload" class="secondary">Discard changes</button>
+    <span id="message" class="message" role="status"></span>
+  </div>
+</form>
+
+<script type="module" src="/static/admin.js"></script>
+</body>
+</html>
