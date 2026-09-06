@@ -20,6 +20,12 @@ StandardError=journal
 Environment=XDG_RUNTIME_DIR=/run/user/@UID@
 Environment=XDG_SESSION_TYPE=wayland
 Environment=WLR_LIBINPUT_NO_DEVICES=1
+# A cursor theme of transparent pixels: cage draws a pointer in the middle
+# of the screen whether or not a mouse is attached, and has no flag to stop
+# it. deploy/install.sh writes the theme.
+Environment=XCURSOR_THEME=describer-blank
+Environment=XCURSOR_PATH=/usr/share/icons
+Environment=XCURSOR_SIZE=24
 # Wait for the backend (a user service) to answer before painting anything.
 ExecStartPre=/bin/sh -c 'until curl -sf http://localhost:8080/api/state >/dev/null; do sleep 1; done'
 ExecStart=/usr/bin/cage -d -- /usr/bin/chromium \

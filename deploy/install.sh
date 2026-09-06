@@ -107,6 +107,30 @@ systemctl --user enable describer.service
 # Keep the backend running when nobody is logged in.
 sudo loginctl enable-linger "$USER"
 
+# A blank cursor theme. cage parks a pointer in the middle of the screen even
+# with no mouse attached, and neither cage nor Chromium has a flag to hide it;
+# pointing XCURSOR_THEME at a theme whose cursors are one transparent pixel
+# does. (The page's own `cursor: none` only covers a pointer that has entered
+# the window, which never happens when there is no input device.)
+say "Installing the blank cursor theme"
+CURSOR_THEME_DIR=/usr/share/icons/describer-blank
+sudo mkdir -p "$CURSOR_THEME_DIR/cursors"
+python3 -c '
+import struct, sys
+# Xcursor: header, one TOC entry, one 1x1 fully transparent ARGB image.
+size = 24
+out = struct.pack("<4sIII", b"Xcur", 16, 0x00010000, 1)
+out += struct.pack("<III", 0xfffd0002, size, 28)
+out += struct.pack("<IIIIIIIII", 36, 0xfffd0002, size, 1, 1, 1, 0, 0, 0)
+out += struct.pack("<I", 0)
+sys.stdout.buffer.write(out)
+' | sudo install -m 644 /dev/stdin "$CURSOR_THEME_DIR/cursors/default"
+for name in left_ptr arrow top_left_arrow pointer hand1 hand2 xterm text; do
+  sudo ln -sf default "$CURSOR_THEME_DIR/cursors/$name"
+done
+printf '[Icon Theme]\nName=describer-blank\n' \
+  | sudo install -m 644 /dev/stdin "$CURSOR_THEME_DIR/index.theme"
+
 # The kiosk is a system service on tty1: cage needs a real seat, which a
 # lingering user session never gets. It runs as this user so it can reach the
 # audio and video devices the same way an interactive login would.

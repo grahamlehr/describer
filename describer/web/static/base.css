@@ -9,6 +9,9 @@ html, body {
   background: #000;
   color: #fff;
   font-family: system-ui, sans-serif;
+  /* The kiosk has nothing to click, and cage parks a pointer in the middle of
+     the screen whether or not a mouse is attached. /admin keeps its cursor. */
+  cursor: none;
 }
 
 .boards {

@@ -29,7 +29,11 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
   over a full desktop. It cannot be a user service: cage needs a logind seat
   for DRM and input, and a lingering user session has none, so cage exits in
   a restart loop and the console keeps its login prompt. The binary on current
-  Pi OS is `/usr/bin/chromium`; there is no `chromium-browser`.
+  Pi OS is `/usr/bin/chromium`; there is no `chromium-browser`. cage draws a
+  pointer in the middle of the screen with or without a mouse and has no flag
+  to hide it, so `install.sh` writes a transparent cursor theme and the unit
+  points `XCURSOR_THEME` at it; the board's `cursor: none` alone is not
+  enough, because with no input device no pointer ever enters the window.
 - **Frontend**: plain HTML/CSS/JS served by FastAPI. No build step, no
   frameworks, no npm. Themes are CSS + small JS modules. Live updates via
   Server-Sent Events from the backend so the page never polls the API
