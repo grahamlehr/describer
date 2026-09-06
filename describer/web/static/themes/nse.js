@@ -146,6 +146,8 @@ export function detach() {
   observer?.disconnect();
   observer = null;
   for (const canvas of cells) canvas.remove();
+  // The printed column labels belong to this casing; another theme has its own.
+  for (const head of document.querySelectorAll('.nse-columns')) head.remove();
   cells.clear();
   flipping.clear();
   scrolling.clear();
