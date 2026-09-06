@@ -93,10 +93,18 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
    flip, with an optional click sound. Fixed-width character grid, cream
    text on black flaps. Performance matters: keep animations
    GPU-composited (transform/opacity only) so the Pi 4 stays at 60 fps.
+4. **1990s** — a Ceefax page: forty columns of Bedstead on black, white on
+   blue title bars, yellow times, and the clock written the Teletext way.
+5. **nse** — a Network SouthEast platform indicator: a printed casing around
+   a flip-dot matrix whose discs sweep column by column. A line too long for
+   it turns a page at a time, because a disc cannot slide sideways.
+6. **led-matrix** — the amber LED panel of the 2000s: one field edge to edge,
+   so every word on it is lit dots, and a long line scrolls.
 
 Themes share one DOM structure and one data model; a theme is a CSS file
 plus an optional JS module for animation. Adding a theme must not require
-touching backend code.
+touching backend code. Addendum 3 carries the sizing model, the full module
+contract and what the two dot-matrix themes share.
 
 ### Announcements (Piper TTS)
 - Global on/off, per-station on/off, volume, voice, and lead time
@@ -131,34 +139,45 @@ describer/
   README.md
   requirements.txt
   config.example.yaml      # documented defaults; copy to config.yaml
+  .env.example             # the credential names; .env itself is never committed
   describer/
     __init__.py
     main.py                # FastAPI app, SSE endpoint, static + admin routes
     config.py              # load/validate/save YAML (pydantic models)
+    schedule.py            # display on/off schedule
     rail/
-      client.py            # RDM LDBWS HTTP client
+      base.py              # RailSource protocol, RailApiError
       models.py            # Service, Board dataclasses
+      ldbws.py             # Rail Data Marketplace (Darwin) client
+      rtt.py               # Realtime Trains client
+      sources.py           # holds both clients, fails over, recovers
       poller.py            # background polling, staleness, backoff
+      client.py            # deprecated alias for ldbws; delete after a release
     announce/
       phrasing.py          # builds announcement text from Service
       tts.py               # Piper wrapper + cache + playback
       scheduler.py         # decides what to announce and when
-    schedule.py            # display on/off schedule
     web/
       static/
-        index.html
-        board.js           # SSE client, renders shared DOM
+        index.html         # the one DOM every theme fills
+        base.css           # structure and the sizing model; themes add the look
+        board.js           # SSE client, renders the DOM, calls into the theme
+        admin.html  admin.css  admin.js
+        fonts/             # self-hosted; bedstead.woff2 ships with the repo
         themes/
-          modern.css
-          crt.css  crt.js
-          splitflap.css  splitflap.js
-        admin.html  admin.js
+          modern.css      modern.js
+          crt.css         crt.js
+          splitflap.css   splitflap.js
+          1990s.css       1990s.js
+          nse.css         nse.js
+          led-matrix.css  led-matrix.js
+          dotmatrix.js    # the shared 5x7 dot font; not a theme
   deploy/
     install.sh             # Pi setup: apt deps, venv, piper, cage, services
-    describer.service      # systemd unit for backend
-    kiosk.service          # systemd unit for cage + chromium
+    describer.service      # systemd *user* unit for the backend
+    kiosk.service          # systemd *system* unit for cage + chromium
   tests/
-    fixtures/              # recorded LDBWS JSON responses
+    fixtures/              # recorded LDBWS and RTT JSON responses
 ```
 
 ## Conventions
@@ -175,6 +194,9 @@ describer/
   and avoid CSS filters that force full-screen repaints every frame.
 - Every config option has a sensible default in `config.example.yaml`
   and a one-line comment explaining it.
+- `/static` and both pages answer with `Cache-Control: no-cache`. The kiosk is
+  never hard-refreshed, so nothing may sit in its cache without being checked
+  with us first; the ETag makes that a 304.
 
 ## Running
 
@@ -184,8 +206,14 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp config.example.yaml config.yaml
 export RDM_API_KEY=...
+unset RTT_TOKEN            # dev never talks to RTT; see Addendum 4
 uvicorn describer.main:app --reload --port 8080
 ```
+Set `sources.fallback: null` in the local `config.yaml`. RDM has a generous
+allowance and is the only upstream a dev machine may call; RTT's free tier is
+1000 calls a day shared with the live board, so **anything spent here is taken
+off the Pi**. Addendum 4 is the rule, not a suggestion.
+
 Then open `http://localhost:8080/` for the board, `/admin` for settings.
 
 Pi: run `deploy/install.sh` once, then `systemctl --user status describer`
@@ -500,8 +528,10 @@ Measured budgets (1920×1080, two boards, so `100cqw` = 906px):
 |-------|--------|-----|----------------|
 | modern | 30 | proportional; the fixed columns are 17.6em and the destination needs ~10em | 30px / 62px |
 | crt | 33 | monospace at 0.613em per character, so 20 characters cost 12.3em | 27px / 57px |
+| 1990s | 33 | the same monospace grid as crt, under a row of column headings | 27px / 56px |
 | splitflap | 39 | one tile per character, and tiles cannot be condensed | 23px / 48px |
-| nse | 23 | 34 dot-matrix characters at 0.6em, no operator column | 37px / 68px |
+| nse | 23 | 34 dot-matrix characters at 0.6em, and no operator column | 37px / 53px |
+| led-matrix | 23 | the same 34 characters, on a panel with no printed casing | 39px / 59px |
 
 (Second figure is the single-board layout.)
 
@@ -668,7 +698,7 @@ reading layout out of CSS has to run against a connected node.
 
 ## Open items
 
-- Verified at 1280×720 and 1920×1080, one and two boards, all three themes:
+- Verified at 1280×720 and 1920×1080, one and two boards, all six themes:
   rows fill 100% of the height, no page overflow in either axis, and no cell
   clips except in `modern` and `crt` (see below). The model is width-bound at
   both sizes and the two are proportional, so 720p is not a separate case —
@@ -688,3 +718,67 @@ reading layout out of CSS has to run against a connected node.
   first things to adjust if the board looks wrong.
 - `--calling-share` has a second home in `board.js`, which sets it per board to
   the same number or to 0. Change both.
+---
+
+# Addendum 4 — Never spend the RTT allowance on local work
+
+The free RTT token allows **10 calls a minute, 100 an hour, 1000 a day**, and
+it is one allowance shared by every machine holding the token. The Pi polling
+two stations on the 120 s floor already spends about 60 board calls an hour,
+so a dev session that reaches the live API does not just waste quota — it
+takes the real board off RTT for the rest of the hour and burns the daily
+budget by mid-afternoon. RDM has no comparable limit; RTT is the scarce one.
+
+## The rule
+
+**Local runs and tests never call `data.rtt.io`.** Every RTT behaviour is
+already exercisable from `tests/fixtures/rtt_*.json`. Live RTT calls are for
+the Pi, and for a deliberate capture the user has asked for.
+
+In practice, on the dev Mac:
+
+- Leave `RTT_TOKEN` unset in the dev shell and out of the repo `.env`. A
+  source with no credentials is a permanent failure reported once at startup
+  and never retried (Addendum 1), so this alone is enough to make live RTT
+  calls impossible. It is the primary guard; the rest are belt and braces.
+- Set `sources.fallback: null` in the local `config.yaml`, so a failing RDM
+  key cannot quietly turn into RTT traffic.
+- Never use the admin **Force source** control, `/api/source/force`, or
+  `sources.primary: rtt` on a dev machine. Forcing bypasses the failover logic
+  and puts every poll on RTT immediately.
+- Never `curl`, `httpx` or otherwise poke `data.rtt.io` "just to see the
+  shape". The shape is in `tests/fixtures/rtt_live_capture.json`, which exists
+  for exactly that, and `test_rtt.py` parses it to catch drift.
+- Never leave a dev server polling unattended. Even on RDM it is pointless;
+  stop uvicorn when the check is done.
+
+## Tests make no network calls at all
+
+`pytest` must be runnable with the network down. Both clients keep a pure
+`parse_board(...)` that works on recorded JSON precisely so this holds. A test
+that needs an HTTP layer mocks the transport; it does not reach an upstream,
+and it does not read `RTT_TOKEN` from the developer's environment. The autouse
+`clean_credentials` fixture in `conftest.py` deletes `RDM_API_KEY` and
+`RTT_TOKEN` for every test; the ones that need a key opt in to the
+`rdm_credentials` / `rtt_credentials` fixtures, which set obvious fakes. Do not
+undo that, and add any new credential variable to it.
+
+If a test would need a live call to be meaningful, it does not belong in
+`pytest`; record a fixture instead.
+
+## Recording a new fixture
+
+The one legitimate reason to spend live RTT calls. It is a deliberate,
+user-approved act, not a step inside another task:
+
+- Ask first, and say how many calls it will cost.
+- One capture, one station, one window. Save the raw response verbatim to
+  `tests/fixtures/`, strip the token from any header dump, and commit it.
+- Do not loop, do not poll, do not re-run to "get a fresher one".
+
+## If the allowance has already been spent
+
+`/api/status` reports `rate_limit` from the `X-RateLimit-Remaining-*` headers,
+and the admin Status block shows it. A `429` carries `Retry-After`. Nothing
+resets it early — wait out the window. Do not register a second token to work
+around a limit hit by local testing; fix the testing instead.

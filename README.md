@@ -3,7 +3,7 @@
 A live UK National Rail departure board for a Raspberry Pi 4B on a 16:9
 monitor. It polls the Darwin feed through the Rail Data Marketplace — falling
 back to Realtime Trains when Darwin is unreachable — renders one or two
-stations full screen in one of three themes, and speaks platform-style
+stations full screen in one of six themes, and speaks platform-style
 announcements as trains approach.
 
 ```
@@ -23,8 +23,9 @@ announcements as trains approach.
   API token for the fallback source
 - For announcements: [Piper](https://github.com/rhasspy/piper) and a British
   English voice
-- On the Pi: Raspberry Pi OS Lite 64-bit, plus `cage` and `chromium-browser`
-  (installed by `deploy/install.sh`)
+- On the Pi: Raspberry Pi OS Lite 64-bit, plus `cage` and `chromium`
+  (installed by `deploy/install.sh`). Current Pi OS has no `chromium-browser`
+  package; the binary is `/usr/bin/chromium`
 
 ## Local development (Mac or Linux)
 
@@ -74,6 +75,24 @@ journalctl --user -u describer -f
 sudo journalctl -u kiosk -f
 ```
 
+### Updating a Pi
+
+```bash
+cd ~/describer && git pull
+systemctl --user restart describer && sudo systemctl restart kiosk
+```
+
+Static files are served with `Cache-Control: no-cache`, so Chromium checks
+every file with the server and picks up new themes on the reload. A Pi that
+was last updated before that header existed may still be holding an old file
+its browser decided was fresh, which shows up as a new theme drawn with the
+previous release's stylesheet. Clearing the browser cache once fixes it for
+good:
+
+```bash
+sudo systemctl stop kiosk && rm -rf ~/.cache/chromium && sudo systemctl start kiosk
+```
+
 ## Configuration
 
 `config.yaml` is the source of truth (repo root in development,
@@ -118,14 +137,16 @@ endpoints. Calling points still cost one request per service, so only the
 first `sources.rtt.detail_rows` rows get them (the board only ever expands the
 first row).
 
-**Mind the allowance.** A free RTT token permits 10 requests a minute and 100
-an hour. The board therefore never polls faster than
+**Mind the allowance.** A free RTT token permits 10 requests a minute, 100 an
+hour and 1000 a day. The board therefore never polls faster than
 `sources.rtt.min_poll_interval` (120 s by default) while RTT is live, drops the
 optional calling-point calls once the allowance runs low (below 3 for the
 minute or 25 for the hour) rather than losing the board itself, and shows what
-is left in the `/admin` status block. A 30 s
-poll across two stations would exhaust an hour's allowance in about four
-minutes.
+is left in the `/admin` status block. At the 120 s floor two stations spend
+about 60 calls an hour on boards. A 30 s poll would instead issue four board
+calls a minute, spending the hour's hundred in about 25 minutes, and the
+calling-point calls on top of those breach the ten-a-minute limit sooner
+still.
 
 Compared with Darwin, RTT still has no NRCC disruption messages and no bare
 "Delayed" state (a train with no estimate simply shows nothing), but the v2 API
@@ -164,11 +185,19 @@ stations:
 | `led-matrix` | Amber LED dot-matrix panel of the 2000s; every word on the screen is lit dots, and long lines scroll. |
 
 A theme is a CSS file in `describer/web/static/themes/` plus a same-named JS
-module. The module may export `attach`, `configure`, `detach`, `renderText`
-and `afterRender`, all optional; `board.js` calls them and hands over the
-theme's own config block. `modern.js` is a no-op example to copy. Adding a
-theme touches no backend code beyond adding its name to the `theme` literal
-in `describer/config.py`, so the config validates.
+module. The module may export `attach`, `configure`, `detach`, `renderText`,
+`statusText`, `renderCallingPoints` and `afterRender`, all optional;
+`board.js` calls them and hands over the theme's own config block.
+`modern.js` is a no-op example to copy. Adding a theme touches no backend
+code beyond adding its name to the `theme` literal in `describer/config.py`,
+so the config validates.
+
+`dotmatrix.js` in that directory is not a theme. It is the 5x7 dot font and
+the text fitting that `nse` and `led-matrix` both draw with, kept in one
+place so the letters cannot drift apart.
+
+There is no build step, and static files are served with `Cache-Control:
+no-cache`, so an edited theme takes effect on the next page load.
 
 ### Announcements
 

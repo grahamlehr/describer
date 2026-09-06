@@ -11,7 +11,7 @@ network at boot), drop the woff2 files here and add the matching
 | crt        | IBM Plex Mono        | `plex-mono-regular.woff2` |
 | splitflap  | Roboto Mono          | `roboto-mono-medium.woff2` |
 | 1990s      | Bedstead (Teletext)  | `bedstead.woff2` (shipped) |
-| nse        | Rail Alphabet        | `rail-alphabet-bold.woff2` (licensed; Helvetica/Arial otherwise) |
+| nse        | Rail Alphabet        | `rail-alphabet-bold.woff2` (licensed; Helvetica/Arial otherwise). Casing only: the matrix itself is dots |
 | led-matrix | none                 | every character is drawn as dots |
 
 Example, added at the top of `themes/modern.css`:
