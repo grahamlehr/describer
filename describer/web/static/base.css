@@ -30,7 +30,7 @@ html, body {
 
 .board-header {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   align-items: baseline;
   gap: 1.2vw;
   min-width: 0;
@@ -48,6 +48,15 @@ html, body {
 .clock[hidden] { display: none; }
 
 .stale { font-size: 1.8vh; padding: 0.4vh 0; }
+
+/* Which feed is live. Deliberately quiet: it matters only when it changes. */
+.source {
+  font-size: 1.6vh;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.55;
+}
+.source[hidden] { display: none; }
 
 .rows { display: flex; flex-direction: column; gap: 0.4vh; margin-top: 1vh; min-height: 0; }
 

@@ -1,0 +1,419 @@
+{
+  "systemStatus": {
+    "realtimeNetworkRail": "OK",
+    "rttCore": "OK"
+  },
+  "query": {
+    "location": {
+      "namespace": "gb-nr",
+      "description": "London Paddington",
+      "shortCodes": [
+        "PAD"
+      ],
+      "longCodes": [
+        "gb-nr:PADTON",
+        "gb-nr:PADTLL"
+      ]
+    },
+    "timeFrom": "2026-09-06T15:01:38+01:00",
+    "timeTo": "2026-09-06T16:01:38+01:00",
+    "detailed": false
+  },
+  "services": [
+    {
+      "temporalData": {
+        "arrival": {
+          "scheduleInternal": "2026-09-06T14:51:00",
+          "scheduleAdvertised": "2026-09-06T14:51:00",
+          "realtimeForecast": "2026-09-06T15:04:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_SET_DOWN",
+        "realtimeCallType": "ADVERTISED_SET_DOWN",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "4",
+          "forecast": "4"
+        },
+        "numberOfVehicles": 8,
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:C05986:2026-09-06",
+        "namespace": "gb-nr",
+        "identity": "C05986",
+        "departureDate": "2026-09-06",
+        "operator": {
+          "code": "GW",
+          "name": "Great Western Railway"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "Bristol Parkway",
+            "longCodes": [
+              "BRSTPWY"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T13:21:00",
+            "scheduleAdvertised": "2026-09-06T13:21:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTON"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T14:51:00",
+            "scheduleAdvertised": "2026-09-06T14:51:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "arrival": {
+          "scheduleInternal": "2026-09-06T14:59:00",
+          "scheduleAdvertised": "2026-09-06T14:59:00",
+          "realtimeForecast": "2026-09-06T15:07:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_SET_DOWN",
+        "realtimeCallType": "ADVERTISED_SET_DOWN",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "8",
+          "forecast": "8"
+        },
+        "numberOfVehicles": 5,
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:C02512:2026-09-06",
+        "namespace": "gb-nr",
+        "identity": "C02512",
+        "departureDate": "2026-09-06",
+        "operator": {
+          "code": "GW",
+          "name": "Great Western Railway"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "Oxford",
+            "longCodes": [
+              "OXFD"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T13:56:00",
+            "scheduleAdvertised": "2026-09-06T13:56:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTON"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T14:59:00",
+            "scheduleAdvertised": "2026-09-06T14:59:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "arrival": {
+          "scheduleInternal": "2026-09-06T15:02:00",
+          "scheduleAdvertised": "2026-09-06T15:02:00",
+          "realtimeActual": "2026-09-06T15:03:00",
+          "realtimeInternalLateness": 0,
+          "realtimeAdvertisedLateness": 0,
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_SET_DOWN",
+        "realtimeCallType": "ADVERTISED_SET_DOWN",
+        "displayAs": "CALL",
+        "isInterpolated": false,
+        "status": "APPROACHING"
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "6",
+          "actual": "6"
+        },
+        "numberOfVehicles": 8,
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:W10894:2026-09-06",
+        "namespace": "gb-nr",
+        "identity": "W10894",
+        "departureDate": "2026-09-06",
+        "operator": {
+          "code": "HX",
+          "name": "Heathrow Express"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "Heathrow Airport Terminal 5",
+            "longCodes": [
+              "HTRWTM5"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T14:42:00",
+            "scheduleAdvertised": "2026-09-06T14:42:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTON"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T15:02:00",
+            "scheduleAdvertised": "2026-09-06T15:02:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "arrival": {
+          "scheduleInternal": "2026-09-06T15:00:00",
+          "scheduleAdvertised": "2026-09-06T15:02:00",
+          "realtimeActual": "2026-09-06T15:00:00",
+          "realtimeInternalLateness": 0,
+          "realtimeAdvertisedLateness": -1,
+          "isCancelled": false
+        },
+        "departure": {
+          "scheduleInternal": "2026-09-06T15:02:00",
+          "scheduleAdvertised": "2026-09-06T15:02:00",
+          "realtimeForecast": "2026-09-06T15:02:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_OPEN",
+        "realtimeCallType": "ADVERTISED_OPEN",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "B",
+          "actual": "B"
+        },
+        "numberOfVehicles": 9,
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:C37122:2026-09-06",
+        "namespace": "gb-nr",
+        "identity": "C37122",
+        "departureDate": "2026-09-06",
+        "operator": {
+          "code": "XR",
+          "name": "Elizabeth Line"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "Abbey Wood",
+            "longCodes": [
+              "ABWDXR"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T14:32:00",
+            "scheduleAdvertised": "2026-09-06T14:32:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Maidenhead",
+            "longCodes": [
+              "MDNHEAD"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T15:40:00",
+            "scheduleAdvertised": "2026-09-06T15:42:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "arrival": {
+          "scheduleInternal": "2026-09-06T15:02:00",
+          "scheduleAdvertised": "2026-09-06T15:03:00",
+          "realtimeForecast": "2026-09-06T15:06:00",
+          "isCancelled": false
+        },
+        "departure": {
+          "scheduleInternal": "2026-09-06T15:04:00",
+          "scheduleAdvertised": "2026-09-06T15:04:00",
+          "realtimeForecast": "2026-09-06T15:08:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_OPEN",
+        "realtimeCallType": "ADVERTISED_OPEN",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "A",
+          "forecast": "A"
+        },
+        "numberOfVehicles": 9,
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:C37603:2026-09-06",
+        "namespace": "gb-nr",
+        "identity": "C37603",
+        "departureDate": "2026-09-06",
+        "operator": {
+          "code": "XR",
+          "name": "Elizabeth Line"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "Heathrow Airport Terminal 4",
+            "longCodes": [
+              "HTRWTM4"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T14:30:00",
+            "scheduleAdvertised": "2026-09-06T14:30:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Abbey Wood",
+            "longCodes": [
+              "ABWDXR"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T15:34:00",
+            "scheduleAdvertised": "2026-09-06T15:34:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "arrival": {
+          "scheduleInternal": "2026-09-06T15:04:00",
+          "scheduleAdvertised": "2026-09-06T15:06:00",
+          "realtimeForecast": "2026-09-06T15:04:00",
+          "isCancelled": false
+        },
+        "departure": {
+          "scheduleInternal": "2026-09-06T15:06:00",
+          "scheduleAdvertised": "2026-09-06T15:06:00",
+          "realtimeForecast": "2026-09-06T15:06:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_OPEN",
+        "realtimeCallType": "ADVERTISED_OPEN",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "B",
+          "forecast": "B"
+        },
+        "numberOfVehicles": 9,
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:C37355:2026-09-06",
+        "namespace": "gb-nr",
+        "identity": "C37355",
+        "departureDate": "2026-09-06",
+        "operator": {
+          "code": "XR",
+          "name": "Elizabeth Line"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "Shenfield",
+            "longCodes": [
+              "SHENFLD"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T14:11:00",
+            "scheduleAdvertised": "2026-09-06T14:11:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Heathrow Airport Terminal 5",
+            "longCodes": [
+              "HTRWTM5"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2026-09-06T15:34:00",
+            "scheduleAdvertised": "2026-09-06T15:36:00"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 """Normalised rail data.
 
-Everything downstream of :mod:`describer.rail.client` — themes, announcements,
-the SSE payload — sees only these types, never a raw LDBWS response shape.
+Everything downstream of the source clients — themes, announcements, the SSE
+payload — sees only these types, never a raw LDBWS or RTT response shape.
 """
 
 from __future__ import annotations
@@ -106,6 +106,8 @@ class Board(BaseModel):
     services: list[Service] = Field(default_factory=list)
     #: NRCC service messages (disruption notices) as plain text.
     messages: list[str] = Field(default_factory=list)
+    #: Which source produced this board: "rdm" or "rtt". Set by the manager.
+    source: str = ""
     #: True when the last fetch failed and this is the last good data.
     stale: bool = False
     #: Human-readable reason the board is stale, shown in the indicator.

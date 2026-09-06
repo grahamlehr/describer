@@ -2,7 +2,9 @@
 # /etc/describer/config.yaml (Pi). The file is the source of truth; the
 # admin page at /admin reads and writes this same file.
 #
-# The API key is NOT here. It lives in RDM_API_KEY (environment or .env).
+# No credentials are here. They live in the environment (or .env):
+#   RDM_API_KEY    for the Rail Data Marketplace
+#   RTT_TOKEN      for Realtime Trains (api-portal.rtt.io)
 
 # One or two stations. Two render side by side, split screen.
 # List the same CRS twice with different modes to show departures and arrivals.
@@ -26,12 +28,30 @@ display:
       click_sound: false    # play a click as flaps settle
       flap_ms: 40           # milliseconds per flap step (lower = faster)
 
-api:
-  # Rail Data Marketplace LDBWS (Darwin) REST base URL, no trailing slash.
-  base_url: https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120
+# Two independent upstreams. The primary is used while it works; after
+# failover_after consecutive failures the fallback takes over, and the primary
+# is retried quietly until it comes back.
+sources:
+  primary: rdm              # rdm | rtt
+  fallback: rtt             # rdm | rtt | null (null = no failover)
+  failover_after: 3         # consecutive primary failures before switching
+  recover_after: 300        # seconds between background retries of the primary
   poll_interval: 30         # seconds between polls per station (minimum 20)
-  timeout: 10.0             # HTTP timeout in seconds for one request
   stale_after: 120          # a board older than this shows the "data stale" flag
+  rdm:
+    # Rail Data Marketplace LDBWS (Darwin) REST base URL, no trailing slash.
+    base_url: https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120
+    timeout: 10.0           # HTTP timeout in seconds for one request
+  rtt:
+    # Realtime Trains next-generation API (token from api-portal.rtt.io).
+    base_url: https://data.rtt.io
+    timeout: 10.0           # HTTP timeout in seconds for one request
+    include_buses: false    # show replacement bus services from RTT
+    detail_rows: 3          # services per board that get a calling-points call
+    time_window: 60         # minutes of services to ask for in one call
+    # RTT's free tier allows 10 calls a minute and 100 an hour, so the board
+    # polls no faster than this whenever RTT is the live source.
+    min_poll_interval: 120
 
 announcements:
   enabled: true             # global on/off

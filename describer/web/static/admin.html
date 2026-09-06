@@ -15,6 +15,17 @@
 <section class="status" id="status">
   <h2>Status</h2>
   <dl id="status-list"><dd>Loading&hellip;</dd></dl>
+  <div class="row-actions">
+    <label>Force source
+      <select id="force-source">
+        <option value="auto">Auto (failover)</option>
+        <option value="rdm">Rail Data Marketplace</option>
+        <option value="rtt">Realtime Trains</option>
+      </select>
+    </label>
+    <button type="button" id="apply-force" class="secondary">Apply</button>
+    <span class="hint">Testing only — held in memory, never written to the config file.</span>
+  </div>
 </section>
 
 <form id="config-form">
@@ -60,23 +71,69 @@
   </section>
 
   <section>
-    <h2>Data feed</h2>
+    <h2>Data sources</h2>
+    <p class="hint">The primary source is used while it works. After enough
+      consecutive failures the fallback takes over, and the primary is retried
+      quietly in the background until it comes back.</p>
     <div class="grid">
-      <label class="wide">LDBWS base URL
-        <input type="url" name="api.base_url" required>
+      <label>Primary
+        <select name="sources.primary">
+          <option value="rdm">Rail Data Marketplace</option>
+          <option value="rtt">Realtime Trains</option>
+        </select>
+      </label>
+      <label>Fallback
+        <select name="sources.fallback">
+          <option value="">None (no failover)</option>
+          <option value="rdm">Rail Data Marketplace</option>
+          <option value="rtt">Realtime Trains</option>
+        </select>
+      </label>
+      <label>Failover after (failures)
+        <input type="number" name="sources.failover_after" min="1" max="20" step="1" required>
+      </label>
+      <label>Retry the primary every (s)
+        <input type="number" name="sources.recover_after" min="30" max="86400" step="10" required>
       </label>
       <label>Poll interval (s)
-        <input type="number" name="api.poll_interval" min="20" max="600" step="1" required>
-      </label>
-      <label>Request timeout (s)
-        <input type="number" name="api.timeout" min="1" max="60" step="0.5" required>
+        <input type="number" name="sources.poll_interval" min="20" max="600" step="1" required>
       </label>
       <label>Stale after (s)
-        <input type="number" name="api.stale_after" min="30" max="3600" step="10" required>
+        <input type="number" name="sources.stale_after" min="30" max="3600" step="10" required>
       </label>
     </div>
-    <p class="hint">The API key comes from the <code>RDM_API_KEY</code> environment
-      variable and is never stored in this file.</p>
+    <h3>Rail Data Marketplace (Darwin)</h3>
+    <div class="grid">
+      <label class="wide">LDBWS base URL
+        <input type="url" name="sources.rdm.base_url" required>
+      </label>
+      <label>Request timeout (s)
+        <input type="number" name="sources.rdm.timeout" min="1" max="60" step="0.5" required>
+      </label>
+    </div>
+    <h3>Realtime Trains</h3>
+    <div class="grid">
+      <label class="wide">RTT base URL
+        <input type="url" name="sources.rtt.base_url" required>
+      </label>
+      <label>Request timeout (s)
+        <input type="number" name="sources.rtt.timeout" min="1" max="60" step="0.5" required>
+      </label>
+      <label class="check"><input type="checkbox" name="sources.rtt.include_buses"> Include bus services</label>
+      <label>Rows with calling points
+        <input type="number" name="sources.rtt.detail_rows" min="1" max="12" step="1" required>
+      </label>
+      <label>Time window (minutes)
+        <input type="number" name="sources.rtt.time_window" min="30" max="360" step="10" required>
+      </label>
+      <label>Minimum poll interval (s)
+        <input type="number" name="sources.rtt.min_poll_interval" min="60" max="600" step="10" required>
+      </label>
+    </div>
+    <p class="hint">Credentials never live in this file. The Rail Data Marketplace
+      key comes from <code>RDM_API_KEY</code>; Realtime Trains uses a bearer token
+      in <code>RTT_TOKEN</code>, requested from
+      <a href="https://api-portal.rtt.io">api-portal.rtt.io</a>.</p>
   </section>
 
   <section>

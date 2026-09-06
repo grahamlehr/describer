@@ -17,6 +17,8 @@ body {
 .board-header { border-bottom: 2px solid #222; padding-bottom: 0.8vh; }
 .station-name { text-transform: uppercase; letter-spacing: 0.04em; }
 .board-mode, .clock { color: var(--flap-dim); }
+/* A mechanical board has no business naming a JSON feed. */
+.source { display: none; }
 .messages, .empty, .calling-points { color: var(--flap-dim); }
 .calling-points { border-top: 1px solid #222; text-transform: uppercase; }
 .calling-points-list { color: var(--flap-fg); }

@@ -21,6 +21,7 @@ body {
 }
 
 .board-header { border-bottom: 1px solid var(--phosphor-dim); padding-bottom: 0.8vh; }
+.source { color: var(--phosphor-dim); }
 .station-name { text-transform: uppercase; font-weight: 400; }
 .board-mode, .cell.operator, .cell.platform { color: var(--phosphor-dim); }
 

@@ -9,6 +9,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
@@ -40,6 +41,12 @@ def configure_logging() -> None:
 
 class TestAnnouncement(BaseModel):
     text: str = "This is a test announcement from the departure board."
+
+
+class ForceSource(BaseModel):
+    """Admin override for the live source. Memory only; never written to YAML."""
+
+    source: Literal["rdm", "rtt", "auto"] = "auto"
 
 
 @asynccontextmanager
@@ -103,7 +110,7 @@ async def api_put_config(request: Request, payload: dict) -> dict:
 
     store: ConfigStore = request.app.state.store
     store.set(config)
-    # Applied live: no restart for theme, stations, API or announcement changes.
+    # Applied live: no restart for theme, stations, sources or announcements.
     request.app.state.engine.update_config(config.announcements)
     request.app.state.poller.config_changed()
     return config.model_dump(mode="json")
@@ -116,7 +123,7 @@ async def api_status(request: Request) -> dict:
     announcer: AnnouncementScheduler = request.app.state.announcer
     return {
         "config_path": str(request.app.state.store.path),
-        "api_key_present": bool(os.environ.get("RDM_API_KEY", "").strip()),
+        **poller.sources.status(),
         "last_fetch": poller.last_fetch.isoformat() if poller.last_fetch else None,
         "last_error": poller.last_error,
         "display_on": is_display_on(config.schedule),
@@ -130,6 +137,7 @@ async def api_status(request: Request) -> dict:
                 "crs": board.crs,
                 "name": board.name,
                 "mode": board.mode,
+                "source": board.source,
                 "services": len(board.services),
                 "stale": board.stale,
                 "error": board.error,
@@ -138,6 +146,14 @@ async def api_status(request: Request) -> dict:
             for board in poller.boards()
         ],
     }
+
+
+@app.post("/api/source/force")
+async def api_force_source(request: Request, payload: ForceSource) -> dict:
+    """Pin the live source so the fallback can be tested without pulling a cable."""
+    poller: Poller = request.app.state.poller
+    poller.force_source(None if payload.source == "auto" else payload.source)
+    return poller.sources.status()
 
 
 @app.post("/api/announce/test")

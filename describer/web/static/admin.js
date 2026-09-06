@@ -143,7 +143,7 @@ function fillForm() {
     const value = get(config, field.name);
     if (value === undefined) continue;
     if (field.type === 'checkbox') field.checked = Boolean(value);
-    else field.value = value;
+    else field.value = value ?? '';
   }
   renderStations();
   renderWeekdays();
@@ -160,6 +160,8 @@ function readForm() {
   }
   draft.stations = readStations();
   draft.schedule.per_weekday = readWeekdays();
+  // "None" on the fallback select means no failover at all.
+  if (draft.sources.fallback === '') draft.sources.fallback = null;
   return draft;
 }
 
@@ -184,14 +186,38 @@ function formatTime(iso) {
   return iso ? new Date(iso).toLocaleTimeString('en-GB') : 'never';
 }
 
+const SOURCE_LABELS = { rdm: 'Rail Data Marketplace', rtt: 'Realtime Trains' };
+
+function sourceLabel(name) {
+  return name ? SOURCE_LABELS[name] || name : 'none';
+}
+
+function formatAllowance(limits) {
+  const entries = Object.entries(limits || {});
+  if (!entries.length) return '—';
+  // The free RTT tier is metered; a board that runs dry stops updating.
+  return entries
+    .map(([period, left]) => pill(left > 10, `${left} left this ${period}`))
+    .join(' ');
+}
+
 async function loadStatus() {
   try {
     const status = await (await fetch('/api/status')).json();
     const boards = status.boards
-      .map((b) => `${b.crs} ${b.mode} — ${b.services} services ${b.stale ? pill(false, 'stale') : pill(true, 'live')}`)
+      .map((b) => `${b.crs} ${b.mode} — ${b.services} services ${b.stale ? pill(false, 'stale') : pill(true, 'live')}${b.source ? ` ${pill(true, sourceLabel(b.source))}` : ''}`)
       .join('<br>');
+    const health = [
+      pill(status.primary_healthy, `primary: ${sourceLabel(status.primary)}`),
+      status.fallback ? pill(status.fallback_healthy, `fallback: ${sourceLabel(status.fallback)}`) : pill(true, 'no fallback'),
+    ].join(' ');
     statusList.innerHTML = `
-      <dt>API key</dt><dd>${pill(status.api_key_present, status.api_key_present ? 'present' : 'missing')}</dd>
+      <dt>Active source</dt><dd>${pill(true, sourceLabel(status.active_source))}
+        ${status.forced_source === 'auto' ? '' : pill(false, `forced: ${status.forced_source}`)}</dd>
+      <dt>Sources</dt><dd>${health}</dd>
+      <dt>Credentials</dt><dd>${pill(status.credentials.rdm, `RDM_API_KEY ${status.credentials.rdm ? 'present' : 'missing'}`)}
+        ${pill(status.credentials.rtt, `RTT_TOKEN ${status.credentials.rtt ? 'present' : 'missing'}`)}</dd>
+      <dt>Allowance</dt><dd>${formatAllowance(status.rate_limit)}</dd>
       <dt>Last fetch</dt><dd>${formatTime(status.last_fetch)}</dd>
       <dt>Last error</dt><dd>${status.last_error ? pill(false, status.last_error) : pill(true, 'none')}</dd>
       <dt>Display</dt><dd>${status.display_on ? pill(true, 'on') : pill(false, 'off (schedule)')}</dd>
@@ -201,6 +227,7 @@ async function loadStatus() {
       <dt>Last announcement</dt><dd>${status.last_announcement || '—'}</dd>
       <dt>Boards</dt><dd>${boards || '—'}</dd>
       <dt>Config file</dt><dd><code>${status.config_path}</code></dd>`;
+    document.getElementById('force-source').value = status.forced_source || 'auto';
   } catch (err) {
     statusList.innerHTML = `<dt>Status</dt><dd>${pill(false, 'unavailable')}</dd>`;
   }
@@ -243,6 +270,17 @@ document.getElementById('add-station').addEventListener('click', () => {
 
 document.getElementById('reload').addEventListener('click', () => {
   loadConfig().then(() => showMessage('Reloaded from disk.', true));
+});
+
+document.getElementById('apply-force').addEventListener('click', async () => {
+  const source = document.getElementById('force-source').value;
+  const response = await fetch('/api/source/force', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source }),
+  });
+  showMessage(response.ok ? `Source: ${source}.` : 'Could not change the source.', response.ok);
+  loadStatus();
 });
 
 document.getElementById('test-announce').addEventListener('click', async () => {

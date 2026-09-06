@@ -78,7 +78,11 @@ class AnnouncementScheduler:
             if index >= len(config.stations) or not config.stations[index].announce:
                 continue
             for service in board.services:
-                identity = f"{board.crs}:{board.mode}:{service.id}"
+                # Keyed on the train, not on Service.id: the two sources number
+                # the same train differently, and a failover must not re-announce it.
+                identity = (
+                    f"{board.crs}:{board.mode}:{service.scheduled_time}:{service.destination}"
+                )
                 live_ids.add(identity)
                 for kind in self._pending_kinds(service, config, now):
                     if (identity, kind.value) in self._announced:

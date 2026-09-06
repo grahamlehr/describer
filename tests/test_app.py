@@ -6,12 +6,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from describer.config import Config, save_config
-from describer.rail import poller as poller_module
-from describer.rail.client import parse_board
+from describer.rail import sources as sources_module
+from describer.rail.ldbws import parse_board
 
 
 @pytest.fixture
-def client(monkeypatch, tmp_path, departures_payload):
+def client(monkeypatch, tmp_path, rdm_credentials, departures_payload):
     board = parse_board(departures_payload, "PAD", "departures")
 
     class FakeClient:
@@ -24,7 +24,7 @@ def client(monkeypatch, tmp_path, departures_payload):
         async def aclose(self):
             pass
 
-    monkeypatch.setattr(poller_module, "LdbwsClient", FakeClient)
+    monkeypatch.setattr(sources_module, "LdbwsClient", FakeClient)
     path = tmp_path / "config.yaml"
     save_config(Config(stations=[{"crs": "PAD"}]), path)
     monkeypatch.setenv("DESCRIBER_CONFIG", str(path))
@@ -73,7 +73,7 @@ def test_config_round_trips_through_the_api(client, tmp_path):
 
 def test_invalid_config_is_rejected_with_field_errors(client):
     config = client.get("/api/config").json()
-    config["api"]["poll_interval"] = 3
+    config["sources"]["poll_interval"] = 3
 
     response = client.put("/api/config", json=config)
 
@@ -94,7 +94,35 @@ def test_status_reports_the_feed_and_tts(client):
 
     assert set(status["tts"]) == {"piper", "voice", "player"}
     assert status["boards"][0]["crs"] == "PAD"
+    assert status["boards"][0]["source"] == "rdm"
     assert status["display_on"] is True
+
+
+def test_status_reports_the_sources(client):
+    status = client.get("/api/status").json()
+
+    assert status["active_source"] == "rdm"
+    assert status["forced_source"] == "auto"
+    assert status["primary_healthy"] is True
+    assert status["credentials"] == {"rdm": True, "rtt": False}
+    assert "api_key_present" not in status  # replaced by the credentials map
+
+
+def test_source_can_be_forced_without_touching_the_config(client, tmp_path):
+    forced = client.post("/api/source/force", json={"source": "rtt"}).json()
+
+    assert forced["active_source"] == "rtt"
+    assert forced["forced_source"] == "rtt"
+    assert "rtt" not in (tmp_path / "config.yaml").read_text().split("sources:")[0]
+    assert client.get("/api/status").json()["forced_source"] == "rtt"
+
+    back = client.post("/api/source/force", json={"source": "auto"}).json()
+    assert back["forced_source"] == "auto"
+    assert back["active_source"] == "rdm"
+
+
+def test_unknown_forced_source_is_rejected(client):
+    assert client.post("/api/source/force", json={"source": "nre"}).status_code == 422
 
 
 def test_test_announcement_reports_a_missing_piper(client):

@@ -42,6 +42,11 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
 
 ## Data source: Rail Data Marketplace (Darwin LDBWS)
 
+> **Superseded in part.** RDM is now the *primary* of two sources. See
+> the addendum at the end of this file for the second source (Realtime
+> Trains), the source abstraction, and automatic failover. Where the two
+> sections disagree, the addendum wins.
+
 - Use the **Live Departure Board (LDBWS)** product from the Rail Data
   Marketplace (raildata.org.uk). It exposes Darwin data over a JSON REST
   API keyed by an `x-apikey` header. Do not use the old SOAP OpenLDBWS
@@ -186,3 +191,256 @@ Pi: run `deploy/install.sh` once, then `systemctl --user status describer kiosk`
 
 Destination/calling-point filters, multi-Pi sync, mock data mode,
 authentication, packaging for other users, portrait layout, non-UK data.
+
+---
+
+# Addendum 1 — Second data source: Realtime Trains (RTT) with failover
+
+Added after v1 shipped on RDM only. Goal: a genuinely independent upstream
+so the board keeps working when the Rail Data Marketplace is down or the
+key expires. RDM stays primary; RTT is the fallback. Nothing in the
+themes, announcements or SSE contract changes shape except one new field.
+
+## Realtime Trains API facts
+
+> **Superseded.** This section originally described the v1 API at
+> `api.rtt.io` (HTTP Basic auth with a username and password). That portal is
+> closed to new registrations and is being switched off; new accounts get the
+> next-generation API described below. See "Addendum 2".
+
+## Source abstraction
+
+Introduce a small protocol so the poller does not know which API it is
+talking to:
+
+```
+describer/rail/
+  models.py        # unchanged, plus Board.source (see below)
+  base.py          # RailSource Protocol, RailApiError (moved from client.py)
+  ldbws.py         # LdbwsClient — the existing client.py, renamed
+  rtt.py           # RttClient
+  sources.py       # SourceManager: builds clients from config, does failover
+  client.py        # thin re-export of ldbws for backwards compatibility; delete
+                   # once nothing imports it
+```
+
+```python
+class RailSource(Protocol):
+    name: str  # "rdm" | "rtt"
+
+    async def fetch_board(self, crs: str, mode: str) -> Board: ...
+    async def aclose(self) -> None: ...
+```
+
+Both clients keep the split used by `ldbws.py`: a pure `parse_board(...)`
+that works on recorded JSON, and a thin async HTTP wrapper. `Board` and
+`Service` are the only things that leave the `rail` package.
+
+### RttClient specifics
+
+- `fetch_board` does one search call, then detail calls for the first
+  `rows` services only (the board never shows more, and each detail call
+  is a round trip). Detail results are cached in memory keyed by
+  `(serviceUid, runDate)` for 10 minutes; calling points rarely change.
+- Time fields: convert "1432" to "14:32" at the parser boundary. Downstream
+  code assumes "HH:MM" everywhere.
+- Status mapping into `ServiceStatus`:
+  - `displayAs` starts with `CANCELLED_` or `cancelReasonLongText` set →
+    `CANCELLED`.
+  - `realtime*` present and equal to booked → `ON_TIME`.
+  - `realtime*` present and later than booked → `EXPECTED`, with
+    `delay_minutes` computed exactly as the LDBWS parser does.
+  - `realtime*` absent → `UNKNOWN` (RTT has no bare "Delayed" state).
+- Skip services where `isPassenger` is false. Skip `serviceType != "train"`
+  unless `sources.rtt.include_buses` is true.
+- `Service.id` is `f"rtt:{serviceUid}:{runDate}"`; LDBWS ids keep their
+  Darwin `serviceID`. See the announcement note below for why this matters.
+- `operator` = `atocName`, `operator_code` = `atocCode`.
+  `destination` = joined `description`s of `locationDetail.destination`.
+  `platform` = `platform` only when `platformConfirmed` is true, else
+  `None` (LDBWS already omits unconfirmed platforms; keep parity).
+
+## Failover behaviour (SourceManager)
+
+- Config names a `primary` and an optional `fallback`. Each station slot
+  is fetched from the active source; the active source is global, not
+  per slot, so both halves of a split screen always agree.
+- After `failover_after` consecutive failures of the primary (default 3,
+  counted across all slots), switch to the fallback and log at WARNING.
+  Poll the primary quietly in the background every `recover_after`
+  seconds (default 300); on the first success switch back and log INFO.
+- Fallback failures use the existing exponential backoff; the board goes
+  stale exactly as it does today. Failover never masks a stale board.
+- Missing credentials for a source count as a permanent failure for that
+  source, reported once at startup, not retried every tick.
+- `Board.source: str` (new field, `"rdm"` or `"rtt"`) is set by the
+  manager on every board so the UI and status endpoint can show it.
+
+## Config changes
+
+`api:` is renamed `sources:`. The loader accepts the old `api:` key for one
+release and maps it to `sources.rdm` with a deprecation warning.
+
+```yaml
+sources:
+  primary: rdm              # rdm | rtt
+  fallback: rtt             # rdm | rtt | null (null = no failover)
+  failover_after: 3         # consecutive primary failures before switching
+  recover_after: 300        # seconds between background retries of the primary
+  poll_interval: 30         # unchanged, now applies to whichever source is live
+  stale_after: 120          # unchanged
+  rdm:
+    base_url: https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120
+    timeout: 10.0
+  rtt:
+    base_url: https://api.rtt.io/api/v1/json
+    timeout: 10.0
+    include_buses: false    # show replacement bus services from RTT
+    detail_rows: 8          # services per board that get a calling-points call
+```
+
+`SourcesConfig` in `config.py` validates that `primary != fallback` and
+that `detail_rows` is between 1 and 12.
+
+## Surface changes
+
+- `/api/status` gains `active_source`, `primary_healthy`,
+  `fallback_healthy`, and `credentials: {rdm: bool, rtt: bool}`. Replace
+  the single `api_key_present` with that map.
+- `/admin` shows the active source in the Status block, edits the new
+  `sources` fields, and adds a **Force source** control (`rdm` / `rtt` /
+  `auto`, in memory only, not saved to YAML) for testing the fallback
+  without pulling the network cable.
+- Board frontend: a small source badge in the board footer next to the
+  clock, using the existing `stale` styling hooks. Themes may style it but
+  need not; hidden by default in `splitflap`.
+- Announcements: dedupe keys must survive a source switch, otherwise the
+  same train is announced twice under two ids. Change the announcer's
+  "already announced" key from `Service.id` to
+  `(board.crs, mode, scheduled_time, destination)`. Keep `Service.id` for
+  everything else.
+
+## Tests
+
+- `tests/fixtures/rtt_pad_departures.json`, `rtt_rdg_arrivals.json`,
+  `rtt_service_detail.json` recorded from the real API with credentials
+  stripped.
+- `test_rtt.py`: parser parity with LDBWS for the same train (status,
+  delay minutes, calling point ordering in both modes), time conversion,
+  bus and non-passenger filtering, unconfirmed platform handling.
+- `test_sources.py`: failover after N failures, recovery on primary
+  success, missing credentials reported once, `Board.source` set.
+- Extend `test_announce_scheduler.py` with a source-switch case proving
+  no duplicate announcement.
+- Config: old `api:` key still loads; `primary == fallback` rejected.
+
+## Deployment
+
+- `deploy/install.sh` prompts for RTT credentials alongside the RDM key
+  and writes both to `/etc/describer/describer.env`, mode 600.
+- No new apt or pip dependencies; `httpx` already supports Basic auth.
+
+## Out of scope for this addendum
+
+Merging data from both sources at once, per-station source selection,
+a third source, and using RTT service detail to enrich RDM boards.
+
+
+---
+
+# Addendum 2 — Realtime Trains next generation (supersedes the RTT half of Addendum 1)
+
+Addendum 1 was written against the v1 RTT API. That API is reachable only with
+old-portal credentials, which can no longer be created, and it is being turned
+off. Everything below replaces the "Realtime Trains API facts" section and the
+`RttClient` specifics; the source abstraction, `SourceManager`, failover rules,
+config layout and surface changes in Addendum 1 all still stand.
+
+## API facts
+
+- Base URL `https://data.rtt.io`. Register at api-portal.rtt.io (an RTT
+  unified login). Specification: realtimetrains.github.io/api-specification.
+- **Bearer token**, not Basic auth. The token lives in `RTT_TOKEN`
+  (environment or `.env`), never in `config.yaml`, never logged. A token is
+  either a long-life *access* token, used as-is, or a long-life *refresh*
+  token that buys a short-life access token from `GET /api/get_access_token`
+  (which returns `{token, entitlements, validUntil}`). We are not told which
+  we hold: try the exchange once, remember the answer, and renew a minute
+  before `validUntil`.
+- `GET /rtt/location?code=gb-nr:{crs}&timeWindow={minutes}` is the board. It
+  returns every service touching the station in the window, each with
+  `temporalData` (an `arrival` block, a `departure` block, or both, plus
+  `displayAs`, `scheduledCallType`/`realtimeCallType`, `status`),
+  `locationMetadata` (`platform.{planned,forecast,actual}`,
+  `numberOfVehicles`), `scheduleMetadata` (`uniqueIdentity`,
+  `operator.{code,name}`, `modeType`, `inPassengerService`), optional
+  `reasons[]` (`type` DELAY or CANCEL, `shortText`, `longText`), and
+  `origin[]` / `destination[]`. **There is no separate arrivals endpoint**:
+  departures and arrivals are two readings of one response.
+- Each temporal block carries ISO datetimes — `scheduleAdvertised`,
+  `scheduleInternal`, `realtimeForecast`, `realtimeActual`,
+  `realtimeAdvertisedLateness`, `isCancelled` — not v1's `"1432"` strings.
+- `GET /rtt/service?uniqueIdentity=gb-nr:W12345:2024-05-14` gives
+  `service.locations[]` for calling points, each with the same
+  `temporalData` / `location` shapes.
+- **Rate limits are real and tight**: a free token allows 10 requests a
+  minute, 100 an hour, 1000 a day, reported in `X-RateLimit-Remaining-*`
+  headers, with `429` and `Retry-After` when exceeded.
+
+## RttClient specifics
+
+- Departures read `temporalData.departure`, arrivals `temporalData.arrival`;
+  a service without the relevant block is not on that board. A
+  `ADVERTISED_SET_DOWN` call is not a departure (nobody may board) and a
+  `ADVERTISED_PICK_UP` call is not an arrival. `PASS` and `DIVERTED`
+  locations never appear.
+- Times convert from ISO to `"HH:MM"` at the parser boundary. Lateness comes
+  from `realtimeAdvertisedLateness` when the API reports it, otherwise from
+  the clock difference, so it matches the LDBWS parser.
+- Status mapping is unchanged from Addendum 1: cancelled → `CANCELLED`, no
+  realtime → `UNKNOWN`, realtime later than booked → `EXPECTED`, else
+  `ON_TIME`.
+- `platform` only when `actual` or `forecast` is present; `planned` alone is
+  not a confirmed platform, keeping parity with LDBWS.
+- `Service.id` is `f"rtt:{uniqueIdentity}"`, which already namespaces and
+  dates the train. Announcement dedupe still keys on the train, not the id.
+- `length` comes from `locationMetadata.numberOfVehicles`; `cancel_reason`
+  and `delay_reason` from `reasons[]`. v1 had none of these.
+
+## Living inside the allowance
+
+- `sources.rtt.min_poll_interval` (default 120 s) is a floor the poller obeys
+  whenever RTT is the live source, however low `sources.poll_interval` is.
+- `sources.rtt.detail_rows` defaults to 3, not 8: only the first row is ever
+  expanded on screen, and each detail row is its own request.
+- When the remaining allowance falls below `DETAIL_BUDGET` in any period
+  (3 a minute, 25 an hour), the client skips calling-point calls and still
+  returns the board. Two stations polling on the floor spend about 60 calls an
+  hour on boards alone, so the hourly figure is the one that usually bites.
+  Calling points are decoration; a board is not.
+- The remaining allowance is surfaced in `/api/status` as `rate_limit` and
+  shown in the admin Status block.
+
+## Config
+
+```yaml
+sources:
+  rtt:
+    base_url: https://data.rtt.io
+    timeout: 10.0
+    include_buses: false
+    detail_rows: 3          # rows given a calling-points call
+    time_window: 60         # minutes of services per board call
+    min_poll_interval: 120  # floor while RTT is live (free tier: 100/hour)
+```
+
+## Tests
+
+- `tests/fixtures/rtt_pad_departures.json`, `rtt_rdg_arrivals.json` and
+  `rtt_service_detail.json` carry real v2 shapes with values mirroring the
+  LDBWS fixtures, so parity assertions compare the same four trains.
+- `tests/fixtures/rtt_live_capture.json` is an untouched capture from the
+  real API, parsed by a test that exists to catch shape drift.
+- `test_rtt.py` additionally covers the token exchange (both token kinds),
+  set-down/pick-up filtering, passing points, and dropping calling points
+  before dropping the board when the allowance runs low.

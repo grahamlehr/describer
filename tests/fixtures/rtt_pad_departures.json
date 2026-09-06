@@ -1,0 +1,471 @@
+{
+  "systemStatus": {
+    "realtimeNetworkRail": "OK",
+    "rttCore": "OK"
+  },
+  "query": {
+    "location": {
+      "namespace": "gb-nr",
+      "description": "London Paddington",
+      "shortCodes": [
+        "PAD"
+      ],
+      "longCodes": [
+        "gb-nr:PADTON",
+        "gb-nr:PADTLL"
+      ]
+    },
+    "timeFrom": "2024-05-14T14:30:00",
+    "timeTo": "2024-05-14T15:30:00",
+    "detailed": false
+  },
+  "services": [
+    {
+      "temporalData": {
+        "departure": {
+          "scheduleInternal": "2024-05-14T14:32:00",
+          "scheduleAdvertised": "2024-05-14T14:32:00",
+          "realtimeForecast": "2024-05-14T14:32:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_PICK_UP",
+        "realtimeCallType": "ADVERTISED_PICK_UP",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "9",
+          "forecast": "9"
+        },
+        "allocationIndex": 0,
+        "numberOfVehicles": 9
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:W12345:2024-05-14",
+        "namespace": "gb-nr",
+        "identity": "W12345",
+        "departureDate": "2024-05-14",
+        "operator": {
+          "code": "GW",
+          "name": "Great Western Railway"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTON"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T14:32:00",
+            "scheduleAdvertised": "2024-05-14T14:32:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Bristol Temple Meads",
+            "longCodes": [
+              "BRSTLTM"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T16:02:00",
+            "scheduleAdvertised": "2024-05-14T16:02:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "departure": {
+          "scheduleInternal": "2024-05-14T14:36:00",
+          "scheduleAdvertised": "2024-05-14T14:36:00",
+          "realtimeForecast": "2024-05-14T14:51:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_PICK_UP",
+        "realtimeCallType": "ADVERTISED_PICK_UP",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "12",
+          "forecast": "12"
+        },
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:W67890:2024-05-14",
+        "namespace": "gb-nr",
+        "identity": "W67890",
+        "departureDate": "2024-05-14",
+        "operator": {
+          "code": "XR",
+          "name": "Elizabeth line"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "reasons": [
+        {
+          "type": "DELAY",
+          "code": "IB",
+          "system": "TRUST",
+          "shortText": "a signalling fault",
+          "longText": "This is due to a fault with the signalling system"
+        }
+      ],
+      "origin": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTLL"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T14:36:00",
+            "scheduleAdvertised": "2024-05-14T14:36:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Abbey Wood",
+            "longCodes": [
+              "ABWD"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T15:29:00",
+            "scheduleAdvertised": "2024-05-14T15:29:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "departure": {
+          "scheduleInternal": "2024-05-14T14:41:00",
+          "scheduleAdvertised": "2024-05-14T14:41:00",
+          "isCancelled": true
+        },
+        "scheduledCallType": "ADVERTISED_PICK_UP",
+        "realtimeCallType": "ADVERTISED_PICK_UP",
+        "displayAs": "CANCELLED",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "8"
+        },
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:W24680:2024-05-14",
+        "namespace": "gb-nr",
+        "identity": "W24680",
+        "departureDate": "2024-05-14",
+        "operator": {
+          "code": "GW",
+          "name": "Great Western Railway"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "reasons": [
+        {
+          "type": "CANCEL",
+          "code": "TR",
+          "system": "TRUST",
+          "shortText": "a shortage of train crew",
+          "longText": "This is due to a shortage of train crew"
+        }
+      ],
+      "origin": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTON"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T14:41:00",
+            "scheduleAdvertised": "2024-05-14T14:41:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Oxford",
+            "longCodes": [
+              "OXFD"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T15:46:00",
+            "scheduleAdvertised": "2024-05-14T15:46:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "departure": {
+          "scheduleInternal": "2024-05-14T14:45:00",
+          "scheduleAdvertised": "2024-05-14T14:45:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_PICK_UP",
+        "realtimeCallType": "ADVERTISED_PICK_UP",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "3"
+        },
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:W13579:2024-05-14",
+        "namespace": "gb-nr",
+        "identity": "W13579",
+        "departureDate": "2024-05-14",
+        "operator": {
+          "code": "HX",
+          "name": "Heathrow Express"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTON"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T14:45:00",
+            "scheduleAdvertised": "2024-05-14T14:45:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Heathrow Terminal 5",
+            "longCodes": [
+              "HTRWTM5"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T15:07:00",
+            "scheduleAdvertised": "2024-05-14T15:07:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "departure": {
+          "scheduleInternal": "2024-05-14T14:47:00",
+          "scheduleAdvertised": "2024-05-14T14:47:00",
+          "realtimeForecast": "2024-05-14T14:47:00",
+          "isCancelled": false
+        },
+        "arrival": {
+          "scheduleInternal": "2024-05-14T14:46:00",
+          "scheduleAdvertised": "2024-05-14T14:46:00",
+          "realtimeForecast": "2024-05-14T14:46:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_SET_DOWN",
+        "realtimeCallType": "ADVERTISED_SET_DOWN",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "14",
+          "forecast": "14"
+        },
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:W33333:2024-05-14",
+        "namespace": "gb-nr",
+        "identity": "W33333",
+        "departureDate": "2024-05-14",
+        "operator": {
+          "code": "GW",
+          "name": "Great Western Railway"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "Didcot Parkway",
+            "longCodes": [
+              "DIDCOTP"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T13:58:00",
+            "scheduleAdvertised": "2024-05-14T13:58:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTON"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T14:46:00",
+            "scheduleAdvertised": "2024-05-14T14:46:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "departure": {
+          "scheduleInternal": "2024-05-14T14:50:00",
+          "scheduleAdvertised": "2024-05-14T14:50:00",
+          "realtimeForecast": "2024-05-14T14:50:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_PICK_UP",
+        "realtimeCallType": "ADVERTISED_PICK_UP",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": null
+        },
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:W11111:2024-05-14",
+        "namespace": "gb-nr",
+        "identity": "W11111",
+        "departureDate": "2024-05-14",
+        "operator": {
+          "code": "GW",
+          "name": "Great Western Railway"
+        },
+        "modeType": "BUS",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTON"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T14:50:00",
+            "scheduleAdvertised": "2024-05-14T14:50:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Reading",
+            "longCodes": [
+              "RDNGSTN"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T16:20:00",
+            "scheduleAdvertised": "2024-05-14T16:20:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "departure": {
+          "scheduleInternal": "2024-05-14T14:55:00",
+          "scheduleAdvertised": "2024-05-14T14:55:00",
+          "realtimeForecast": "2024-05-14T14:55:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_PICK_UP",
+        "realtimeCallType": "ADVERTISED_PICK_UP",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "1",
+          "forecast": "1"
+        },
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:W22222:2024-05-14",
+        "namespace": "gb-nr",
+        "identity": "W22222",
+        "departureDate": "2024-05-14",
+        "operator": {
+          "code": "GW",
+          "name": "Great Western Railway"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": false
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTON"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T14:55:00",
+            "scheduleAdvertised": "2024-05-14T14:55:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Old Oak Common",
+            "longCodes": [
+              "OLDOAKC"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T15:05:00",
+            "scheduleAdvertised": "2024-05-14T15:05:00"
+          }
+        }
+      ]
+    }
+  ]
+}

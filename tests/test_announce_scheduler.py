@@ -19,8 +19,14 @@ class RecordingEngine:
         self.spoken.append(text)
 
 
-def board_with(*services: Service) -> Board:
-    return Board(crs="PAD", name="London Paddington", mode="departures", services=list(services))
+def board_with(*services: Service, source: str = "rdm") -> Board:
+    return Board(
+        crs="PAD",
+        name="London Paddington",
+        mode="departures",
+        source=source,
+        services=list(services),
+    )
 
 
 def service_at(offset_minutes: float, **overrides) -> Service:
@@ -137,3 +143,22 @@ async def test_departed_services_are_forgotten(scheduler):
     await announcer.on_boards([board_with()], config)
 
     assert announcer._announced == set()
+
+
+async def test_a_source_switch_does_not_re_announce_a_train(scheduler):
+    """The two feeds number the same train differently; the announcer must not care."""
+    announcer, engine = scheduler
+    config = Config(stations=[{"crs": "PAD"}])
+    from_rdm = board_with(service_at(1, id="aaa111"))
+    # The same 14:32 to Bristol, now carrying an RTT identifier.
+    from_rtt = board_with(
+        service_at(1, id="rtt:W12345:2024-05-14"),
+        source="rtt",
+    )
+
+    await announcer.on_boards([from_rdm], config)
+    await drain(announcer)
+    await announcer.on_boards([from_rtt], config)
+    await drain(announcer)
+
+    assert len(engine.spoken) == 1

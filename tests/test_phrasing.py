@@ -11,7 +11,7 @@ from describer.announce.phrasing import (
     speak_time,
     spell_number,
 )
-from describer.rail.client import parse_board
+from describer.rail.ldbws import parse_board
 
 
 @pytest.fixture

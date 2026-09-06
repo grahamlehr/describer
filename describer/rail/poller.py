@@ -15,8 +15,9 @@ from datetime import datetime, timedelta
 
 from ..config import Config, ConfigStore
 from ..schedule import is_display_on, set_display_power
-from .client import LdbwsClient, RailApiError
+from .base import RailApiError
 from .models import Board
+from .sources import SourceManager
 
 log = logging.getLogger(__name__)
 
@@ -37,8 +38,7 @@ class Poller:
         self._boards: dict[str, Board] = {}
         self._failures: dict[str, int] = {}
         self._next_due: dict[str, datetime] = {}
-        self._client: LdbwsClient | None = None
-        self._client_signature: tuple[str, float] | None = None
+        self._sources = SourceManager(store.get().sources)
         self._subscribers: set[asyncio.Queue[dict]] = set()
         self._listeners: list[BoardsListener] = []
         self._task: asyncio.Task[None] | None = None
@@ -59,12 +59,21 @@ class Poller:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._task
             self._task = None
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
+        await self._sources.aclose()
 
     def add_listener(self, listener: BoardsListener) -> None:
         self._listeners.append(listener)
+
+    # -- sources -----------------------------------------------------------
+
+    @property
+    def sources(self) -> SourceManager:
+        return self._sources
+
+    def force_source(self, source: str | None) -> None:
+        """Pin the live source for testing; re-poll straight away."""
+        self._sources.force(source)
+        self.config_changed()
 
     def config_changed(self) -> None:
         """Called by the admin page: re-poll immediately under the new config."""
@@ -126,15 +135,6 @@ class Poller:
 
     # -- polling -----------------------------------------------------------
 
-    def _get_client(self, config: Config) -> LdbwsClient:
-        signature = (config.api.base_url, config.api.timeout)
-        if self._client is None or self._client_signature != signature:
-            if self._client is not None:
-                asyncio.create_task(self._client.aclose())
-            self._client = LdbwsClient(config.api.base_url, timeout=config.api.timeout)
-            self._client_signature = signature
-        return self._client
-
     def _mark_stale(self, key: str, config: Config, reason: str) -> None:
         board = self._boards.get(key)
         if board is None:
@@ -142,7 +142,7 @@ class Poller:
         age = None
         if board.fetched_at is not None:
             age = (datetime.now().astimezone() - board.fetched_at).total_seconds()
-        stale = age is None or age > config.api.stale_after
+        stale = age is None or age > config.sources.stale_after
         self._boards[key] = board.model_copy(
             update={"stale": stale, "error": reason if stale else None}
         )
@@ -150,16 +150,17 @@ class Poller:
     async def _poll_slot(self, index: int, config: Config) -> None:
         station = config.stations[index]
         key = _slot_key(index, station.crs, station.mode)
-        client = self._get_client(config)
+        self._sources.update_config(config.sources)
         try:
-            board = await client.fetch_board(station.crs, station.mode)
+            board = await self._sources.fetch_board(station.crs, station.mode)
         except RailApiError as exc:
             self._failures[key] = self._failures.get(key, 0) + 1
             self.last_error = str(exc)
             self._mark_stale(key, config, str(exc))
             step = BACKOFF_STEPS[min(self._failures[key] - 1, len(BACKOFF_STEPS) - 1)]
             # Jitter keeps two stations from retrying in lockstep.
-            delay = config.api.poll_interval * step * (1 + random.uniform(0, 0.1))
+            interval = self._sources.poll_interval(config.sources.poll_interval)
+            delay = interval * step * (1 + random.uniform(0, 0.1))
             self._next_due[key] = datetime.now() + timedelta(seconds=delay)
             log.warning("Poll failed for %s (%s); retrying in %.0fs", station.crs, exc, delay)
             return
@@ -170,7 +171,10 @@ class Poller:
         self._failures[key] = 0
         self.last_error = None
         self.last_fetch = board.fetched_at
-        self._next_due[key] = datetime.now() + timedelta(seconds=config.api.poll_interval)
+        self._next_due[key] = datetime.now() + timedelta(
+            # A metered source (RTT's free tier) is allowed to slow us down.
+            seconds=self._sources.poll_interval(config.sources.poll_interval)
+        )
 
     async def _notify_listeners(self, boards: list[Board], config: Config) -> None:
         for listener in self._listeners:
@@ -221,7 +225,8 @@ class Poller:
             self._next_due.get(_slot_key(index, station.crs, station.mode), now)
             for index, station in enumerate(config.stations)
         ]
-        target = min(upcoming) if upcoming else now + timedelta(seconds=config.api.poll_interval)
+        fallback_interval = self._sources.poll_interval(config.sources.poll_interval)
+        target = min(upcoming) if upcoming else now + timedelta(seconds=fallback_interval)
         await self._sleep_until(target)
 
     async def _sleep_until(self, target: datetime) -> None:

@@ -1,6 +1,6 @@
 """Parsing recorded LDBWS responses into our own models."""
 
-from describer.rail.client import _delay_minutes, _strip_html, parse_board
+from describer.rail.ldbws import _delay_minutes, _strip_html, parse_board
 from describer.rail.models import ServiceStatus
 
 

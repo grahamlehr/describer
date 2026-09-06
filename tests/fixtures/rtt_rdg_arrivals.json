@@ -1,0 +1,152 @@
+{
+  "systemStatus": {
+    "realtimeNetworkRail": "OK",
+    "rttCore": "OK"
+  },
+  "query": {
+    "location": {
+      "namespace": "gb-nr",
+      "description": "Reading",
+      "shortCodes": [
+        "RDG"
+      ],
+      "longCodes": [
+        "gb-nr:RDNGSTN"
+      ]
+    },
+    "timeFrom": "2024-05-14T14:50:00",
+    "timeTo": "2024-05-14T15:50:00",
+    "detailed": false
+  },
+  "services": [
+    {
+      "temporalData": {
+        "arrival": {
+          "scheduleInternal": "2024-05-14T14:56:00",
+          "scheduleAdvertised": "2024-05-14T14:56:00",
+          "realtimeForecast": "2024-05-14T14:56:00",
+          "isCancelled": false
+        },
+        "departure": {
+          "scheduleInternal": "2024-05-14T14:58:00",
+          "scheduleAdvertised": "2024-05-14T14:58:00",
+          "realtimeForecast": "2024-05-14T14:58:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_OPEN",
+        "realtimeCallType": "ADVERTISED_OPEN",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "8",
+          "forecast": "8"
+        },
+        "allocationIndex": 0,
+        "numberOfVehicles": 9
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:W12345:2024-05-14",
+        "namespace": "gb-nr",
+        "identity": "W12345",
+        "departureDate": "2024-05-14",
+        "operator": {
+          "code": "GW",
+          "name": "Great Western Railway"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "London Paddington",
+            "longCodes": [
+              "PADTON"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T14:32:00",
+            "scheduleAdvertised": "2024-05-14T14:32:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Bristol Temple Meads",
+            "longCodes": [
+              "BRSTLTM"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T16:02:00",
+            "scheduleAdvertised": "2024-05-14T16:02:00"
+          }
+        }
+      ]
+    },
+    {
+      "temporalData": {
+        "arrival": {
+          "scheduleInternal": "2024-05-14T15:02:00",
+          "scheduleAdvertised": "2024-05-14T15:02:00",
+          "realtimeForecast": "2024-05-14T15:09:00",
+          "isCancelled": false
+        },
+        "scheduledCallType": "ADVERTISED_SET_DOWN",
+        "realtimeCallType": "ADVERTISED_SET_DOWN",
+        "displayAs": "CALL",
+        "isInterpolated": false
+      },
+      "locationMetadata": {
+        "platform": {
+          "planned": "10",
+          "forecast": "10"
+        },
+        "allocationIndex": 0
+      },
+      "scheduleMetadata": {
+        "uniqueIdentity": "gb-nr:W99887:2024-05-14",
+        "namespace": "gb-nr",
+        "identity": "W99887",
+        "departureDate": "2024-05-14",
+        "operator": {
+          "code": "SW",
+          "name": "South Western Railway"
+        },
+        "modeType": "TRAIN",
+        "inPassengerService": true
+      },
+      "origin": [
+        {
+          "location": {
+            "description": "London Waterloo",
+            "longCodes": [
+              "WATRLMN"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T13:55:00",
+            "scheduleAdvertised": "2024-05-14T13:55:00"
+          }
+        }
+      ],
+      "destination": [
+        {
+          "location": {
+            "description": "Reading",
+            "longCodes": [
+              "RDNGSTN"
+            ]
+          },
+          "temporalData": {
+            "scheduleInternal": "2024-05-14T15:02:00",
+            "scheduleAdvertised": "2024-05-14T15:02:00"
+          }
+        }
+      ]
+    }
+  ]
+}

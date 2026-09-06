@@ -22,7 +22,54 @@ def test_crs_is_upper_cased():
 
 def test_poll_interval_floor_is_enforced():
     with pytest.raises(ValidationError):
-        Config(stations=[{"crs": "PAD"}], api={"poll_interval": 5})
+        Config(stations=[{"crs": "PAD"}], sources={"poll_interval": 5})
+
+
+def test_the_old_api_key_still_loads(tmp_path):
+    """v1 config files keep working for one release."""
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "stations:\n  - crs: PAD\n"
+        "api:\n"
+        "  base_url: https://example.test/ldbws/\n"
+        "  poll_interval: 45\n"
+        "  timeout: 7.5\n"
+        "  stale_after: 200\n"
+    )
+
+    config = load_config(path)
+
+    assert config.sources.rdm.base_url == "https://example.test/ldbws"
+    assert config.sources.rdm.timeout == 7.5
+    assert config.sources.poll_interval == 45
+    assert config.sources.stale_after == 200
+    assert config.sources.primary == "rdm"
+
+
+def test_the_new_sources_key_wins_over_the_old_one(tmp_path):
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "stations:\n  - crs: PAD\napi:\n  poll_interval: 45\nsources:\n  poll_interval: 60\n"
+    )
+
+    assert load_config(path).sources.poll_interval == 60
+
+
+def test_a_source_cannot_be_its_own_fallback():
+    with pytest.raises(ValidationError):
+        Config(stations=[{"crs": "PAD"}], sources={"primary": "rtt", "fallback": "rtt"})
+
+
+def test_detail_rows_are_bounded():
+    with pytest.raises(ValidationError):
+        Config(stations=[{"crs": "PAD"}], sources={"rtt": {"detail_rows": 20}})
+    assert Config(stations=[{"crs": "PAD"}], sources={"rtt": {"detail_rows": 12}})
+
+
+def test_failover_can_be_switched_off():
+    config = Config(stations=[{"crs": "PAD"}], sources={"fallback": None})
+
+    assert config.sources.fallback is None
 
 
 def test_at_most_two_stations():

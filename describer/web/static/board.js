@@ -14,6 +14,7 @@ const boardTemplate = document.getElementById('board-template');
 const rowTemplate = document.getElementById('row-template');
 
 const MODE_LABELS = { departures: 'Departures', arrivals: 'Arrivals' };
+const SOURCE_LABELS = { rdm: 'Darwin', rtt: 'RTT' };
 /** Pixels per second the calling-point marquee travels. */
 const SCROLL_SPEED = 60;
 
@@ -162,6 +163,12 @@ function renderBoard(boardEl, board, station, display) {
   boardEl.querySelector('.station-name').textContent = board.name;
   boardEl.querySelector('.board-mode').textContent = MODE_LABELS[board.mode] || board.mode;
   boardEl.querySelector('.clock').hidden = !display.clock;
+
+  // Which feed this board came from. Themes may style it or hide it.
+  const source = boardEl.querySelector('.source');
+  source.hidden = !board.source;
+  source.dataset.source = board.source || '';
+  source.textContent = SOURCE_LABELS[board.source] || board.source || '';
 
   const stale = boardEl.querySelector('.stale');
   stale.hidden = !board.stale;

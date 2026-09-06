@@ -78,22 +78,70 @@ class DisplayConfig(BaseModel):
     themes: ThemesConfig = ThemesConfig()
 
 
-class ApiConfig(BaseModel):
-    #: Rail Data Marketplace LDBWS base URL (no trailing slash).
+SourceName = Literal["rdm", "rtt"]
+
+
+class RdmSourceConfig(BaseModel):
+    """Rail Data Marketplace LDBWS. Key comes from RDM_API_KEY."""
+
+    #: LDBWS base URL (no trailing slash).
     base_url: str = (
         "https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120"
     )
-    #: Seconds between polls per station. Never below 20 s (API fair use).
-    poll_interval: int = Field(default=30, ge=20, le=600)
     #: HTTP timeout in seconds for a single request.
     timeout: float = Field(default=10.0, ge=1.0, le=60.0)
-    #: A board older than this many seconds is flagged "data stale" on screen.
-    stale_after: int = Field(default=120, ge=30, le=3600)
 
     @field_validator("base_url")
     @classmethod
     def _strip_slash(cls, v: str) -> str:
         return v.rstrip("/")
+
+
+class RttSourceConfig(BaseModel):
+    """Realtime Trains (next-generation API). Token comes from RTT_TOKEN."""
+
+    base_url: str = "https://data.rtt.io"
+    timeout: float = Field(default=10.0, ge=1.0, le=60.0)
+    #: Show replacement bus (and ship) services, which RTT lists alongside trains.
+    include_buses: bool = False
+    #: Board rows given a calling-points call; each one is its own round trip.
+    #: The board only expands the first row, so a small number goes a long way.
+    detail_rows: int = Field(default=3, ge=1, le=12)
+    #: Minutes of departures to ask for. One call returns the whole window.
+    time_window: int = Field(default=60, ge=30, le=360)
+    #: Seconds between polls while RTT is live. Its free tier allows 10 calls a
+    #: minute and 100 an hour, which a 30 s board would exhaust in minutes.
+    min_poll_interval: int = Field(default=120, ge=60, le=600)
+
+    @field_validator("base_url")
+    @classmethod
+    def _strip_slash(cls, v: str) -> str:
+        return v.rstrip("/")
+
+
+class SourcesConfig(BaseModel):
+    """Which upstreams to use, and when to swap between them."""
+
+    #: The source used while it is healthy.
+    primary: SourceName = "rdm"
+    #: Used after the primary fails repeatedly. null disables failover.
+    fallback: SourceName | None = "rtt"
+    #: Consecutive primary failures, across all stations, before switching.
+    failover_after: int = Field(default=3, ge=1, le=20)
+    #: Seconds between quiet background retries of the primary once failed over.
+    recover_after: int = Field(default=300, ge=30, le=86400)
+    #: Seconds between polls per station. Never below 20 s (API fair use).
+    poll_interval: int = Field(default=30, ge=20, le=600)
+    #: A board older than this many seconds is flagged "data stale" on screen.
+    stale_after: int = Field(default=120, ge=30, le=3600)
+    rdm: RdmSourceConfig = RdmSourceConfig()
+    rtt: RttSourceConfig = RttSourceConfig()
+
+    @model_validator(mode="after")
+    def _distinct_sources(self) -> SourcesConfig:
+        if self.fallback is not None and self.fallback == self.primary:
+            raise ValueError("sources.fallback must differ from sources.primary")
+        return self
 
 
 class AnnouncementsConfig(BaseModel):
@@ -151,9 +199,26 @@ class ScheduleConfig(BaseModel):
 class Config(BaseModel):
     stations: list[StationConfig] = Field(min_length=1, max_length=2)
     display: DisplayConfig = DisplayConfig()
-    api: ApiConfig = ApiConfig()
+    sources: SourcesConfig = SourcesConfig()
     announcements: AnnouncementsConfig = AnnouncementsConfig()
     schedule: ScheduleConfig = ScheduleConfig()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_legacy_api_key(cls, data: object) -> object:
+        """Map the v1 ``api:`` block onto ``sources:``. Drop after one release."""
+        if not isinstance(data, dict) or "api" not in data:
+            return data
+        data = dict(data)
+        legacy = data.pop("api") or {}
+        if "sources" in data:
+            log.warning("Both 'api:' and 'sources:' are set; ignoring the old 'api:' block")
+            return data
+        log.warning("Config key 'api:' is deprecated; rename it to 'sources:' (see CLAUDE.md)")
+        rdm = {k: legacy[k] for k in ("base_url", "timeout") if k in legacy}
+        shared = {k: legacy[k] for k in ("poll_interval", "stale_after") if k in legacy}
+        data["sources"] = {**shared, "rdm": rdm}
+        return data
 
     @property
     def announce_any(self) -> bool:

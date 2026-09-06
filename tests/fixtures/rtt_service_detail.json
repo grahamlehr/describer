@@ -1,0 +1,263 @@
+{
+  "systemStatus": {
+    "realtimeNetworkRail": "OK",
+    "rttCore": "OK"
+  },
+  "query": {
+    "uniqueIdentity": "gb-nr:W12345:2024-05-14"
+  },
+  "service": {
+    "scheduleMetadata": {
+      "uniqueIdentity": "gb-nr:W12345:2024-05-14",
+      "namespace": "gb-nr",
+      "identity": "W12345",
+      "departureDate": "2024-05-14",
+      "operator": {
+        "code": "GW",
+        "name": "Great Western Railway"
+      },
+      "modeType": "TRAIN",
+      "inPassengerService": true
+    },
+    "origin": [
+      {
+        "location": {
+          "description": "London Paddington",
+          "longCodes": [
+            "PADTON"
+          ]
+        },
+        "temporalData": {
+          "scheduleInternal": "2024-05-14T14:32:00",
+          "scheduleAdvertised": "2024-05-14T14:32:00"
+        }
+      }
+    ],
+    "destination": [
+      {
+        "location": {
+          "description": "Bristol Temple Meads",
+          "longCodes": [
+            "BRSTLTM"
+          ]
+        },
+        "temporalData": {
+          "scheduleInternal": "2024-05-14T16:02:00",
+          "scheduleAdvertised": "2024-05-14T16:02:00"
+        }
+      }
+    ],
+    "locations": [
+      {
+        "temporalData": {
+          "scheduledCallType": "ADVERTISED_PICK_UP",
+          "realtimeCallType": "ADVERTISED_PICK_UP",
+          "displayAs": "CALL",
+          "isInterpolated": false,
+          "departure": {
+            "scheduleInternal": "2024-05-14T14:32:00",
+            "scheduleAdvertised": "2024-05-14T14:32:00",
+            "realtimeForecast": "2024-05-14T14:32:00",
+            "isCancelled": false
+          }
+        },
+        "locationMetadata": {
+          "platform": {
+            "planned": "1",
+            "forecast": "1"
+          },
+          "allocationIndex": 0
+        },
+        "location": {
+          "namespace": "gb-nr",
+          "description": "London Paddington",
+          "shortCodes": [
+            "PAD"
+          ],
+          "longCodes": [
+            "PADTON"
+          ]
+        }
+      },
+      {
+        "temporalData": {
+          "scheduledCallType": "ADVERTISED_OPEN",
+          "realtimeCallType": "ADVERTISED_OPEN",
+          "displayAs": "CALL",
+          "isInterpolated": false,
+          "arrival": {
+            "scheduleInternal": "2024-05-14T14:56:00",
+            "scheduleAdvertised": "2024-05-14T14:56:00",
+            "realtimeForecast": "2024-05-14T14:56:00",
+            "isCancelled": false
+          },
+          "departure": {
+            "scheduleInternal": "2024-05-14T14:58:00",
+            "scheduleAdvertised": "2024-05-14T14:58:00",
+            "realtimeForecast": "2024-05-14T14:58:00",
+            "isCancelled": false
+          }
+        },
+        "locationMetadata": {
+          "platform": {
+            "planned": "1",
+            "forecast": "1"
+          },
+          "allocationIndex": 0
+        },
+        "location": {
+          "namespace": "gb-nr",
+          "description": "Reading",
+          "shortCodes": [
+            "RDG"
+          ],
+          "longCodes": [
+            "RDNGSTN"
+          ]
+        }
+      },
+      {
+        "temporalData": {
+          "scheduledCallType": "PASS",
+          "realtimeCallType": "PASS",
+          "displayAs": "PASS",
+          "isInterpolated": false,
+          "arrival": {
+            "scheduleInternal": "2024-05-14T15:10:00",
+            "scheduleAdvertised": "2024-05-14T15:10:00",
+            "realtimeForecast": "2024-05-14T15:10:00",
+            "isCancelled": false
+          },
+          "departure": {
+            "scheduleInternal": "2024-05-14T15:10:00",
+            "scheduleAdvertised": "2024-05-14T15:10:00",
+            "realtimeForecast": "2024-05-14T15:10:00",
+            "isCancelled": false
+          }
+        },
+        "locationMetadata": {
+          "platform": {
+            "planned": "1",
+            "forecast": "1"
+          },
+          "allocationIndex": 0
+        },
+        "location": {
+          "namespace": "gb-nr",
+          "description": "Didcot Parkway",
+          "shortCodes": [
+            "DID"
+          ],
+          "longCodes": [
+            "DIDCOTP"
+          ]
+        }
+      },
+      {
+        "temporalData": {
+          "scheduledCallType": "ADVERTISED_OPEN",
+          "realtimeCallType": "ADVERTISED_OPEN",
+          "displayAs": "CALL",
+          "isInterpolated": false,
+          "arrival": {
+            "scheduleInternal": "2024-05-14T15:23:00",
+            "scheduleAdvertised": "2024-05-14T15:23:00",
+            "realtimeForecast": "2024-05-14T15:23:00",
+            "isCancelled": false
+          },
+          "departure": {
+            "scheduleInternal": "2024-05-14T15:25:00",
+            "scheduleAdvertised": "2024-05-14T15:25:00",
+            "realtimeForecast": "2024-05-14T15:25:00",
+            "isCancelled": false
+          }
+        },
+        "locationMetadata": {
+          "platform": {
+            "planned": "1",
+            "forecast": "1"
+          },
+          "allocationIndex": 0
+        },
+        "location": {
+          "namespace": "gb-nr",
+          "description": "Swindon",
+          "shortCodes": [
+            "SWI"
+          ],
+          "longCodes": [
+            "SWINDON"
+          ]
+        }
+      },
+      {
+        "temporalData": {
+          "scheduledCallType": "ADVERTISED_OPEN",
+          "realtimeCallType": "ADVERTISED_OPEN",
+          "displayAs": "CALL",
+          "isInterpolated": false,
+          "arrival": {
+            "scheduleInternal": "2024-05-14T15:47:00",
+            "scheduleAdvertised": "2024-05-14T15:47:00",
+            "realtimeForecast": "2024-05-14T15:47:00",
+            "isCancelled": false
+          },
+          "departure": {
+            "scheduleInternal": "2024-05-14T15:49:00",
+            "scheduleAdvertised": "2024-05-14T15:49:00",
+            "realtimeForecast": "2024-05-14T15:49:00",
+            "isCancelled": false
+          }
+        },
+        "locationMetadata": {
+          "platform": {
+            "planned": "1",
+            "forecast": "1"
+          },
+          "allocationIndex": 0
+        },
+        "location": {
+          "namespace": "gb-nr",
+          "description": "Bristol Parkway",
+          "shortCodes": [
+            "BPW"
+          ],
+          "longCodes": [
+            "BRSTPWY"
+          ]
+        }
+      },
+      {
+        "temporalData": {
+          "scheduledCallType": "ADVERTISED_SET_DOWN",
+          "realtimeCallType": "ADVERTISED_SET_DOWN",
+          "displayAs": "CALL",
+          "isInterpolated": false,
+          "arrival": {
+            "scheduleInternal": "2024-05-14T16:02:00",
+            "scheduleAdvertised": "2024-05-14T16:02:00",
+            "realtimeForecast": "2024-05-14T16:02:00",
+            "isCancelled": false
+          }
+        },
+        "locationMetadata": {
+          "platform": {
+            "planned": "1",
+            "forecast": "1"
+          },
+          "allocationIndex": 0
+        },
+        "location": {
+          "namespace": "gb-nr",
+          "description": "Bristol Temple Meads",
+          "shortCodes": [
+            "BRI"
+          ],
+          "longCodes": [
+            "BRSTLTM"
+          ]
+        }
+      }
+    ]
+  }
+}

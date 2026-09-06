@@ -24,6 +24,7 @@ body {
 .clock { color: var(--fg); font-weight: 500; }
 
 .stale { color: var(--late); }
+.source { color: var(--muted); }
 
 .row {
   padding: 0.35vh 0;

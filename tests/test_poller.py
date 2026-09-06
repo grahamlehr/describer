@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 import pytest
 
 from describer.config import Config, ConfigStore
-from describer.rail import poller as poller_module
-from describer.rail.client import RailApiError, parse_board
+from describer.rail import sources as sources_module
+from describer.rail.ldbws import RailApiError, parse_board
 from describer.rail.poller import Poller
 
 
@@ -29,11 +29,13 @@ class FakeClient:
 
 
 @pytest.fixture
-def poller(monkeypatch, departures_payload, tmp_path):
+def poller(monkeypatch, rdm_credentials, departures_payload, tmp_path):
     board = parse_board(departures_payload, "PAD", "departures")
     fake = FakeClient(board)
-    monkeypatch.setattr(poller_module, "LdbwsClient", lambda *a, **k: fake)
-    store = ConfigStore(Config(stations=[{"crs": "PAD"}]), tmp_path / "config.yaml")
+    monkeypatch.setattr(sources_module, "LdbwsClient", lambda *a, **k: fake)
+    # Failover has its own tests; here a failure must stay a failure.
+    config = Config(stations=[{"crs": "PAD"}], sources={"fallback": None})
+    store = ConfigStore(config, tmp_path / "config.yaml")
     instance = Poller(store)
     return instance, fake
 
@@ -47,6 +49,7 @@ async def test_successful_poll_fills_the_board(poller):
     assert fake.calls == [("PAD", "departures")]
     assert board.name == "London Paddington"
     assert len(board.services) == 4
+    assert board.source == "rdm"
     assert not board.stale
 
 
@@ -80,7 +83,7 @@ async def test_an_old_board_is_flagged_stale(poller):
 
     await instance._poll_slot(0, config)
     key = next(iter(instance._boards))
-    aged = datetime.now().astimezone() - timedelta(seconds=config.api.stale_after + 60)
+    aged = datetime.now().astimezone() - timedelta(seconds=config.sources.stale_after + 60)
     instance._boards[key] = instance._boards[key].model_copy(update={"fetched_at": aged})
 
     fake.fail = True
@@ -104,7 +107,7 @@ async def test_backoff_grows_with_consecutive_failures(poller):
         await instance._poll_slot(0, config)
         delays.append((instance._next_due[key] - before).total_seconds())
 
-    assert delays[0] >= config.api.poll_interval
+    assert delays[0] >= config.sources.poll_interval
     assert delays[1] > delays[0]
     assert delays[2] > delays[1]
 
@@ -120,13 +123,16 @@ async def test_success_resets_the_backoff(poller):
     await instance._poll_slot(0, config)
     delay = (instance._next_due["0:PAD:departures"] - before).total_seconds()
 
-    assert delay <= config.api.poll_interval + 1
+    assert delay <= config.sources.poll_interval + 1
     assert instance.last_error is None
 
 
 async def test_name_override_is_applied(poller, tmp_path):
     instance, _ = poller
-    instance._store.set(Config(stations=[{"crs": "PAD", "name": "Paddington"}]), persist=False)
+    instance._store.set(
+        Config(stations=[{"crs": "PAD", "name": "Paddington"}], sources={"fallback": None}),
+        persist=False,
+    )
 
     await instance._poll_slot(0, instance._store.get())
 
