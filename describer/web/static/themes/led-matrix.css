@@ -1,0 +1,140 @@
+/* led-matrix — the amber LED dot-matrix board of the 2000s. Where the
+   flip-dot sign was a
+   printed casing around a small matrix, this is one panel edge to edge in a
+   black bezel: every word on the screen is made of lit LEDs, drawn by
+   led-matrix.js. Nothing here uses a filter or a shadow, so the only thing the Pi
+   ever repaints is a canvas whose text changed. */
+
+:root {
+  --dm-lit: #ffa61f;
+  --dm-dim: rgba(255, 166, 31, 0.28);
+  --dm-bezel: #0b0b0c;
+  --dm-panel: #050505;
+}
+
+body {
+  background: var(--dm-bezel);
+  color: var(--dm-lit);
+  font-family: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+}
+
+/* The panel: one black field in a slim bezel, header at the top. */
+.board {
+  padding: 1.4vh 1.2vw;
+  background: var(--dm-panel);
+  border: 0.3vh solid #16161a;
+  border-radius: 0.5vh;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+.board-header { grid-row: 1; }
+.stale { grid-row: 2; }
+.rows { grid-row: 3; }
+
+/* All of these are words board.js writes itself; led-matrix.js mirrors each into
+   dots, so the panel shows the dots and never the words. */
+.station-name, .board-mode, .clock, .messages, .calling-points-label, .empty, .source {
+  display: none;
+}
+
+/* The header line, in dots at a fixed size: station, mode and the clock. The
+   rule under it is dotted, so even the divider is made of the same grid. */
+.board-header {
+  display: block;
+  padding-bottom: 0.6vh;
+  border-bottom: 0.25vh dotted var(--dm-dim);
+}
+.dm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1vw;
+  /* Fixed, because the header sits outside the matrix and cannot read its
+     type size. Wide enough to read, narrow enough that the longest header a
+     board can produce still fits half a 1080p screen. */
+  font-size: 3.2vh;
+}
+.dm-header > span[hidden] { display: none; }
+
+/* A fault is the one thing that is not part of the illusion: it has to be
+   legible at a glance, so it is written rather than lit. */
+.stale {
+  color: #ff5a3c;
+  font-size: 1.6vh;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.4vh 0 0;
+}
+
+/* The matrix claims the rest. Its lines are the headings, the services, the
+   stops and the message line, which gives its height back when it is empty. */
+.rows {
+  --char-budget: 23;
+  --heading-share: 1;
+  --message-share: 0;
+  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--heading-share)
+    + var(--message-share)));
+  margin-top: 0.8vh;
+}
+
+/* time | destination | platform | status. No operator column: these boards
+   ran when one railway ran the line, and the panel had no room to spare. */
+.row, .dm-columns {
+  grid-template-columns: 3em minmax(0, 1fr) 1.2em 5.4em;
+  gap: 0.5em;
+  padding: 0;
+}
+.row.selected { background: none; }
+.cell.operator { display: none; }
+.cell[data-field="time"] { --chars: 5; }
+.cell[data-field="destination"] { --chars: 18; }
+.cell[data-field="platform"] { --chars: 2; }
+.cell[data-field="status"] { --chars: 9; }
+.cell[data-field="operator"] { --chars: 0; }
+
+/* A character is six dots by eight at a tenth of the type size each, so a
+   line of --chars characters is that many times 0.6em wide. */
+.dots {
+  display: block;
+  width: calc(var(--chars) * 0.6em);
+  height: 0.8em;
+}
+.calling-points-list .dots, .dm-message .dots { width: 100%; }
+.cell.platform .dots, .cell.status .dots { margin-left: auto; }
+
+/* The headings are lit at the same pitch as the services, because on a real
+   panel every LED is the same size. "Plat" is wider than the two characters
+   its column holds, so it is allowed to run back into the blank dots at the
+   end of the destination above it. */
+.dm-columns {
+  display: grid;
+  align-items: center;
+  flex: 0 0 calc(var(--slot) * var(--heading-share));
+  font-size: var(--row-font);
+  white-space: nowrap;
+}
+.dm-columns .platform, .dm-columns .status { justify-self: end; }
+.dm-columns .platform { width: max-content; overflow: visible; }
+
+/* The stops, and the messages, each on one line of the panel. */
+.calling-points {
+  align-items: center;
+  gap: 0.6em;
+  font-size: calc(var(--row-font) * 0.9);
+}
+.dm-label { flex: 0 0 auto; }
+.calling-points-track { display: block; }
+.calling-points-list { display: block; width: 100%; }
+
+.dm-message {
+  display: flex;
+  align-items: center;
+  flex: 0 0 calc(var(--slot) * var(--message-share));
+  margin-top: auto;
+  font-size: calc(var(--row-font) * 0.9);
+  overflow: hidden;
+}
+
+.dm-empty { font-size: var(--row-font); padding-top: 1vh; }
+
+.boards[data-count="2"] .board + .board { border-left: 0.3vh solid #16161a; }

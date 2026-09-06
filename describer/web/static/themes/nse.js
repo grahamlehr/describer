@@ -1,3 +1,5 @@
+import { CHAR_W, CHAR_H, columnsFor, normalise, paginate } from './dotmatrix.js';
+
 /**
  * nse theme: a Network SouthEast flip-dot indicator. Every cell is a canvas
  * showing a 5×7 dot-matrix font. When a cell's text changes the discs are
@@ -6,19 +8,14 @@
  * layout or moves the DOM, so the Pi has no per-frame page work to do.
  */
 
-/** Dots per character cell including the gap column and row. */
-const CHAR_W = 6;
-const CHAR_H = 8;
 /** Dot pitch as a share of the font size, so a character is 0.6em by 0.8em. */
 const PITCH_EM = 0.1;
 /** Diameter of a disc as a share of the dot pitch. */
 const DISC = 0.82;
 /** How long the sweep spends on each column of dots while flipping a cell. */
 const COLUMN_MS = 4;
-/** Columns of dots the calling-points line advances per tick, and how often. */
-const SCROLL_MS = 45;
-/** Blank dots between the end of the scrolling stops and their next pass. */
-const SCROLL_GAP = 12 * CHAR_W;
+/** How long one page of stops, or of a message, holds before the next. */
+const PAGE_MS = 6000;
 /** Rattles per frame, so a whole board flipping at once does not roar. */
 const MAX_RATTLES_PER_FRAME = 4;
 /** Keeps flipping cells settling when Chromium stops delivering frames. */
@@ -29,90 +26,15 @@ const CLOCK_MS = 500;
 const IDENT_CHARS = { station: 20, mode: 10, clock: 8 };
 const SEPARATOR = '  ';
 
-/**
- * How a real board shortens a name that will not fit, in the order it gives
- * ground: each rule is applied only while the name is still too long.
- */
-const ABBREVIATIONS = [
-  [/\bCross\b/gi, 'X'],
-  [/\bInternational\b/gi, 'Intl'],
-  [/\bParkway\b/gi, 'Pkwy'],
-  [/\bJunction\b/gi, 'Jn'],
-  [/\bTerminal (\d)\b/gi, 'T$1'],
-  [/\bStreet\b/gi, 'St'],
-  [/\bRoad\b/gi, 'Rd'],
-  [/\bAirport\b/gi, 'Aprt'],
-  [/\bNorth\b/gi, 'N'],
-  [/\bSouth\b/gi, 'S'],
-  [/\bEast\b/gi, 'E'],
-  [/\bWest\b/gi, 'W'],
-  [/\bCentral\b/gi, 'Ctl'],
-  [/\bMeads\b/gi, 'Mds'],
-  [/\s+via\s+.*$/i, ''],
-];
-
-/* -------------------------------------------------------------- 5×7 font */
-
-/** Row bitmaps, top to bottom, most significant bit on the left. */
-const GLYPHS = {
-  ' ': [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-  A: [0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
-  B: [0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e],
-  C: [0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e],
-  D: [0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e],
-  E: [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f],
-  F: [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10],
-  G: [0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0f],
-  H: [0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
-  I: [0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e],
-  J: [0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0c],
-  K: [0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11],
-  L: [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f],
-  M: [0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11],
-  N: [0x11, 0x11, 0x19, 0x15, 0x13, 0x11, 0x11],
-  O: [0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
-  P: [0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10],
-  Q: [0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d],
-  R: [0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11],
-  S: [0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e],
-  T: [0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04],
-  U: [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
-  V: [0x11, 0x11, 0x11, 0x11, 0x11, 0x0a, 0x04],
-  W: [0x11, 0x11, 0x11, 0x15, 0x15, 0x15, 0x0a],
-  X: [0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11],
-  Y: [0x11, 0x11, 0x11, 0x0a, 0x04, 0x04, 0x04],
-  Z: [0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f],
-  0: [0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e],
-  1: [0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e],
-  2: [0x0e, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1f],
-  3: [0x1f, 0x02, 0x04, 0x02, 0x01, 0x11, 0x0e],
-  4: [0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02],
-  5: [0x1f, 0x10, 0x1e, 0x01, 0x01, 0x11, 0x0e],
-  6: [0x06, 0x08, 0x10, 0x1e, 0x11, 0x11, 0x0e],
-  7: [0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08],
-  8: [0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e],
-  9: [0x0e, 0x11, 0x11, 0x0f, 0x01, 0x02, 0x0c],
-  '.': [0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x0c],
-  ',': [0x00, 0x00, 0x00, 0x00, 0x0c, 0x04, 0x08],
-  ':': [0x00, 0x0c, 0x0c, 0x00, 0x0c, 0x0c, 0x00],
-  "'": [0x0c, 0x04, 0x08, 0x00, 0x00, 0x00, 0x00],
-  '-': [0x00, 0x00, 0x00, 0x1f, 0x00, 0x00, 0x00],
-  '&': [0x0c, 0x12, 0x14, 0x08, 0x15, 0x12, 0x0d],
-  '/': [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x00],
-  '(': [0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02],
-  ')': [0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08],
-  '•': [0x00, 0x00, 0x0e, 0x0e, 0x0e, 0x00, 0x00],
-  '?': [0x0e, 0x11, 0x01, 0x02, 0x04, 0x00, 0x04],
-};
-
 /** Every canvas we own, whether still or mid-sweep. */
 const cells = new Set();
 /** Canvases whose sweep is not finished. */
 const flipping = new Set();
-const scrolling = new Set();
+/** Canvases showing one page of something too long for their line. */
+const paged = new Set();
 let frame = null;
 let watchdog = null;
-let scrollTimer = null;
+let pageTimer = null;
 let observer = null;
 let clockTimer = null;
 let root = null;
@@ -127,7 +49,7 @@ export function attach(boardsEl, options) {
   observer = new ResizeObserver((entries) => {
     for (const entry of entries) fitCanvas(entry.target, entry.contentRect);
   });
-  scrollTimer = setInterval(scrollTick, SCROLL_MS);
+  pageTimer = setInterval(turnPage, PAGE_MS);
   // board.js writes the clock straight into .clock, with no theme hook, so the
   // dot clock reads it back rather than being told.
   clockTimer = setInterval(paintClocks, CLOCK_MS);
@@ -151,9 +73,9 @@ export function detach() {
   frame = null;
   clearTimeout(watchdog);
   watchdog = null;
-  clearInterval(scrollTimer);
+  clearInterval(pageTimer);
   clearInterval(clockTimer);
-  scrollTimer = clockTimer = null;
+  pageTimer = clockTimer = null;
   root = null;
   observer?.disconnect();
   observer = null;
@@ -165,7 +87,7 @@ export function detach() {
   }
   cells.clear();
   flipping.clear();
-  scrolling.clear();
+  paged.clear();
   pending.clear();
   if (audio) { audio.close(); audio = null; }
 }
@@ -198,55 +120,47 @@ export function renderText(cell, text) {
 /* --------------------------------------------------------- calling points */
 
 /**
- * The bottom line of an NSE indicator scrolled its stops right to left, a
- * column of dots at a time. Stops that fit on the line stand still.
+ * The stops, turned a page at a time. A flip-dot line cannot scroll: every
+ * disc is a fixed place on the board, so a message longer than the line can
+ * only be rewritten in whole screenfuls.
  */
 export function renderCallingPoints(list, points) {
-  paintScroll(list, points.map((p) => fit(p, Infinity)).join(SEPARATOR));
+  paintPaged(list, points, SEPARATOR);
 }
 
-/**
- * A full-width line of dots that scrolls when its text is too long for the
- * line, and stands still when it is not. Used for the stops and the messages.
- */
-function paintScroll(host, text) {
+/** Pack `items` into pages that fit the line, and show the one in hand. */
+function paintPaged(host, items, separator) {
   const canvas = ensureCanvas(host);
-  const wanted = String(text).toUpperCase();
-  const width = lineWidth(host);
-  if (canvas.__scrollText === wanted && canvas.__lineWidth === width) return;
-  canvas.__scrollText = wanted;
-  canvas.__lineWidth = width;
-  const columns = columnsFor(printable(wanted));
-  if (columns.length <= width) {
-    scrolling.delete(canvas);
-    canvas.__strip = null;
-    setTarget(canvas, columns.concat(new Array(width - columns.length).fill(0)), width);
-    return;
+  const key = items.join('\u0000');
+  const chars = Math.max(1, Math.floor(lineWidth(host) / CHAR_W));
+  if (canvas.__pageKey !== key || canvas.__pageChars !== chars) {
+    canvas.__pageKey = key;
+    canvas.__pageChars = chars;
+    canvas.__pages = paginate(items, separator, chars);
+    canvas.__page = 0;
   }
-  // Wider than the line: keep the whole message as a strip and show a window
-  // of it that moves one column per tick. The strip is rebuilt only here.
-  canvas.__strip = columns.concat(new Array(SCROLL_GAP).fill(0));
-  canvas.__offset = 0;
-  setTarget(canvas, canvas.__strip.slice(0, width), width);
-  scrolling.add(canvas);
+  paged.add(canvas);
+  showPage(canvas);
 }
 
-function scrollTick() {
-  for (const canvas of scrolling) {
-    if (!canvas.isConnected) { scrolling.delete(canvas); continue; }
-    const strip = canvas.__strip;
-    // Let the first window finish flipping in before the text starts moving.
-    if (!strip || flipping.has(canvas)) continue;
-    canvas.__offset = (canvas.__offset + 1) % strip.length;
-    const width = canvas.__cols;
-    const view = new Array(width);
-    for (let i = 0; i < width; i += 1) view[i] = strip[(canvas.__offset + i) % strip.length];
-    // Scrolling is not a flip: the discs already show their neighbour's state.
-    canvas.__target = view;
-    canvas.__shown = view;
-    canvas.__dirty = true;
+function showPage(canvas) {
+  const pages = canvas.__pages || [];
+  if (!pages.length) return;
+  const chars = canvas.__pageChars;
+  setTarget(canvas, columnsFor(normalise(pages[canvas.__page % pages.length], chars)), chars * CHAR_W);
+}
+
+/** Every paged line turns together, so the board reads as one machine. */
+function turnPage() {
+  for (const canvas of paged) {
+    if (!canvas.isConnected) {
+      paged.delete(canvas);
+      continue;
+    }
+    if ((canvas.__pages || []).length < 2) continue;
+    canvas.__page = (canvas.__page + 1) % canvas.__pages.length;
+    showPage(canvas);
   }
-  if (scrolling.size) start();
 }
 
 /** How many dot columns the line affords, from the pitch the CSS gave it. */
@@ -270,44 +184,6 @@ function paintText(host, text, max) {
   }
   const canvas = ensureCanvas(host);
   setTarget(canvas, columnsFor(normalise(value, chars)), chars * CHAR_W);
-}
-
-/* ------------------------------------------------------------- bitmaps */
-
-/** Text as an array of column bitmaps, 7 bits each, one bit per dot row. */
-function columnsFor(text) {
-  const columns = [];
-  for (const char of text) {
-    const rows = GLYPHS[char] || GLYPHS['?'];
-    for (let x = 0; x < 5; x += 1) {
-      let bits = 0;
-      for (let y = 0; y < 7; y += 1) if (rows[y] & (0x10 >> x)) bits |= 1 << y;
-      columns.push(bits);
-    }
-    columns.push(0); // the gap column between characters
-  }
-  return columns;
-}
-
-function normalise(text, chars, right = false) {
-  const fitted = printable(fit(String(text), chars).toUpperCase());
-  return right ? fitted.padStart(chars, ' ') : fitted.padEnd(chars, ' ');
-}
-
-/** Anything the 5x7 font has no glyph for is a blank dot, not a query mark. */
-function printable(text) {
-  return text.replace(/[^0-9A-Z&:.,'\-\/()• ]/g, ' ');
-}
-
-/** Shorten a name only as far as it takes to fit the columns we have. */
-function fit(text, chars) {
-  if (text.length <= chars) return text;
-  let shortened = text;
-  for (const [pattern, replacement] of ABBREVIATIONS) {
-    shortened = shortened.replace(pattern, replacement).trim();
-    if (shortened.length <= chars) return shortened;
-  }
-  return shortened.slice(0, chars);
 }
 
 /* -------------------------------------------------------------- canvases */
@@ -389,10 +265,9 @@ function start() {
 }
 
 function armWatchdog() {
-  // Never push the deadline back. The scroll tick calls start() many times a
-  // second, and re-arming on each call meant the watchdog never fired at all,
-  // which is precisely when frames have stopped and it is needed: the stops
-  // froze at their first offset and the clock stuck part-swept.
+  // Never push the deadline back. Re-arming on every call meant the watchdog
+  // never fired at all, which is precisely when frames have stopped and it is
+  // needed: the board froze part-swept.
   if (watchdog !== null) return;
   watchdog = setTimeout(() => {
     watchdog = null;
@@ -415,7 +290,7 @@ function tick(now) {
     if (!canvas.isConnected) {
       cells.delete(canvas);
       flipping.delete(canvas);
-      scrolling.delete(canvas);
+      paged.delete(canvas);
       continue;
     }
     if (flipping.has(canvas)) {
@@ -582,8 +457,8 @@ function paintLabel(board) {
 }
 
 /**
- * Service messages run along their own line of the matrix, scrolling when they
- * are too long for it. A board with nothing to say gives the height back.
+ * Service messages run along their own line of the matrix, turning a page at
+ * a time when they are too long for it. A board with nothing to say gives the height back.
  */
 function paintMessage(board) {
   const rows = board.querySelector('.rows');
@@ -604,7 +479,7 @@ function paintMessage(board) {
     line.textContent = '';
     return;
   }
-  paintScroll(line, text);
+  paintPaged(line, text.split(/\s+/).filter(Boolean), ' ');
 }
 
 /**

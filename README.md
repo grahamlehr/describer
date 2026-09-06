@@ -160,7 +160,8 @@ stations:
 | `crt`       | Amber or green phosphor, scanlines, curvature, blinking cursor. |
 | `splitflap` | Solari mechanical board; characters flip to their target.    |
 | `1990s`     | Ceefax-style Teletext page: white-on-blue bars, yellow times. |
-| `nse`       | Network SouthEast sign over a flip-dot indicator; discs flip column by column and the stops scroll. |
+| `nse`       | Network SouthEast sign over a flip-dot indicator; discs flip column by column and the stops turn a page at a time. |
+| `led-matrix` | Amber LED dot-matrix panel of the 2000s; every word on the screen is lit dots, and long lines scroll. |
 
 A theme is a CSS file in `describer/web/static/themes/` plus a same-named JS
 module. The module may export `attach`, `configure`, `detach`, `renderText`

@@ -16,7 +16,7 @@ stations:
     announce: true          # speak announcements for this station
 
 display:
-  theme: modern             # modern | crt | splitflap | 1990s | nse
+  theme: modern             # modern | crt | splitflap | 1990s | nse | led-matrix
   clock: true               # show the live clock in the board header
   show_calling_points: true # expand the first row to page through its calling points
   resolution: auto          # auto | 1080p | 720p — force the HDMI mode; a 4K panel makes the Pi crawl

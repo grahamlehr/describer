@@ -576,11 +576,37 @@ asks it again for the wording, so the timer and the render never disagree.
   `start()` every 45 ms, and pushing the deadline back each time meant it never
   fired — so when frames stopped, the stops froze at their first offset and the
   clock stuck part-swept.
-- The stops scroll one dot column per tick when they do not fit the line, as
-  the real signs did; stops that fit stand still.
+- The stops and the message line turn a page at a time, never splitting a
+  name. They cannot scroll: a disc is a fixed place on the board.
 - A cell asked for before `nse.css` has arrived (`--chars` computes to the
   empty string) is queued and painted from `afterRender`; `board.js` will not
   ask again for text that has not changed.
+
+## Two dot-matrix themes, one font
+
+`themes/dotmatrix.js` holds the 5x7 glyphs, `columnsFor`, the abbreviation
+table, `fit`, `normalise` and `paginate`. It is pure: no DOM, no state. Both
+dot themes import it, so the letters can never drift apart, and each still
+owns its canvases and decides what one dot looks like.
+
+The two differ in the ways the real machines did, and those differences are
+the point of having both:
+
+| | `nse` (flip-dot) | `led-matrix` (LED) |
+|---|---|---|
+| A change | sweeps column by column, discs drawn edge-on mid-flip | simply appears |
+| Too long for the line | **pages**, every 6 s, never splitting a name | **scrolls**, a dot column every 45 ms |
+| Frame loop | `requestAnimationFrame` plus a watchdog, for the sweep | none at all; painting is synchronous |
+| Dots | reflective discs, cream on black | amber cores with a bloom, over the dark glint of the unlit ones |
+
+A disc is a fixed place on the board and cannot slide sideways, so `nse` must
+page; an LED panel is free to scroll. The LED paint is three `Path2D` fills
+(dark, bloom, core) costing about 0.7 ms for a full-width scrolling line on a
+dev Mac, and there are at most two such lines per board.
+
+`led-matrix` has no config block. Its field would have to be named
+`led-matrix`, which is not a Python identifier, and amber is the only colour
+those panels came in. The palette is two constants at the top of the module.
 
 ## Calling points belong to their service
 
@@ -606,9 +632,12 @@ new one. `board.js` therefore re-renders on the stylesheet's `load` and on
   `for (const f of document.querySelectorAll(".flap")) { f.textContent = f.dataset.target; f.__nextAt = Infinity; }`
 - `setInterval` is throttled in a background tab, so the 15 s status cycle and
   the 6 s page turn only run while the pane is displayed.
-- Theme CSS is cached hard. Switching themes re-points the link at a URL the
-  browser already has, so an edited theme file will not take effect; append a
-  query string to every stylesheet href when testing.
+- Theme CSS was cached hard, which cost a deployment: the Pi drew a new theme
+  module against the previous release's stylesheet. `/static` and both pages now
+  send `Cache-Control: no-cache`, so the browser revalidates every file and the
+  ETag turns that into a 304. A browser that cached a file *before* that change
+  still holds it, so clearing `~/.cache/chromium` once is what unsticks a Pi;
+  in a pane, re-fetch with `{cache: 'reload'}` or append a query string.
 - Truncation is easier measured than seen:
   `[...document.querySelectorAll(".cell")].filter(c => c.scrollWidth - c.clientWidth > 1)`.
   That test reads a splitflap cell wrong: its text lives in flap children, so

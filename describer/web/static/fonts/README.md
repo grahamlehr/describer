@@ -12,6 +12,7 @@ network at boot), drop the woff2 files here and add the matching
 | splitflap  | Roboto Mono          | `roboto-mono-medium.woff2` |
 | 1990s      | Bedstead (Teletext)  | `bedstead.woff2` (shipped) |
 | nse        | Rail Alphabet        | `rail-alphabet-bold.woff2` (licensed; Helvetica/Arial otherwise) |
+| led-matrix | none                 | every character is drawn as dots |
 
 Example, added at the top of `themes/modern.css`:
 
