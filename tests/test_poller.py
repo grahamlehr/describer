@@ -170,3 +170,43 @@ async def test_a_full_subscriber_queue_drops_the_oldest_frame(poller):
         instance._publish(instance.state())
 
     assert queue.qsize() == queue.maxsize  # the poller never blocks on a slow client
+
+
+async def test_display_mode_is_pushed_when_it_changes(monkeypatch, poller):
+    from describer.rail import poller as poller_module
+
+    instance, _ = poller
+    requests: list[str] = []
+    outcome = {"ok": False}
+
+    async def fake_set_display_mode(display):
+        requests.append(display.resolution)
+        return outcome["ok"]
+
+    monkeypatch.setattr(poller_module, "set_display_mode", fake_set_display_mode)
+
+    # A fresh process leaves "auto" alone: cage already boots in the preferred mode.
+    await instance._apply_display_mode(instance._store.get())
+    assert requests == []
+    assert instance.display_mode == "auto"
+
+    config = instance._store.get().model_copy(deep=True)
+    config.display.resolution = "1080p"
+    instance._store.set(config, persist=False)
+
+    # Cage is not up yet: the request fails and stays pending for the next tick.
+    await instance._apply_display_mode(config)
+    assert requests == ["1080p"]
+    assert instance.display_mode is None
+
+    outcome["ok"] = True
+    await instance._apply_display_mode(config)
+    await instance._apply_display_mode(config)
+    assert requests == ["1080p", "1080p"]
+    assert instance.display_mode == "1080p"
+
+    # Going back to auto now has to tell the compositor to release the mode.
+    config.display.resolution = "auto"
+    await instance._apply_display_mode(config)
+    assert requests[-1] == "auto"
+    assert instance.display_mode == "auto"

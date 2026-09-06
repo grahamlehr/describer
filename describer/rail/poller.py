@@ -14,7 +14,7 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 
 from ..config import Config, ConfigStore
-from ..schedule import is_display_on, set_display_power
+from ..schedule import is_display_on, set_display_mode, set_display_power
 from .base import RailApiError
 from .models import Board
 from .sources import SourceManager
@@ -44,6 +44,8 @@ class Poller:
         self._task: asyncio.Task[None] | None = None
         self._wake = asyncio.Event()
         self._display_on = True
+        #: The resolution wlr-randr last accepted; None until a request is made.
+        self._display_mode: str | None = None
         self.last_error: str | None = None
         self.last_fetch: datetime | None = None
 
@@ -121,6 +123,12 @@ class Poller:
                 board = board.model_copy(update={"name": station.name})
             result.append(board)
         return result
+
+    @property
+    def display_mode(self) -> str | None:
+        """The resolution in force, or None while a change is still pending."""
+        wanted = self._store.get().display.resolution
+        return wanted if wanted == self._display_mode else None
 
     def state(self) -> dict:
         config = self._store.get()
@@ -209,6 +217,8 @@ class Poller:
             await self._sleep_until(now + timedelta(seconds=30))
             return
 
+        await self._apply_display_mode(config)
+
         due = [
             index
             for index, station in enumerate(config.stations)
@@ -228,6 +238,23 @@ class Poller:
         fallback_interval = self._sources.poll_interval(config.sources.poll_interval)
         target = min(upcoming) if upcoming else now + timedelta(seconds=fallback_interval)
         await self._sleep_until(target)
+
+    async def _apply_display_mode(self, config: Config) -> None:
+        """Push the configured resolution to the compositor, once, when it changes.
+
+        A fresh process leaves ``auto`` alone: cage already starts the output in
+        its preferred mode, and the kiosk may not even be up yet. A failed
+        request is retried on the next tick, so a change made before cage
+        started still lands.
+        """
+        wanted = config.display.resolution
+        if wanted == self._display_mode:
+            return
+        if wanted == "auto" and self._display_mode is None:
+            self._display_mode = wanted
+            return
+        if await set_display_mode(config.display):
+            self._display_mode = wanted
 
     async def _sleep_until(self, target: datetime) -> None:
         """Sleep, but wake early if the config changes."""

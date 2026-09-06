@@ -48,3 +48,27 @@ def test_equal_times_mean_always_on():
     config = ScheduleConfig(enabled=True, on_time="06:00", off_time="06:00")
 
     assert is_display_on(config, MONDAY_NIGHT)
+
+
+def test_display_mode_command_forces_the_configured_resolution():
+    from describer.config import DisplayConfig
+    from describer.schedule import display_mode_command
+
+    assert display_mode_command(DisplayConfig(resolution="1080p")) == [
+        "wlr-randr",
+        "--output",
+        "HDMI-A-1",
+        "--mode",
+        "1920x1080",
+    ]
+    assert display_mode_command(DisplayConfig(resolution="720p"))[-1] == "1280x720"
+    assert display_mode_command(DisplayConfig(resolution="auto"))[-1] == "--preferred"
+
+
+async def test_set_display_mode_is_a_no_op_without_wlr_randr(monkeypatch):
+    from describer import schedule
+    from describer.config import DisplayConfig
+
+    monkeypatch.setattr(schedule.shutil, "which", lambda _name: None)
+
+    assert await schedule.set_display_mode(DisplayConfig(resolution="1080p")) is True

@@ -201,6 +201,14 @@ function formatAllowance(limits) {
     .join(' ');
 }
 
+const MODE_LABELS = { auto: 'monitor default', '1080p': '1920×1080', '720p': '1280×720' };
+
+function formatMode(mode) {
+  // null means the last resolution change has not reached the compositor yet.
+  if (!mode) return pill(false, 'resolution pending');
+  return pill(true, MODE_LABELS[mode] || mode);
+}
+
 async function loadStatus() {
   try {
     const status = await (await fetch('/api/status')).json();
@@ -220,7 +228,8 @@ async function loadStatus() {
       <dt>Allowance</dt><dd>${formatAllowance(status.rate_limit)}</dd>
       <dt>Last fetch</dt><dd>${formatTime(status.last_fetch)}</dd>
       <dt>Last error</dt><dd>${status.last_error ? pill(false, status.last_error) : pill(true, 'none')}</dd>
-      <dt>Display</dt><dd>${status.display_on ? pill(true, 'on') : pill(false, 'off (schedule)')}</dd>
+      <dt>Display</dt><dd>${status.display_on ? pill(true, 'on') : pill(false, 'off (schedule)')}
+        ${formatMode(status.display_mode)}</dd>
       <dt>Piper</dt><dd>${pill(status.tts.piper, status.tts.piper ? 'found' : 'not found')}
         ${pill(status.tts.voice, status.tts.voice ? 'voice ok' : 'voice missing')}
         ${pill(Boolean(status.tts.player), status.tts.player || 'no player')}</dd>

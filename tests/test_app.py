@@ -102,6 +102,7 @@ def test_status_reports_the_feed_and_tts(client):
     assert status["boards"][0]["crs"] == "PAD"
     assert status["boards"][0]["source"] == "rdm"
     assert status["display_on"] is True
+    assert status["display_mode"] in (None, "auto")
 
 
 def test_status_reports_the_sources(client):

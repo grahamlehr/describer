@@ -127,6 +127,7 @@ async def api_status(request: Request) -> dict:
         "last_fetch": poller.last_fetch.isoformat() if poller.last_fetch else None,
         "last_error": poller.last_error,
         "display_on": is_display_on(config.schedule),
+        "display_mode": poller.display_mode,
         "tts": request.app.state.engine.availability(),
         "last_announcement": announcer.last_spoken,
         "last_announcement_at": (

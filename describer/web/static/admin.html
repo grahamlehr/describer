@@ -50,7 +50,18 @@
       </label>
       <label class="check"><input type="checkbox" name="display.clock"> Show clock</label>
       <label class="check"><input type="checkbox" name="display.show_calling_points"> Show calling points</label>
+      <label>Resolution
+        <select name="display.resolution">
+          <option value="auto">Auto (monitor's preferred)</option>
+          <option value="1080p">1920 × 1080</option>
+          <option value="720p">1280 × 720</option>
+        </select>
+      </label>
     </div>
+    <p class="hint">A 4K screen makes the Pi composite four times the pixels the
+      board needs and the animations stutter. Forcing 1080p or 720p sets the
+      HDMI output mode with <code>wlr-randr</code> and takes effect at once
+      under cage; the monitor upscales.</p>
     <h3>CRT theme</h3>
     <div class="grid">
       <label>Phosphor

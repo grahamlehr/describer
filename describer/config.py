@@ -75,6 +75,11 @@ class DisplayConfig(BaseModel):
     clock: bool = True
     #: Expand the first row to scroll its calling points.
     show_calling_points: bool = True
+    #: HDMI output mode. ``auto`` leaves the monitor's preferred mode alone;
+    #: a 4K panel makes the Pi 4 composite four times the pixels it needs, so
+    #: forcing 1080p or 720p keeps the animations smooth. Applied live with
+    #: wlr-randr while the kiosk is running under cage.
+    resolution: Literal["auto", "1080p", "720p"] = "auto"
     themes: ThemesConfig = ThemesConfig()
 
 
