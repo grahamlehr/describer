@@ -16,6 +16,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
+from starlette.responses import Response
+from starlette.types import Scope
 
 from .announce.scheduler import AnnouncementScheduler
 from .announce.tts import TtsEngine, TtsError
@@ -26,6 +28,16 @@ from .schedule import is_display_on
 log = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "web" / "static"
+
+#: Ask the browser to check with us before it reuses anything it has.
+#:
+#: The board runs for weeks in a kiosk that is never hard-refreshed, and we send
+#: no cache-control of our own, so Chromium is free to guess how long a file
+#: stays fresh from its age alone. It guessed wrong on the Pi: a newly deployed
+#: theme module was drawn against the previous release's stylesheet, which the
+#: browser had decided was still good. Revalidating costs a 304 and no transfer,
+#: because every response already carries an ETag.
+NO_CACHE = {"cache-control": "no-cache"}
 
 #: Heartbeat interval for the SSE stream; keeps proxies and Chromium honest.
 SSE_KEEPALIVE = 20.0
@@ -77,18 +89,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await announcer.stop()
 
 
+class RevalidatedStaticFiles(StaticFiles):
+    """Static files the browser has to check with us before reusing them."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["cache-control"] = NO_CACHE["cache-control"]
+        return response
+
+
 app = FastAPI(title="Describer", lifespan=lifespan, docs_url=None, redoc_url=None)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/static", RevalidatedStaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/", include_in_schema=False)
 async def board_page() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(STATIC_DIR / "index.html", headers=NO_CACHE)
 
 
 @app.get("/admin", include_in_schema=False)
 async def admin_page() -> FileResponse:
-    return FileResponse(STATIC_DIR / "admin.html")
+    return FileResponse(STATIC_DIR / "admin.html", headers=NO_CACHE)
 
 
 @app.get("/api/state")
