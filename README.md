@@ -159,6 +159,7 @@ stations:
 | `modern`    | Clean, high-contrast, dark. The default.                     |
 | `crt`       | Amber or green phosphor, scanlines, curvature, blinking cursor. |
 | `splitflap` | Solari mechanical board; characters flip to their target.    |
+| `1990s`     | Ceefax-style Teletext page: white-on-blue bars, yellow times. |
 
 A theme is a CSS file in `describer/web/static/themes/` plus a same-named JS
 module. The module may export `attach`, `configure`, `detach`, `renderText`

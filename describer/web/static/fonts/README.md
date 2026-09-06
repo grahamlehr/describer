@@ -10,6 +10,7 @@ network at boot), drop the woff2 files here and add the matching
 | modern     | Inter                | `inter-regular.woff2`, `inter-semibold.woff2` |
 | crt        | IBM Plex Mono        | `plex-mono-regular.woff2` |
 | splitflap  | Roboto Mono          | `roboto-mono-medium.woff2` |
+| 1990s      | Bedstead (Teletext)  | `bedstead.woff2` (shipped) |
 
 Example, added at the top of `themes/modern.css`:
 
@@ -24,3 +25,7 @@ Example, added at the top of `themes/modern.css`:
 
 Both the CRT and split-flap themes need a monospace face; any fixed-width
 font keeps the character grid aligned.
+
+`bedstead.woff2` is included: it is Ben Harris's Bedstead, a public-domain
+(CC0) Teletext face from https://bjh21.me.uk/bedstead/, converted from the
+OTF with fontTools. The 1990s theme declares its `@font-face`.

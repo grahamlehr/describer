@@ -16,7 +16,7 @@ stations:
     announce: true          # speak announcements for this station
 
 display:
-  theme: modern             # modern | crt | splitflap
+  theme: modern             # modern | crt | splitflap | 1990s
   clock: true               # show the live clock in the board header
   show_calling_points: true # expand the first row to scroll its calling points
   themes:
