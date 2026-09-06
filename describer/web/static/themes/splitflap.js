@@ -4,7 +4,8 @@
  * animates transform/opacity so the Pi stays composited on the GPU.
  */
 
-const ALPHABET = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,:'-&/()•";
+/** The drum: blank, digits, letters, and the three marks a real board carries. */
+const ALPHABET = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ&:-";
 /** Longest run of flips for one character; keeps a full board settling quickly. */
 const MAX_STEPS = 14;
 /** Clicks per frame, so a whole board changing at once does not buzz. */
@@ -19,7 +20,8 @@ const CALLING_PAGE_MS = 6000;
  * the flaps settling (in coarser steps) until frames come back.
  */
 const WATCHDOG_MS = 250;
-const SEPARATOR = ' • ';
+/** Between stops; the drum has no bullet. */
+const SEPARATOR = ' - ';
 /**
  * The flip, driven through the Web Animations API rather than a CSS class:
  * restarting a class animation needs a forced layout per flap per step, which
@@ -217,8 +219,14 @@ function paginate(points, width) {
   return pages;
 }
 
+/**
+ * Only what is on the drum can be shown: apostrophes vanish (KINGS LYNN) and
+ * any other stray character becomes a blank flap.
+ */
 function normalise(text, width) {
-  return fit(String(text), width).toUpperCase().padEnd(width, ' ');
+  const printable = String(text).replace(/'/g, '').replace(/[^0-9A-Za-z&:\- ]/g, ' ');
+  // Abbreviate before upper-casing: the rules write mixed-case replacements.
+  return fit(printable, width).toUpperCase().padEnd(width, ' ');
 }
 
 /** Shorten a name only as far as it takes to fit the flaps we have. */

@@ -8,14 +8,19 @@
   --cancelled: #e8734a;
 }
 
+/* Everything on the board is set in capitals at one weight, like the printed
+   flaps and the painted frame around them. */
 body {
   background: #050505;
   color: var(--flap-fg);
   font-family: "Roboto Mono", "SF Mono", Menlo, Consolas, monospace;
+  font-weight: 400;
+  text-transform: uppercase;
 }
+.station-name, .cell.destination { font-weight: 400; }
 
 .board-header { border-bottom: 2px solid #222; padding-bottom: 0.8vh; }
-.station-name { text-transform: uppercase; letter-spacing: 0.04em; }
+.station-name { letter-spacing: 0.04em; }
 .board-mode, .clock { color: var(--flap-dim); }
 /* A mechanical board has no business naming a JSON feed. */
 .source { display: none; }
@@ -39,7 +44,6 @@ body {
   display: flex;
   gap: 0.08em;
   color: var(--flap-fg);
-  font-weight: 600;
 }
 
 /* Nine flaps of "CANCELLED" need more room than the shared layout allows;
