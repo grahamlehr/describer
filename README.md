@@ -17,8 +17,9 @@ announcements as trains approach.
 ## Requirements
 
 - Python 3.11+
-- A Rail Data Marketplace subscription to the **Live Departure Board
-  (LDBWS)** product, which gives you an API key
+- A Rail Data Marketplace subscription to the **Live Arrival and Departure
+  Boards (LDBWS)** product, which gives you an API key. The departures-only
+  product will not do: it has no arrivals operation at all
 - Optional but recommended: a free [Realtime Trains](https://api-portal.rtt.io)
   API token for the fallback source
 - For announcements: [Piper](https://github.com/rhasspy/piper) and a British
@@ -33,11 +34,16 @@ announcements as trains approach.
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp config.example.yaml config.yaml
-cp .env.example .env        # then put your credentials in it
+cp .env.example .env        # then put your RDM key in it
 export RDM_API_KEY=...      # or rely on .env
-export RTT_TOKEN=...        # optional fallback source
 uvicorn describer.main:app --reload --port 8080
 ```
+
+Leave `RTT_TOKEN` **unset** in development and set `sources.fallback: null` in
+your local `config.yaml`. The RTT free tier is 1000 calls a day shared by every
+machine holding the token, so anything a dev session spends is taken off the
+live board. RDM has no comparable limit and is the only upstream a dev machine
+should call; every RTT behaviour is exercisable from `tests/fixtures/rtt_*.json`.
 
 - Board: <http://localhost:8080/>
 - Settings: <http://localhost:8080/admin>
@@ -75,6 +81,24 @@ journalctl --user -u describer -f
 sudo journalctl -u kiosk -f
 ```
 
+`describer.service` reads `~/describer/.env` first and
+`/etc/describer/describer.env` second. systemd applies environment files in
+order and the last assignment wins — **including an assignment to the empty
+string** — so the deployed credentials are read last and a stray `.env` in the
+checkout cannot blank them. Do not reverse this. A repo `.env` holding nothing
+but `RDM_API_KEY=` once left the board with no key at all: RDM was a permanent
+failure from the first poll, the board failed over to RTT without complaint,
+and a day's allowance went with it. If credentials appear to be missing,
+`/api/status` reports `credentials`, and this settles where they got lost:
+
+```bash
+systemctl --user show describer -p Environment | tr ' ' '\n' | grep -c '^RDM_API_KEY=.\+'
+```
+
+Note that the unit file is *copied* into `~/.config/systemd/user/`, so a
+`git pull` does not update it. Changing it means re-running `install.sh`, or
+re-copying it and running `systemctl --user daemon-reload`.
+
 ### Updating a Pi
 
 ```bash
@@ -95,8 +119,13 @@ sudo systemctl stop kiosk && rm -rf ~/.cache/chromium && sudo systemctl start ki
 
 ## Configuration
 
-`config.yaml` is the source of truth (repo root in development,
-`/etc/describer/config.yaml` on the Pi; override with `DESCRIBER_CONFIG`).
+`config.yaml` is the source of truth. It is looked up as `config.yaml`
+relative to the working directory first, then `/etc/describer/config.yaml`;
+`DESCRIBER_CONFIG` overrides both. The backend runs with `WorkingDirectory`
+set to the checkout, so **a `config.yaml` in `~/describer` on the Pi wins over
+`/etc/describer/config.yaml`** — check which one `/api/status` reports as
+`config_path` before editing either.
+
 Every option is documented in `config.example.yaml`. The admin page at
 `/admin` edits the same file and applies theme, station, feed and
 announcement changes live — no restart.
@@ -123,6 +152,15 @@ After `failover_after` consecutive primary failures the fallback takes over;
 the primary is then retried quietly every `recover_after` seconds and taken
 back on its first success. If the source that is live now fails, the board
 goes stale exactly as it always did — failover never hides missing data.
+
+From the Marketplace, Describer calls one operation:
+`GetArrDepBoardWithDetails/{crs}` on the **Live Arrival and Departure Boards**
+product. It returns every service touching the station, so departures read
+`std`/`etd` with the subsequent calling points and arrivals read `sta`/`eta`
+with the previous ones — both modes from one response and one subscription. A
+service missing the mode's time (it terminates or originates at that station)
+is dropped by the parser. `sources.rdm.base_url` is the product URL up to the
+API version, with **no operation on the end**; the client appends its own.
 
 Describer uses the Realtime Trains **next-generation** API at `data.rtt.io`
 (the older `api.rtt.io` v1 service is closed to new sign-ups and is being

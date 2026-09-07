@@ -54,8 +54,8 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
 > Trains), the source abstraction, and automatic failover. Where the two
 > sections disagree, the addendum wins.
 
-- Use the **Live Departure Board (LDBWS)** product from the Rail Data
-  Marketplace (raildata.org.uk). It exposes Darwin data over a JSON REST
+- Use the **Live Arrival and Departure Boards (LDBWS)** product from the Rail
+  Data Marketplace (raildata.org.uk). It exposes Darwin data over a JSON REST
   API keyed by an `x-apikey` header. Do not use the old SOAP OpenLDBWS
   endpoint unless the REST one is unavailable.
 - We subscribe to the combined **Live Arrival and Departure Boards** product
