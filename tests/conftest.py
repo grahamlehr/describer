@@ -22,6 +22,12 @@ def arrivals_payload() -> dict:
 
 
 @pytest.fixture
+def arrdep_payload() -> dict:
+    """The combined product's board: PAD departures and arrivals in one."""
+    return load_fixture("pad_arrdep.json")
+
+
+@pytest.fixture
 def rtt_departures_payload() -> dict:
     return load_fixture("rtt_pad_departures.json")
 

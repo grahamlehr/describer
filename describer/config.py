@@ -97,10 +97,10 @@ SourceName = Literal["rdm", "rtt"]
 class RdmSourceConfig(BaseModel):
     """Rail Data Marketplace LDBWS. Key comes from RDM_API_KEY."""
 
-    #: LDBWS base URL (no trailing slash).
-    base_url: str = (
-        "https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120"
-    )
+    #: LDBWS base URL (no trailing slash). This is the combined
+    #: "Live Arrival and Departure Boards" product; departures and arrivals are
+    #: two readings of its one response. See ldbws.BOARD_ENDPOINT.
+    base_url: str = "https://api1.raildata.org.uk/1010-live-arrival-and-departure-boards-arr-and-dep1_1/LDBWS/api/20220120"
     #: HTTP timeout in seconds for a single request.
     timeout: float = Field(default=10.0, ge=1.0, le=60.0)
 

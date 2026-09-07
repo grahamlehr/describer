@@ -58,9 +58,18 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
   Marketplace (raildata.org.uk). It exposes Darwin data over a JSON REST
   API keyed by an `x-apikey` header. Do not use the old SOAP OpenLDBWS
   endpoint unless the REST one is unavailable.
-- Endpoints we need (station identified by 3-letter CRS code):
-  - `GetDepBoardWithDetails/{crs}` — departures with calling points.
-  - `GetArrBoardWithDetails/{crs}` — arrivals (for arrivals mode).
+- We subscribe to the combined **Live Arrival and Departure Boards** product
+  and call one endpoint (station identified by 3-letter CRS code):
+  - `GetArrDepBoardWithDetails/{crs}` — every service touching the station,
+    with calling points. Departures read `std`/`etd` and
+    `subsequentCallingPoints`; arrivals read `sta`/`eta` and
+    `previousCallingPoints`, so both modes come from one response and one
+    subscription. A service missing the mode's time (it terminates or
+    originates here) is dropped by the parser.
+  - The departures-only product (`…-dep1_2`) exposes
+    `GetDepBoardWithDetails` and has no arrivals operation at all; switching
+    back means changing `ldbws.BOARD_ENDPOINT` and `sources.rdm.base_url`
+    together.
 - API key lives in the environment variable `RDM_API_KEY` or in a
   `.env` file that is **never committed**. Never write the key into
   `config.yaml` or logs.
@@ -326,7 +335,7 @@ sources:
   poll_interval: 30         # unchanged, now applies to whichever source is live
   stale_after: 120          # unchanged
   rdm:
-    base_url: https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120
+    base_url: https://api1.raildata.org.uk/1010-live-arrival-and-departure-boards-arr-and-dep1_1/LDBWS/api/20220120
     timeout: 10.0
   rtt:
     base_url: https://api.rtt.io/api/v1/json

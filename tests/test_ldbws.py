@@ -94,3 +94,33 @@ def test_delay_minutes_wraps_midnight():
 
 def test_strip_html_collapses_whitespace():
     assert _strip_html("<p>Hello   <b>there</b></p>") == "Hello there"
+
+
+def test_combined_board_departures_drop_terminating_services(arrdep_payload):
+    board = parse_board(arrdep_payload, "PAD", "departures")
+
+    assert len(board.services) == 4
+    assert all(service.scheduled_time for service in board.services)
+    assert "Oxford" not in [service.origin for service in board.services]
+
+
+def test_combined_board_arrivals_drop_originating_services(arrdep_payload):
+    board = parse_board(arrdep_payload, "PAD", "arrivals")
+
+    assert [service.scheduled_time for service in board.services] == ["14:38", "14:44"]
+    assert [service.origin for service in board.services] == ["Oxford", "Abbey Wood"]
+
+
+def test_combined_board_arrivals_read_previous_calling_points(arrdep_payload):
+    service = parse_board(arrdep_payload, "PAD", "arrivals").services[0]
+
+    assert service.status is ServiceStatus.ON_TIME
+    assert [point.name for point in service.calling_points] == ["Oxford", "Reading", "Slough"]
+
+
+def test_combined_board_arrivals_keep_delay(arrdep_payload):
+    service = parse_board(arrdep_payload, "PAD", "arrivals").services[1]
+
+    assert service.status is ServiceStatus.EXPECTED
+    assert service.delay_minutes == 15
+    assert service.status_text == "Exp 14:59"

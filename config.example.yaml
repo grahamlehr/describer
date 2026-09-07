@@ -44,7 +44,8 @@ sources:
   stale_after: 120          # a board older than this shows the "data stale" flag
   rdm:
     # Rail Data Marketplace LDBWS (Darwin) REST base URL, no trailing slash.
-    base_url: https://api1.raildata.org.uk/1010-live-departure-board-dep1_2/LDBWS/api/20220120
+    # The combined arrivals+departures product; one call serves either mode.
+    base_url: https://api1.raildata.org.uk/1010-live-arrival-and-departure-boards-arr-and-dep1_1/LDBWS/api/20220120
     timeout: 10.0           # HTTP timeout in seconds for one request
   rtt:
     # Realtime Trains next-generation API (token from api-portal.rtt.io).

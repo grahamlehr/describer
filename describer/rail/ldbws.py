@@ -26,6 +26,14 @@ log = logging.getLogger(__name__)
 #: This client's identity in config, logs and ``Board.source``.
 SOURCE_NAME = "rdm"
 
+#: The single operation we call. We are subscribed to the combined
+#: "Live Arrival and Departure Boards" product, which returns every service
+#: touching the station, so departures and arrivals are two readings of one
+#: response. The departures-only product exposes GetDepBoardWithDetails
+#: instead and cannot serve arrivals at all; changing product means changing
+#: this constant and ``sources.rdm.base_url`` together.
+BOARD_ENDPOINT = "GetArrDepBoardWithDetails"
+
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
 
@@ -113,6 +121,11 @@ def parse_board(payload: dict[str, Any], crs: str, mode: str) -> Board:
             continue
         scheduled = raw.get(time_key)
         expected = raw.get(est_key)
+        if not scheduled and not expected:
+            # The combined board carries arrivals and departures together: a
+            # service terminating here has no std, one starting here has no
+            # sta. Neither belongs on the board we are reading.
+            continue
         delay = _delay_minutes(scheduled, expected)
         status = _status(expected, bool(raw.get("isCancelled")), delay)
         services.append(
@@ -179,8 +192,7 @@ class LdbwsClient:
 
     async def fetch_board(self, crs: str, mode: str = "departures") -> Board:
         """Fetch one station board. Raises :class:`RailApiError` on failure."""
-        endpoint = "GetDepBoardWithDetails" if mode == "departures" else "GetArrBoardWithDetails"
-        url = f"{self._base_url}/{endpoint}/{crs.upper()}"
+        url = f"{self._base_url}/{BOARD_ENDPOINT}/{crs.upper()}"
         try:
             response = await self._client.get(url, headers={"x-apikey": api_key()})
             response.raise_for_status()
