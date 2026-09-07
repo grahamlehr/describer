@@ -114,7 +114,9 @@ sudo loginctl enable-linger "$USER"
 # the window, which never happens when there is no input device.)
 say "Installing the blank cursor theme"
 CURSOR_THEME_DIR=/usr/share/icons/describer-blank
-sudo mkdir -p "$CURSOR_THEME_DIR/cursors"
+# install -d, not mkdir -p: mkdir takes the caller's umask, and a umask of 077
+# leaves a theme cage itself cannot read, which it ignores in silence.
+sudo install -d -m 755 "$CURSOR_THEME_DIR" "$CURSOR_THEME_DIR/cursors"
 python3 -c '
 import struct, sys
 # Xcursor: header, one TOC entry, one 1x1 fully transparent ARGB image.
