@@ -6,10 +6,15 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/describer
-# Credentials for both data sources. The second is a dev convenience and is
-# optional: a leading - means "carry on if it is not there".
-EnvironmentFile=/etc/describer/describer.env
+# Credentials for both data sources. Order matters: systemd applies these in
+# turn and the last assignment wins, including an assignment to the empty
+# string. The repo .env is a dev convenience (a leading - means "carry on if
+# it is not there") and must therefore be read FIRST, so a stray or half-filled
+# file in the checkout cannot blank the deployed credentials. Putting it last
+# once cost a day's RTT allowance: an .env holding only "RDM_API_KEY=" left
+# the board with no key, and it failed over to the fallback for a whole day.
 EnvironmentFile=-%h/describer/.env
+EnvironmentFile=/etc/describer/describer.env
 ExecStart=%h/describer/.venv/bin/uvicorn describer.main:app --host 0.0.0.0 --port 8080
 Restart=always
 RestartSec=5

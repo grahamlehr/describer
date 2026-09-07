@@ -383,6 +383,14 @@ that `detail_rows` is between 1 and 12.
 
 - `deploy/install.sh` prompts for RTT credentials alongside the RDM key
   and writes both to `/etc/describer/describer.env`, mode 600.
+- The backend unit reads `%h/describer/.env` **before**
+  `/etc/describer/describer.env`, not after. systemd applies environment files
+  in order and the last assignment wins, an assignment to the empty string
+  included, so a checkout holding a bare `RDM_API_KEY=` silently blanked the
+  deployed key. RDM was then a permanent failure from the first tick, the board
+  failed over to RTT, and a day's allowance went with it. Deployed credentials
+  must be read last. `install.sh` copies the unit; changing it means re-running
+  the script (or re-copying) plus `systemctl --user daemon-reload`.
 - No new apt or pip dependencies; `httpx` already supports Basic auth.
 
 ## Out of scope for this addendum
