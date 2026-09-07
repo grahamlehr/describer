@@ -108,30 +108,38 @@ systemctl --user enable describer.service
 sudo loginctl enable-linger "$USER"
 
 # A blank cursor theme. cage parks a pointer in the middle of the screen even
-# with no mouse attached, and neither cage nor Chromium has a flag to hide it;
-# pointing XCURSOR_THEME at a theme whose cursors are one transparent pixel
-# does. (The page's own `cursor: none` only covers a pointer that has entered
-# the window, which never happens when there is no input device.)
+# with no mouse attached, and has no flag to hide it. It builds its cursor
+# manager with a null theme name and a hardcoded size, so XCURSOR_THEME and
+# XCURSOR_SIZE are both ignored: it loads whatever theme is named "default".
+# So we ship a theme *called* default, of transparent pixels, and put its
+# directory first on XCURSOR_PATH. (The board's own `cursor: none` covers a
+# real pointer over the window, which with no mouse never happens.)
 say "Installing the blank cursor theme"
-CURSOR_THEME_DIR=/usr/share/icons/describer-blank
+CURSOR_DIR=/usr/local/share/describer-cursors
 # install -d, not mkdir -p: mkdir takes the caller's umask, and a umask of 077
 # leaves a theme cage itself cannot read, which it ignores in silence.
-sudo install -d -m 755 "$CURSOR_THEME_DIR" "$CURSOR_THEME_DIR/cursors"
+sudo install -d -m 755 "$CURSOR_DIR" "$CURSOR_DIR/default" "$CURSOR_DIR/default/cursors"
 python3 -c '
 import struct, sys
-# Xcursor: header, one TOC entry, one 1x1 fully transparent ARGB image.
+# Xcursor: header, one TOC entry, one 24x24 fully transparent ARGB image.
+# 24 is the size cage asks for, and a whole image of zeroes is safer than a
+# single pixel a loader might reject.
 size = 24
 out = struct.pack("<4sIII", b"Xcur", 16, 0x00010000, 1)
 out += struct.pack("<III", 0xfffd0002, size, 28)
-out += struct.pack("<IIIIIIIII", 36, 0xfffd0002, size, 1, 1, 1, 0, 0, 0)
-out += struct.pack("<I", 0)
+out += struct.pack("<IIIIIIIII", 36, 0xfffd0002, size, 1, size, size, 0, 0, 0)
+out += b"\x00" * (size * size * 4)
 sys.stdout.buffer.write(out)
-' | sudo install -m 644 /dev/stdin "$CURSOR_THEME_DIR/cursors/default"
-for name in left_ptr arrow top_left_arrow pointer hand1 hand2 xterm text; do
-  sudo ln -sf default "$CURSOR_THEME_DIR/cursors/$name"
+' | sudo install -m 644 /dev/stdin "$CURSOR_DIR/default/cursors/default"
+for name in left_ptr arrow top_left_arrow pointer hand1 hand2 xterm text watch; do
+  sudo ln -sf default "$CURSOR_DIR/default/cursors/$name"
 done
-printf '[Icon Theme]\nName=describer-blank\n' \
-  | sudo install -m 644 /dev/stdin "$CURSOR_THEME_DIR/index.theme"
+printf '[Icon Theme]\nName=default\n' \
+  | sudo install -m 644 /dev/stdin "$CURSOR_DIR/default/index.theme"
+# Answer to the name as well, in case a later cage does read XCURSOR_THEME.
+sudo ln -sfn default "$CURSOR_DIR/describer-blank"
+# The first attempt, which asked for a theme by name and was never read.
+sudo rm -rf /usr/share/icons/describer-blank
 
 # The kiosk is a system service on tty1: cage needs a real seat, which a
 # lingering user session never gets. It runs as this user so it can reach the

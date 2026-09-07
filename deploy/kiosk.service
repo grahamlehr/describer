@@ -20,11 +20,12 @@ StandardError=journal
 Environment=XDG_RUNTIME_DIR=/run/user/@UID@
 Environment=XDG_SESSION_TYPE=wayland
 Environment=WLR_LIBINPUT_NO_DEVICES=1
-# A cursor theme of transparent pixels: cage draws a pointer in the middle
-# of the screen whether or not a mouse is attached, and has no flag to stop
-# it. deploy/install.sh writes the theme.
+# cage draws a pointer in the middle of the screen with no mouse attached and
+# has no flag to hide it. It ignores XCURSOR_THEME and XCURSOR_SIZE, loading
+# whatever theme is named "default", so deploy/install.sh writes a blank one
+# under that name and this path puts it ahead of the system's.
+Environment=XCURSOR_PATH=/usr/local/share/describer-cursors:/usr/share/icons
 Environment=XCURSOR_THEME=describer-blank
-Environment=XCURSOR_PATH=/usr/share/icons
 Environment=XCURSOR_SIZE=24
 # Wait for the backend (a user service) to answer before painting anything.
 ExecStartPre=/bin/sh -c 'until curl -sf http://localhost:8080/api/state >/dev/null; do sleep 1; done'
