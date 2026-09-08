@@ -14,6 +14,12 @@ stations:
     name: null              # optional display name override (null = use the API's)
     rows: 8                 # number of service rows to render
     announce: true          # speak announcements for this station
+    # Show only these platforms; empty (the default) shows every platform.
+    # Case and spacing are ignored, so "2a" matches platform 2A.
+    platforms: []           # e.g. ["1", "2A"]
+    # A platform is withheld by both feeds until it is confirmed, so a filtered
+    # board runs short until then. Set this true to keep those trains on it.
+    show_unplatformed: false
 
 display:
   theme: modern             # modern | crt | splitflap | 1990s | nse | led-matrix | thameslink

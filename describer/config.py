@@ -29,6 +29,8 @@ WEEKDAYS: tuple[Weekday, ...] = ("mon", "tue", "wed", "thu", "fri", "sat", "sun"
 
 CrsCode = Annotated[str, Field(min_length=3, max_length=3, pattern=r"^[A-Za-z]{3}$")]
 HHMM = Annotated[str, Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
+#: A platform as printed on the board: "1", "9B", "13". Held upper-case.
+Platform = Annotated[str, Field(min_length=1, max_length=5)]
 
 
 class StationConfig(BaseModel):
@@ -42,11 +44,49 @@ class StationConfig(BaseModel):
     rows: int = Field(default=8, ge=1, le=20)
     #: Announce services for this station (requires announcements.enabled).
     announce: bool = True
+    #: Show only these platforms, e.g. ["1", "2A"]. Empty shows every platform.
+    #: Matching ignores case and surrounding space.
+    platforms: list[Platform] = Field(default_factory=list)
+    #: Whether a service with no platform survives the filter above. Both feeds
+    #: withhold a platform until it is confirmed, so a filtered board is empty
+    #: for most of the hour with this off — and carries other platforms' trains
+    #: with it on.
+    show_unplatformed: bool = False
 
     @field_validator("crs")
     @classmethod
     def _upper(cls, v: str) -> str:
         return v.upper()
+
+    @field_validator("platforms", mode="before")
+    @classmethod
+    def _clean_platforms(cls, values: object) -> object:
+        """Normalise to the form :meth:`accepts_platform` compares against.
+
+        Runs before the item type, so that a stray empty entry from the admin
+        page's comma-separated field is dropped rather than rejected.
+        """
+        if not isinstance(values, list):
+            return values
+        seen: set[str] = set()
+        result: list[str] = []
+        for value in values:
+            if not isinstance(value, str):
+                return values
+            token = value.strip().upper()
+            if not token or token in seen:
+                continue
+            seen.add(token)
+            result.append(token)
+        return result
+
+    def accepts_platform(self, platform: str | None) -> bool:
+        """Is a service standing at ``platform`` wanted on this board?"""
+        if not self.platforms:
+            return True
+        if platform is None or not platform.strip():
+            return self.show_unplatformed
+        return platform.strip().upper() in self.platforms
 
 
 class CrtThemeConfig(BaseModel):

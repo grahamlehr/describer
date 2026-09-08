@@ -211,6 +211,29 @@ stations:
   - {crs: PAD, mode: arrivals,   rows: 8, announce: false}
 ```
 
+A station may also be narrowed to particular platforms, which is what you
+want when the board is watching the two platforms you actually use:
+
+```yaml
+stations:
+  - crs: RDG
+    mode: departures
+    platforms: ["7", "8"]     # empty (the default) shows every platform
+    show_unplatformed: false  # true keeps trains with no confirmed platform
+```
+
+Matching ignores case and spacing, so `2a` finds platform 2A. Both feeds
+withhold a platform until it is confirmed — LDBWS omits it, and RTT reports
+only `actual` or `forecast` — so a filtered board carries fewer trains than
+its row count until each is given its platform. Set `show_unplatformed: true`
+to keep those trains on the board in the meantime, at the cost of showing
+some that will turn out to be someone else's platform.
+
+The filter is applied where the boards are handed out, not where they are
+fetched, so the whole board stays in hand: widening the filter from `/admin`
+shows the extra trains without waiting for another API call. Announcements
+follow the filter too — a train filtered off the board is not announced.
+
 ### Themes
 
 | Theme       | Look                                                        |

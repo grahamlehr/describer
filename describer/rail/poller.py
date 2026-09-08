@@ -119,8 +119,20 @@ class Poller:
                     stale=True,
                     error="Waiting for first fetch",
                 )
-            elif station.name:
-                board = board.model_copy(update={"name": station.name})
+            else:
+                updates: dict[str, object] = {}
+                if station.name:
+                    updates["name"] = station.name
+                if station.platforms:
+                    # Filtering here rather than at the fetch keeps the whole
+                    # board in hand, so widening the filter needs no new call.
+                    updates["services"] = [
+                        service
+                        for service in board.services
+                        if station.accepts_platform(service.platform)
+                    ]
+                if updates:
+                    board = board.model_copy(update=updates)
             result.append(board)
         return result
 

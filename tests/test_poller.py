@@ -210,3 +210,52 @@ async def test_display_mode_is_pushed_when_it_changes(monkeypatch, poller):
     await instance._apply_display_mode(config)
     assert requests[-1] == "auto"
     assert instance.display_mode == "auto"
+
+
+async def test_a_platform_filter_narrows_the_board(poller):
+    """The fixture stands trains at platforms 9, 12, none and 3."""
+    instance, _ = poller
+    await instance._poll_slot(0, instance._store.get())
+
+    instance._store.set(
+        Config(stations=[{"crs": "PAD", "platforms": ["9", "3"]}], sources={"fallback": None}),
+        persist=False,
+    )
+    board = instance.boards()[0]
+
+    assert [service.platform for service in board.services] == ["9", "3"]
+
+
+async def test_an_unconfirmed_platform_is_kept_when_asked_for(poller):
+    instance, _ = poller
+    await instance._poll_slot(0, instance._store.get())
+
+    instance._store.set(
+        Config(
+            stations=[{"crs": "PAD", "platforms": ["9"], "show_unplatformed": True}],
+            sources={"fallback": None},
+        ),
+        persist=False,
+    )
+    board = instance.boards()[0]
+
+    assert [service.platform for service in board.services] == ["9", None]
+
+
+async def test_widening_the_filter_needs_no_new_fetch(poller):
+    """The whole board is held, so only the view of it is filtered."""
+    instance, fake = poller
+    await instance._poll_slot(0, instance._store.get())
+
+    instance._store.set(
+        Config(stations=[{"crs": "PAD", "platforms": ["9"]}], sources={"fallback": None}),
+        persist=False,
+    )
+    assert len(instance.boards()[0].services) == 1
+
+    instance._store.set(
+        Config(stations=[{"crs": "PAD"}], sources={"fallback": None}), persist=False
+    )
+
+    assert len(instance.boards()[0].services) == 4
+    assert fake.calls == [("PAD", "departures")]

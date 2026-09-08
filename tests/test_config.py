@@ -124,3 +124,36 @@ def test_announce_any_needs_both_switches():
     assert Config(stations=[{"crs": "PAD"}]).announce_any
     assert not Config(stations=[{"crs": "PAD", "announce": False}]).announce_any
     assert not Config(stations=[{"crs": "PAD"}], announcements={"enabled": False}).announce_any
+
+
+def test_platforms_are_normalised_and_deduplicated():
+    station = Config(stations=[{"crs": "RDG", "platforms": [" 2a ", "7", "2A", ""]}]).stations[0]
+
+    assert station.platforms == ["2A", "7"]
+
+
+def test_no_platform_filter_accepts_everything():
+    station = Config(stations=[{"crs": "RDG"}]).stations[0]
+
+    assert station.accepts_platform("4")
+    assert station.accepts_platform(None)
+
+
+def test_platform_filter_matches_case_insensitively():
+    station = Config(stations=[{"crs": "RDG", "platforms": ["2a"]}]).stations[0]
+
+    assert station.accepts_platform("2A")
+    assert station.accepts_platform(" 2a ")
+    assert not station.accepts_platform("2B")
+
+
+def test_an_unconfirmed_platform_is_dropped_unless_asked_for():
+    strict = Config(stations=[{"crs": "RDG", "platforms": ["7"]}]).stations[0]
+    lenient = Config(
+        stations=[{"crs": "RDG", "platforms": ["7"], "show_unplatformed": True}]
+    ).stations[0]
+
+    assert not strict.accepts_platform(None)
+    assert not strict.accepts_platform("  ")
+    assert lenient.accepts_platform(None)
+    assert lenient.accepts_platform("  ")

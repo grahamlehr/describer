@@ -53,13 +53,23 @@ function stationCard(station, index) {
         <input type="number" data-station="rows" min="1" max="20" step="1">
       </label>
       <label class="check"><input type="checkbox" data-station="announce"> Announcements</label>
-    </div>`;
+      <label>Platforms
+        <input type="text" data-station="platforms" placeholder="(all platforms)">
+      </label>
+      <label class="check"><input type="checkbox" data-station="show_unplatformed"> Keep trains with no platform yet</label>
+    </div>
+    <p class="hint">Comma-separated, e.g. <code>1, 2A</code>. Leave it empty to
+      show every platform. Both feeds withhold a platform until it is confirmed,
+      so a filtered board runs short until then unless the box above is ticked.</p>`;
 
   card.querySelector('[data-station="crs"]').value = station.crs || '';
   card.querySelector('[data-station="mode"]').value = station.mode || 'departures';
   card.querySelector('[data-station="name"]').value = station.name || '';
   card.querySelector('[data-station="rows"]').value = station.rows ?? 8;
   card.querySelector('[data-station="announce"]').checked = station.announce !== false;
+  card.querySelector('[data-station="platforms"]').value = (station.platforms || []).join(', ');
+  card.querySelector('[data-station="show_unplatformed"]').checked =
+    station.show_unplatformed === true;
 
   card.querySelector('[data-remove]').addEventListener('click', () => {
     if (config.stations.length === 1) {
@@ -88,6 +98,12 @@ function readStations() {
       name: name || null,
       rows: Number(card.querySelector('[data-station="rows"]').value),
       announce: card.querySelector('[data-station="announce"]').checked,
+      platforms: card
+        .querySelector('[data-station="platforms"]')
+        .value.split(',')
+        .map((entry) => entry.trim().toUpperCase())
+        .filter(Boolean),
+      show_unplatformed: card.querySelector('[data-station="show_unplatformed"]').checked,
     };
   });
 }
