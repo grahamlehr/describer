@@ -281,6 +281,11 @@ export function afterRender(boardsEl) {
       row.dataset.ordinal = row.dataset.status === 'cancelled' && index ? '···' : ordinal(index + 1);
     });
 
+    // The stops under the top service are that train's, so they take its
+    // status: a cancelled route greys out with the row it belongs to.
+    const stops = board.querySelector('.calling-points');
+    if (stops) stops.dataset.status = services[0]?.dataset.status || '';
+
     layOutLaterHead(board, rows, services.length);
     ensureClock(board);
   }
