@@ -43,7 +43,7 @@ body {
   opacity: 1;
 }
 .stale { grid-row: 2; grid-column: 1 / -1; color: var(--tl-amber); }
-.rows { grid-row: 3; grid-column: 1 / -1; margin-top: 1.2vh; }
+.rows { grid-row: 3; grid-column: 1 / -1; margin-top: 0.3vh; }
 .messages { grid-row: 4; grid-column: 1 / -1; color: var(--tl-amber); border: 0; }
 .source { grid-row: 5; grid-column: 2; align-self: center; color: var(--tl-dim); }
 
@@ -73,7 +73,10 @@ body {
  */
 .rows {
   --char-budget: 24;
-  --feature-share: 2.2;
+  /* The next train is two lines of type, not two rows: enough for them and a
+     little air under the second, since anything more opens a blank band
+     between the station name and the train. */
+  --feature-share: 1.5;
   --head-share: 0.5;
   /* The later trains are a packed list, not the board: they take less than a
      slot each, and what they give up goes to the route above them. */
@@ -94,7 +97,9 @@ body {
 .row.selected {
   grid-template-columns: auto auto minmax(0, 1fr);
   grid-template-rows: auto auto;
-  align-content: center;
+  /* Not centred: whatever the block does not use belongs under the train,
+     not between it and the station name. */
+  align-content: start;
   column-gap: 0.6em;
   row-gap: 0.1em;
   flex: 0 0 calc(var(--slot) * var(--feature-share));

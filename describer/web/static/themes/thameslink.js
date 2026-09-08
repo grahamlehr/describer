@@ -27,6 +27,8 @@ const callingLists = new Set();
 let refreshTimer = null;
 let pageTimer = null;
 let clockTimer = null;
+/** Re-measures the route the moment the board hands it a different height. */
+let observer = null;
 let root = null;
 let api = null;
 /** Shared by every delayed service on screen, so they alternate together. */
@@ -40,6 +42,18 @@ export function attach(boardsEl, _options, themeApi) {
     api.render();
   }, REFRESH_MS);
   pageTimer = setInterval(turnCallingPage, PAGE_MS);
+  // The room for the stops is settled by flex, and it is still moving while
+  // the theme's stylesheet lands and the later trains take their share. Waiting
+  // for the next page turn to notice would leave a name cut in half on screen
+  // for five seconds every time the board loads, so watch the block instead.
+  observer = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const list = entry.target.querySelector('.calling-points-list');
+      if (!list || !list.__key) continue;
+      measure(list);
+      paintPage(list);
+    }
+  });
   // board.js writes .clock itself every quarter second and would overwrite any
   // structure we put in it, so the panel is a separate element kept in step.
   clockTimer = setInterval(paintClocks, CLOCK_MS);
@@ -50,6 +64,8 @@ export function detach() {
   clearInterval(pageTimer);
   clearInterval(clockTimer);
   refreshTimer = pageTimer = clockTimer = null;
+  observer?.disconnect();
+  observer = null;
   callingLists.clear();
   for (const el of document.querySelectorAll('.tl-later-head, .tl-pages, .tl-clock')) el.remove();
   for (const row of document.querySelectorAll('.row[data-ordinal]')) delete row.dataset.ordinal;
@@ -145,6 +161,9 @@ export function renderCallingPoints(list, points) {
     list.__page = 0;
   }
   callingLists.add(list);
+  // Observing the block, not the track: the track's height is ours to set, and
+  // the block's is what the board actually handed the route.
+  if (list.parentElement) observer?.observe(list.parentElement.parentElement);
   measure(list);
   paintPage(list);
 }
