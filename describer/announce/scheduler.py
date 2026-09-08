@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ..config import Config
 from ..rail.models import Board, Service, ServiceStatus
@@ -22,12 +22,20 @@ log = logging.getLogger(__name__)
 GRACE_SECONDS = 60
 #: Announcements waiting to be spoken; beyond this we are hopelessly behind.
 MAX_QUEUE = 8
+#: How long a train is remembered after it was last seen on a board.
+#:
+#: Forgetting a train the moment it leaves the board is wrong once profiles
+#: exist: a station that goes away at 09:30 and comes back at 16:30 would have
+#: every one of its trains announced a second time. It is remembered for long
+#: enough that nothing announced can come round again, and no longer.
+FORGET_AFTER = timedelta(minutes=30)
 
 
 class AnnouncementScheduler:
     def __init__(self, engine: TtsEngine) -> None:
         self._engine = engine
-        self._announced: set[tuple[str, str]] = set()
+        #: (train, event) -> when that train was last seen on a board.
+        self._announced: dict[tuple[str, str], datetime] = {}
         self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=MAX_QUEUE)
         self._worker: asyncio.Task[None] | None = None
         self.last_spoken: str | None = None
@@ -72,7 +80,6 @@ class AnnouncementScheduler:
         if not config.announce_any:
             return
         now = datetime.now().astimezone()
-        live_ids: set[str] = set()
 
         for index, board in enumerate(boards):
             if index >= len(config.stations) or not config.stations[index].announce:
@@ -83,11 +90,14 @@ class AnnouncementScheduler:
                 identity = (
                     f"{board.crs}:{board.mode}:{service.scheduled_time}:{service.destination}"
                 )
-                live_ids.add(identity)
+                # Still on the board, so it is still worth remembering.
+                for kind in AnnouncementKind:
+                    if (identity, kind.value) in self._announced:
+                        self._announced[(identity, kind.value)] = now
                 for kind in self._pending_kinds(service, config, now):
                     if (identity, kind.value) in self._announced:
                         continue
-                    self._announced.add((identity, kind.value))
+                    self._announced[(identity, kind.value)] = now
                     text = build_text(
                         kind,
                         service,
@@ -96,7 +106,7 @@ class AnnouncementScheduler:
                     )
                     self._enqueue(text)
 
-        self._prune(live_ids)
+        self._prune(now)
 
     def _enqueue(self, text: str) -> None:
         try:
@@ -105,9 +115,15 @@ class AnnouncementScheduler:
         except asyncio.QueueFull:
             log.warning("Announcement queue full; dropping: %s", text[:60])
 
-    def _prune(self, live_ids: set[str]) -> None:
-        """Forget services that have dropped off every board."""
-        self._announced = {entry for entry in self._announced if entry[0] in live_ids}
+    def _prune(self, now: datetime) -> None:
+        """Forget services no board has shown for a while.
+
+        Pruned on age rather than on absence: a station can leave the board and
+        come back within the day, and its trains must not be announced twice.
+        """
+        self._announced = {
+            key: seen for key, seen in self._announced.items() if now - seen < FORGET_AFTER
+        }
 
     # -- speaking ----------------------------------------------------------
 

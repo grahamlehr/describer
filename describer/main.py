@@ -22,6 +22,8 @@ from starlette.types import Scope
 from .announce.scheduler import AnnouncementScheduler
 from .announce.tts import TtsEngine, TtsError
 from .config import Config, ConfigStore, config_path, load_config
+from .profiles import next_change
+from .rail.models import Board
 from .rail.poller import Poller
 from .schedule import is_display_on
 
@@ -61,6 +63,12 @@ class ForceSource(BaseModel):
     source: Literal["rdm", "rtt", "auto"] = "auto"
 
 
+class ForceProfile(BaseModel):
+    """Admin override for the live profile. Memory only; never written to YAML."""
+
+    profile: str | None = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
@@ -72,6 +80,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = TtsEngine(config.announcements)
     announcer = AnnouncementScheduler(engine)
     poller = Poller(store)
+
+    async def follow_config(_boards: list[Board], active: Config) -> None:
+        """Keep Piper on the config actually in force, profile included."""
+        engine.update_config(active.announcements)
+
+    poller.add_listener(follow_config)
     poller.add_listener(announcer.on_boards)
 
     app.state.store = store
@@ -127,12 +141,15 @@ async def api_put_config(request: Request, payload: dict) -> dict:
     try:
         config = Config.model_validate(payload)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=exc.errors(include_url=False)) from exc
+        # A profile's own failure arrives as a ValueError inside ctx, which does
+        # not survive JSON; the message already carries what went wrong.
+        detail = exc.errors(include_url=False, include_context=False)
+        raise HTTPException(status_code=422, detail=detail) from exc
 
     store: ConfigStore = request.app.state.store
     store.set(config)
     # Applied live: no restart for theme, stations, sources or announcements.
-    request.app.state.engine.update_config(config.announcements)
+    request.app.state.engine.update_config(store.active().announcements)
     request.app.state.poller.config_changed()
     return config.model_dump(mode="json")
 
@@ -140,10 +157,17 @@ async def api_put_config(request: Request, payload: dict) -> dict:
 @app.get("/api/status")
 async def api_status(request: Request) -> dict:
     poller: Poller = request.app.state.poller
-    config: Config = request.app.state.store.get()
+    store: ConfigStore = request.app.state.store
+    config: Config = store.get()
     announcer: AnnouncementScheduler = request.app.state.announcer
+    profile = store.active_profile()
+    upcoming = next_change(config, forced=store.forced_profile)
     return {
-        "config_path": str(request.app.state.store.path),
+        "config_path": str(store.path),
+        "active_profile": profile.name if profile else None,
+        "forced_profile": store.forced_profile,
+        "next_profile": upcoming[1] if upcoming else None,
+        "profile_changes_at": upcoming[0].isoformat() if upcoming else None,
         **poller.sources.status(),
         "last_fetch": poller.last_fetch.isoformat() if poller.last_fetch else None,
         "last_error": poller.last_error,
@@ -176,6 +200,18 @@ async def api_force_source(request: Request, payload: ForceSource) -> dict:
     poller: Poller = request.app.state.poller
     poller.force_source(None if payload.source == "auto" else payload.source)
     return poller.sources.status()
+
+
+@app.post("/api/profile/force")
+async def api_force_profile(request: Request, payload: ForceProfile) -> dict:
+    """Pin a profile so the evening board can be seen at eleven in the morning."""
+    store: ConfigStore = request.app.state.store
+    name = payload.profile or None
+    known = {entry.name for entry in store.get().profiles.entries}
+    if name is not None and name not in known:
+        raise HTTPException(status_code=404, detail=f"No profile named {name!r}")
+    request.app.state.poller.force_profile(name)
+    return {"forced_profile": store.forced_profile}
 
 
 @app.post("/api/announce/test")

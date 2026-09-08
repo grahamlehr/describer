@@ -149,6 +149,79 @@ def test_unknown_forced_source_is_rejected(client):
     assert client.post("/api/source/force", json={"source": "nre"}).status_code == 422
 
 
+PROFILE = {
+    "name": "Evening",
+    "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+    "start": "00:00",
+    "end": "00:00",  # all day, so the test does not depend on the clock
+    "stations": [{"crs": "LBG"}],
+    "display": {"theme": "crt"},
+}
+
+
+def save_profile(client):
+    config = client.get("/api/config").json()
+    config["profiles"] = {"enabled": True, "entries": [PROFILE]}
+    response = client.put("/api/config", json=config)
+    assert response.status_code == 200, response.text
+    return response
+
+
+def test_the_config_api_serves_the_file_while_the_board_runs_the_profile(client):
+    """/admin edits what is on disk; /api/state shows what is on the screen."""
+    save_profile(client)
+
+    assert client.get("/api/config").json()["stations"][0]["crs"] == "PAD"
+    state = client.get("/api/state").json()
+    assert state["stations"][0]["crs"] == "LBG"
+    assert state["display"]["theme"] == "crt"
+
+
+def test_status_names_the_profile_in_force(client):
+    save_profile(client)
+
+    status = client.get("/api/status").json()
+
+    assert status["active_profile"] == "Evening"
+    assert status["forced_profile"] is None
+    # One profile covering every hour of every day never hands over.
+    assert status["next_profile"] is None
+
+
+def test_a_profile_can_be_forced_without_touching_the_config(client, tmp_path):
+    config = client.get("/api/config").json()
+    config["profiles"] = {"enabled": False, "entries": [PROFILE]}
+    client.put("/api/config", json=config)
+    assert client.get("/api/state").json()["stations"][0]["crs"] == "PAD"
+
+    forced = client.post("/api/profile/force", json={"profile": "Evening"})
+
+    assert forced.json()["forced_profile"] == "Evening"
+    assert client.get("/api/state").json()["stations"][0]["crs"] == "LBG"
+    # Pinning is for testing out of hours: it must not reach the file.
+    assert "enabled: false" in (tmp_path / "config.yaml").read_text()
+
+    client.post("/api/profile/force", json={"profile": None})
+    assert client.get("/api/state").json()["stations"][0]["crs"] == "PAD"
+
+
+def test_forcing_a_profile_that_does_not_exist_is_rejected(client):
+    assert client.post("/api/profile/force", json={"profile": "Nope"}).status_code == 404
+
+
+def test_a_profile_that_cannot_merge_is_refused_with_field_errors(client):
+    config = client.get("/api/config").json()
+    config["profiles"] = {
+        "enabled": True,
+        "entries": [{**PROFILE, "display": {"themes": {"crt": {"phosphor": "purple"}}}}],
+    }
+
+    response = client.put("/api/config", json=config)
+
+    assert response.status_code == 422
+    assert "Evening" in json.dumps(response.json()["detail"])
+
+
 def test_test_announcement_reports_a_missing_piper(client):
     response = client.post("/api/announce/test", json={"text": "Hello"})
 

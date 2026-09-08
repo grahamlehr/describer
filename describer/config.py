@@ -9,11 +9,12 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 log = logging.getLogger(__name__)
 
@@ -154,11 +155,12 @@ class ThemesConfig(BaseModel):
     thameslink: ThameslinkThemeConfig = ThameslinkThemeConfig()
 
 
+ThemeName = Literal["modern", "crt", "splitflap", "1990s", "nse", "led-matrix", "thameslink"]
+
+
 class DisplayConfig(BaseModel):
     #: Active theme; switchable live from /admin.
-    theme: Literal["modern", "crt", "splitflap", "1990s", "nse", "led-matrix", "thameslink"] = (
-        "modern"
-    )
+    theme: ThemeName = "modern"
     #: Show the live clock in each board header.
     clock: bool = True
     #: Expand the first row to scroll its calling points.
@@ -289,12 +291,136 @@ class ScheduleConfig(BaseModel):
         return self
 
 
+class DisplayOverride(BaseModel):
+    """The display keys a profile may set; anything unset keeps the base value.
+
+    ``resolution`` is deliberately absent: it is a hardware action with a retry
+    loop behind it, and no template needs the monitor to change mode at half
+    past six.
+    """
+
+    theme: ThemeName | None = None
+    clock: bool | None = None
+    show_calling_points: bool | None = None
+    #: Theme options and palettes, merged key by key onto the base block. Held
+    #: loosely because a theme's options are its own; the merged result is
+    #: validated against ThemesConfig before the profile is accepted.
+    themes: dict[str, dict[str, Any]] | None = None
+
+
+class AnnouncementsOverride(BaseModel):
+    """The announcement keys a profile may set.
+
+    Piper's paths (``voices_dir``, ``piper_binary``, ``cache_dir``) are not
+    here: they describe the machine, not the hour.
+    """
+
+    enabled: bool | None = None
+    lead_time: int | None = Field(default=None, ge=0, le=1800)
+    volume: float | None = Field(default=None, ge=0.0, le=1.0)
+    voice: str | None = None
+    audio_device: Literal["hdmi", "jack", "default"] | None = None
+    chime: bool | None = None
+    announce_delays: bool | None = None
+    announce_cancellations: bool | None = None
+    max_calling_points: int | None = Field(default=None, ge=1, le=30)
+
+
+class ProfileConfig(BaseModel):
+    """A named window of the week carrying a sparse override of the config.
+
+    ``start == end`` means the whole day; ``start`` after ``end`` wraps
+    midnight, exactly as :class:`ScheduleConfig` does.
+    """
+
+    name: str = Field(min_length=1, max_length=40)
+    days: list[Weekday] = Field(default_factory=lambda: list(WEEKDAYS), min_length=1)
+    start: HHMM = "00:00"
+    end: HHMM = "00:00"
+    #: Replaces the station list wholesale when present. Merging two lists
+    #: positionally would have to decide what a half-specified second station
+    #: means, and what a profile wants is a different station, not a tweaked one.
+    stations: list[StationConfig] | None = Field(default=None, min_length=1, max_length=2)
+    display: DisplayOverride | None = None
+    announcements: AnnouncementsOverride | None = None
+
+    @field_validator("days", mode="before")
+    @classmethod
+    def _clean_days(cls, values: object) -> object:
+        """Lower-case, de-duplicate and hold in week order, whatever the file says."""
+        if not isinstance(values, list):
+            return values
+        wanted = {value.strip().lower() for value in values if isinstance(value, str)}
+        ordered = [day for day in WEEKDAYS if day in wanted]
+        # An unrecognised day is handed back untouched, so the item type names it.
+        return ordered if len(ordered) == len(wanted) else values
+
+    def override_payload(self) -> dict[str, Any]:
+        """This profile's overrides as plain data, with the unset keys removed.
+
+        A ``null`` means "not set here", so it is dropped rather than merged;
+        lists are values in their own right and are left alone.
+        """
+        payload = self.model_dump(mode="json", include={"stations", "display", "announcements"})
+        return _without_nulls(payload)
+
+
+class ProfilesConfig(BaseModel):
+    """Time-of-day profiles, in the order they are tried.
+
+    The first entry matching the moment wins. Overlaps and gaps are legal: the
+    alternative is a validation error standing between the user and a board,
+    and what falls through the list is the base config, which is the "every
+    other hour" template without anyone having to write one.
+    """
+
+    enabled: bool = True
+    entries: list[ProfileConfig] = Field(default_factory=list, max_length=12)
+
+    @model_validator(mode="after")
+    def _unique_names(self) -> ProfilesConfig:
+        names = [entry.name.strip().lower() for entry in self.entries]
+        duplicates = {name for name in names if names.count(name) > 1}
+        if duplicates:
+            raise ValueError(f"duplicate profile names: {sorted(duplicates)}")
+        return self
+
+
+def _without_nulls(value: Any) -> Any:
+    """Drop ``None`` values from nested dicts. Lists are left as they are."""
+    if not isinstance(value, dict):
+        return value
+    return {key: _without_nulls(item) for key, item in value.items() if item is not None}
+
+
+def merge_overrides(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Deep-merge ``override`` onto ``base``. A list replaces, a dict merges."""
+    result = dict(base)
+    for key, value in override.items():
+        current = result.get(key)
+        if isinstance(current, dict) and isinstance(value, dict):
+            result[key] = merge_overrides(current, value)
+        else:
+            result[key] = value
+    return result
+
+
+def merge_profile(config: Config, profile: ProfileConfig) -> Config:
+    """The config as it stands with ``profile`` applied."""
+    merged = merge_overrides(config.model_dump(mode="json"), profile.override_payload())
+    # A resolved config carries no profiles of its own: nothing downstream can
+    # resolve twice, and the validator below cannot recurse.
+    merged["profiles"] = {"enabled": False, "entries": []}
+    return Config.model_validate(merged)
+
+
 class Config(BaseModel):
     stations: list[StationConfig] = Field(min_length=1, max_length=2)
     display: DisplayConfig = DisplayConfig()
     sources: SourcesConfig = SourcesConfig()
     announcements: AnnouncementsConfig = AnnouncementsConfig()
     schedule: ScheduleConfig = ScheduleConfig()
+    profiles: ProfilesConfig = ProfilesConfig()
 
     @model_validator(mode="before")
     @classmethod
@@ -312,6 +438,21 @@ class Config(BaseModel):
         shared = {k: legacy[k] for k in ("poll_interval", "stale_after") if k in legacy}
         data["sources"] = {**shared, "rdm": rdm}
         return data
+
+    @model_validator(mode="after")
+    def _profiles_resolve(self) -> Config:
+        """Every profile must merge into a valid config, proved here and now.
+
+        A profile is applied hours after it is saved. Finding out at 07:00 that
+        it names a theme that does not exist is not an option, so each one is
+        merged and validated at the Save button instead.
+        """
+        for profile in self.profiles.entries:
+            try:
+                merge_profile(self, profile)
+            except ValidationError as exc:
+                raise ValueError(f"profile {profile.name!r} is not valid: {exc}") from exc
+        return self
 
     @property
     def announce_any(self) -> bool:
@@ -366,21 +507,68 @@ class ConfigStore:
         self._path = path or config_path()
         self._lock = threading.Lock()
         self._listeners: list[object] = []
+        #: Bumped whenever the config is replaced, so the resolution below is
+        #: never served from a cache built against an older file.
+        self._version = 0
+        self._forced_profile: str | None = None
+        self._resolved: tuple[tuple[int, str], Config] | None = None
 
     @property
     def path(self) -> Path:
         return self._path
 
     def get(self) -> Config:
+        """The config as written in the file. What /admin edits and saves."""
         with self._lock:
             return self._config
 
     def set(self, config: Config, *, persist: bool = True) -> Config:
         with self._lock:
             self._config = config
+            self._version += 1
+            self._resolved = None
         if persist:
             save_config(config, self._path)
         return config
 
     def reload(self) -> Config:
         return self.set(load_config(self._path), persist=False)
+
+    # -- profiles ----------------------------------------------------------
+
+    @property
+    def forced_profile(self) -> str | None:
+        """The profile pinned for testing, or None while the clock decides."""
+        return self._forced_profile
+
+    def force_profile(self, name: str | None) -> None:
+        """Pin a profile so it can be seen out of hours. Never written to YAML."""
+        with self._lock:
+            self._forced_profile = name
+            self._version += 1
+            self._resolved = None
+
+    def active_profile(self, now: datetime | None = None) -> ProfileConfig | None:
+        """The profile in force, or None when the base config stands alone."""
+        # Local: profiles.py reads this module, so it cannot be imported at the top.
+        from .profiles import active_profile
+
+        return active_profile(self.get(), now, forced=self._forced_profile)
+
+    def active(self, now: datetime | None = None) -> Config:
+        """The config the board is actually running: the file, plus any profile.
+
+        Cached on the profile in force, because the poller asks for this on
+        every tick and the answer changes four times a day.
+        """
+        profile = self.active_profile(now)
+        if profile is None:
+            return self.get()
+        key = (self._version, profile.name)
+        with self._lock:
+            if self._resolved is not None and self._resolved[0] == key:
+                return self._resolved[1]
+        resolved = merge_profile(self.get(), profile)
+        with self._lock:
+            self._resolved = (key, resolved)
+        return resolved

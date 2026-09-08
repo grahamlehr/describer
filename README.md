@@ -128,7 +128,8 @@ set to the checkout, so **a `config.yaml` in `~/describer` on the Pi wins over
 
 Every option is documented in `config.example.yaml`. The admin page at
 `/admin` edits the same file and applies theme, station, feed and
-announcement changes live — no restart.
+announcement changes live — no restart. What the file says and what is on the
+screen can differ: see [Profiles](#profiles).
 
 Credentials are never stored in `config.yaml`. They come from the
 environment (or `.env`): `RDM_API_KEY` for the Rail Data Marketplace, and
@@ -284,6 +285,34 @@ With `schedule.enabled`, the board blanks outside the daily window, puts the
 HDMI output to sleep (`wlr-randr`, or `vcgencmd` as a fallback), and stops
 both polling and announcements until the next on-time. Per-weekday overrides
 are supported; a day mapped to `null` stays off all day.
+
+### Profiles
+
+The board can run a different station, theme and set of options at different
+hours. A profile is a named window of the week (`start`, `end`, `days`)
+carrying only the keys it changes; everything else comes from the config
+above, which is also what runs when nothing matches. Entries are tried top to
+bottom and the first match wins, so an overlap is settled by the order.
+
+```yaml
+profiles:
+  enabled: true
+  entries:
+    - name: Morning rush
+      days: [mon, tue, wed, thu, fri]
+      start: "06:30"
+      end: "09:30"
+      stations: [{crs: ABW, rows: 10}]   # replaces the list, never merges
+      display: {theme: thameslink}       # a key left out keeps the base value
+      announcements: {lead_time: 180}
+```
+
+The `/admin` **Profiles** tab edits them, draws the week as a ribbon so gaps
+and overlaps can be seen, and the Status tab can pin one so the evening board
+can be checked at eleven in the morning. `sources` and `display.resolution`
+cannot be overridden: they are plumbing and hardware, not presentation. The
+display schedule above still owns the power — while the screen is off, no
+profile is active and nothing is fetched.
 
 ## How it fits together
 

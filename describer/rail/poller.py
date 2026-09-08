@@ -44,6 +44,9 @@ class Poller:
         self._task: asyncio.Task[None] | None = None
         self._wake = asyncio.Event()
         self._display_on = True
+        #: The profile the boards in hand were fetched under; None is the base
+        #: config. A change means the station list may have moved under us.
+        self._profile: str | None = None
         #: The resolution wlr-randr last accepted; None until a request is made.
         self._display_mode: str | None = None
         self.last_error: str | None = None
@@ -77,6 +80,11 @@ class Poller:
         self._sources.force(source)
         self.config_changed()
 
+    def force_profile(self, name: str | None) -> None:
+        """Pin a profile so it can be seen out of hours; re-poll straight away."""
+        self._store.force_profile(name)
+        self.config_changed()
+
     def config_changed(self) -> None:
         """Called by the admin page: re-poll immediately under the new config."""
         self._next_due.clear()
@@ -106,7 +114,7 @@ class Poller:
     # -- state -------------------------------------------------------------
 
     def boards(self) -> list[Board]:
-        config = self._store.get()
+        config = self._store.active()
         result: list[Board] = []
         for index, station in enumerate(config.stations):
             key = _slot_key(index, station.crs, station.mode)
@@ -139,15 +147,16 @@ class Poller:
     @property
     def display_mode(self) -> str | None:
         """The resolution in force, or None while a change is still pending."""
-        wanted = self._store.get().display.resolution
+        wanted = self._store.active().display.resolution
         return wanted if wanted == self._display_mode else None
 
     def state(self) -> dict:
-        config = self._store.get()
+        config = self._store.active()
         return {
             "type": "state",
             "server_time": datetime.now().astimezone().isoformat(),
             "display_on": self._display_on,
+            "active_profile": self._profile,
             "display": config.display.model_dump(mode="json"),
             "stations": [station.model_dump(mode="json") for station in config.stations],
             "boards": [board.model_dump(mode="json") for board in self.boards()],
@@ -214,9 +223,35 @@ class Poller:
                 log.exception("Unexpected poller error")
                 await asyncio.sleep(5)
 
+    def _on_profile_change(self, name: str | None, config: Config) -> None:
+        """Take up a new profile: forget what it cannot use, fetch what it needs.
+
+        ``boards()`` hands back a cached board without looking at its age; only
+        a failed fetch ever marks one stale. Left alone, an evening profile
+        returning to a morning station would render a three-hour-old board as
+        live, with no warning on it at all — so a slot the new station list does
+        not name is dropped rather than kept for later.
+        """
+        log.info("Profile: %s", name or "none (base config)")
+        self._profile = name
+        wanted = {
+            _slot_key(index, station.crs, station.mode)
+            for index, station in enumerate(config.stations)
+        }
+        for key in set(self._boards) - wanted:
+            del self._boards[key]
+        self._failures.clear()
+        self._next_due.clear()
+        # The browser re-themes and re-lays-out from this frame, without
+        # waiting for the poll the cleared due times have just scheduled.
+        self._publish(self.state())
+
     async def _tick(self) -> None:
-        config = self._store.get()
         now = datetime.now()
+        # One resolution per tick: the announcer pairs a board with the station
+        # at its own index, so a config read twice could pair it with another
+        # profile's station list.
+        config = self._store.active(now)
 
         display_on = is_display_on(config.schedule, now)
         if display_on != self._display_on:
@@ -228,6 +263,11 @@ class Poller:
         if not display_on:
             await self._sleep_until(now + timedelta(seconds=30))
             return
+
+        profile = self._store.active_profile(now)
+        name = profile.name if profile else None
+        if name != self._profile:
+            self._on_profile_change(name, config)
 
         await self._apply_display_mode(config)
 

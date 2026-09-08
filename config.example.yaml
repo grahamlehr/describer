@@ -97,3 +97,37 @@ schedule:
   #   sun: null
   per_weekday: {}
   power_method: wlr-randr   # wlr-randr (under cage) | vcgencmd | none
+
+# Time-of-day profiles: a different board at a different hour. Each entry is a
+# window of the week carrying only the keys it wants to change; anything left
+# out keeps the value above. The first entry matching the moment wins, and what
+# matches nothing is the config above — so that is the "every other hour"
+# template. Stations are replaced wholesale, not merged.
+#
+# Profiles choose content; the schedule above still owns the power. While the
+# display is off, no profile is active and nothing is fetched.
+#
+# sources: and display.resolution cannot be overridden: they are plumbing and
+# hardware, not presentation. Editable from /admin, which can also pin one for
+# testing without waiting until 07:00.
+profiles:
+  enabled: true             # false stops the entries below being consulted
+  entries: []
+  # - name: Morning rush    # shown in /admin and in the status API
+  #   days: [mon, tue, wed, thu, fri]
+  #   start: "06:30"        # start == end means all day; start after end wraps midnight
+  #   end: "09:30"
+  #   stations:             # present = replaces the list above entirely
+  #     - {crs: ABW, mode: departures, rows: 10, platforms: ["1"]}
+  #     - {crs: LBG, mode: arrivals, rows: 10}
+  #   display:              # theme, clock, show_calling_points and theme options
+  #     theme: thameslink
+  #   announcements:        # any announcement option but the Piper paths
+  #     lead_time: 180
+  # - name: Evening
+  #   days: [mon, tue, wed, thu, fri]
+  #   start: "16:30"
+  #   end: "19:30"
+  #   stations: [{crs: LBG, mode: departures, rows: 8}]
+  #   display: {theme: splitflap}
+  #   announcements: {enabled: false}

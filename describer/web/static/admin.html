@@ -24,6 +24,7 @@
   <nav class="tabs" id="tabs" role="tablist">
     <button type="button" role="tab" data-tab="stations" aria-selected="true">Stations</button>
     <button type="button" role="tab" data-tab="display" aria-selected="false">Display</button>
+    <button type="button" role="tab" data-tab="profiles" aria-selected="false">Profiles</button>
     <button type="button" role="tab" data-tab="sources" aria-selected="false">Data sources</button>
     <button type="button" role="tab" data-tab="announcements" aria-selected="false">Announcements</button>
     <button type="button" role="tab" data-tab="schedule" aria-selected="false">Schedule</button>
@@ -133,6 +134,36 @@
           the board needs and the animations stutter. Forcing a mode takes effect at
           once under cage; the monitor upscales.</small>
       </label>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ profiles -->
+  <section class="panel" data-panel="profiles" role="tabpanel" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Profiles</h2>
+        <p class="hint">A different board at a different hour. Each profile changes
+          only what it names; everything else comes from the Stations and Display
+          tabs, which are also what runs when no profile matches.</p>
+      </div>
+      <label class="switch"><input type="checkbox" name="profiles.enabled" data-gate="profiles"> Enabled</label>
+    </div>
+
+    <div class="gated" id="profiles-gate">
+      <div class="profile-layout">
+        <div class="profile-side">
+          <ul class="profile-list" id="profile-list"></ul>
+          <button type="button" id="add-profile" class="ghost">Add profile</button>
+          <p class="hint">Tried top to bottom: the first one matching the moment
+            wins, so an overlap is settled by the order. Move one with the arrows.</p>
+        </div>
+        <div class="profile-editor" id="profile-editor"></div>
+      </div>
+
+      <h3>The week</h3>
+      <p class="hint">What is on the screen at each hour. A gap is the base
+        config from the other tabs.</p>
+      <div class="ribbon" id="profile-ribbon"></div>
     </div>
   </section>
 
@@ -316,11 +347,17 @@
             <option value="rtt">Realtime Trains</option>
           </select>
         </label>
+        <label class="inline">Force profile
+          <select id="force-profile">
+            <option value="">Auto (the clock)</option>
+          </select>
+        </label>
         <button type="button" id="apply-force" class="ghost">Apply</button>
       </div>
     </div>
-    <p class="hint">Forcing a source is for testing the fallback: it is held in
-      memory and never written to the config file.</p>
+    <p class="hint">Forcing a source tests the fallback; forcing a profile shows
+      the evening board at eleven in the morning. Both are held in memory and
+      never written to the config file.</p>
     <dl id="status-list"><dd>Loading&hellip;</dd></dl>
   </section>
 

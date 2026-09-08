@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from describer.announce.scheduler import AnnouncementScheduler
+from describer.announce.scheduler import FORGET_AFTER, AnnouncementScheduler
 from describer.config import Config
 from describer.rail.models import Board, Service, ServiceStatus
 
@@ -134,15 +134,41 @@ async def test_global_switch_silences_everything(scheduler):
     assert engine.spoken == []
 
 
-async def test_departed_services_are_forgotten(scheduler):
+async def test_departed_services_are_forgotten_after_a_while(scheduler):
+    """A train that left the board is remembered for a while, then dropped."""
     announcer, _ = scheduler
     config = Config(stations=[{"crs": "PAD"}])
 
     await announcer.on_boards([board_with(service_at(1))], config)
     assert announcer._announced
     await announcer.on_boards([board_with()], config)
+    # Off the board is not gone: a profile can take a station away at 09:30 and
+    # bring it back at 16:30, and its trains must not be announced twice.
+    assert announcer._announced
 
-    assert announcer._announced == set()
+    # Age everything past the horizon and the next pass lets it go.
+    stale = datetime.now().astimezone() - FORGET_AFTER - timedelta(seconds=1)
+    announcer._announced = dict.fromkeys(announcer._announced, stale)
+    await announcer.on_boards([board_with()], config)
+
+    assert announcer._announced == {}
+
+
+async def test_a_station_that_comes_back_is_not_announced_twice(scheduler):
+    """The case profiles make daily: a station leaves the board and returns."""
+    announcer, engine = scheduler
+    config = Config(stations=[{"crs": "PAD"}])
+    train = service_at(1)
+
+    await announcer.on_boards([board_with(train)], config)
+    await drain(announcer)
+    # The midday profile has no PAD board at all.
+    await announcer.on_boards([], config)
+    # ... and the evening one brings it back.
+    await announcer.on_boards([board_with(train)], config)
+    await drain(announcer)
+
+    assert len(engine.spoken) == 1
 
 
 async def test_a_source_switch_does_not_re_announce_a_train(scheduler):

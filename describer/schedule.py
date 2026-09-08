@@ -8,6 +8,7 @@ import shutil
 from datetime import datetime, time
 
 from .config import WEEKDAYS, DisplayConfig, ScheduleConfig
+from .profiles import in_window, parse_hhmm
 
 log = logging.getLogger(__name__)
 
@@ -20,11 +21,6 @@ OUTPUT = "HDMI-A-1"
 MODES: dict[str, str] = {"1080p": "1920x1080", "720p": "1280x720"}
 
 
-def _parse(hhmm: str) -> time:
-    hours, minutes = (int(part) for part in hhmm.split(":", 1))
-    return time(hours, minutes)
-
-
 def window_for(config: ScheduleConfig, moment: datetime) -> tuple[time, time] | None:
     """The (on, off) window in force on ``moment``'s weekday, or None if off all day."""
     day = WEEKDAYS[moment.weekday()]
@@ -32,8 +28,8 @@ def window_for(config: ScheduleConfig, moment: datetime) -> tuple[time, time] | 
         override = config.per_weekday[day]
         if override is None:
             return None
-        return _parse(override["on_time"]), _parse(override["off_time"])
-    return _parse(config.on_time), _parse(config.off_time)
+        return parse_hhmm(override["on_time"]), parse_hhmm(override["off_time"])
+    return parse_hhmm(config.on_time), parse_hhmm(config.off_time)
 
 
 def is_display_on(config: ScheduleConfig, moment: datetime | None = None) -> bool:
@@ -45,13 +41,7 @@ def is_display_on(config: ScheduleConfig, moment: datetime | None = None) -> boo
     if window is None:
         return False
     on_at, off_at = window
-    now = moment.time()
-    if on_at == off_at:
-        return True
-    if on_at < off_at:
-        return on_at <= now < off_at
-    # Window wraps midnight, e.g. on 06:00 / off 23:00 inverted to 23:00-06:00.
-    return now >= on_at or now < off_at
+    return in_window(on_at, off_at, moment.time())
 
 
 async def set_display_power(config: ScheduleConfig, on: bool) -> None:

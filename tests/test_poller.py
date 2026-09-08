@@ -259,3 +259,78 @@ async def test_widening_the_filter_needs_no_new_fetch(poller):
 
     assert len(instance.boards()[0].services) == 4
     assert fake.calls == [("PAD", "departures")]
+
+
+# -- profiles ---------------------------------------------------------------
+
+MORNING = {
+    "name": "Morning rush",
+    "start": "06:30",
+    "end": "09:30",
+    "stations": [{"crs": "RDG"}],
+    "display": {"theme": "crt"},
+}
+
+
+def with_profile(instance, **overrides):
+    """Put a profile in force by pinning it, so the tests do not need a clock."""
+    instance._store.set(
+        Config(
+            stations=[{"crs": "PAD"}],
+            sources={"fallback": None},
+            profiles={"entries": [{**MORNING, **overrides}]},
+        ),
+        persist=False,
+    )
+
+
+async def test_a_profile_changes_the_stations_the_poller_fetches(poller):
+    instance, fake = poller
+    with_profile(instance)
+    instance._store.force_profile("Morning rush")
+
+    await instance._poll_slot(0, instance._store.active())
+
+    assert fake.calls == [("RDG", "departures")]
+    assert instance.state()["display"]["theme"] == "crt"
+
+
+async def test_taking_up_a_profile_drops_a_board_it_cannot_use(poller):
+    """A cached board is not stale-marked by age, so a slot left behind must go."""
+    instance, _ = poller
+    await instance._poll_slot(0, instance._store.get())
+    assert instance._boards
+
+    with_profile(instance)
+    instance._store.force_profile("Morning rush")
+    instance._on_profile_change("Morning rush", instance._store.active())
+
+    assert instance._boards == {}
+    assert instance.boards()[0].crs == "RDG"
+    assert instance.boards()[0].stale
+
+
+async def test_taking_up_a_profile_keeps_a_board_it_still_wants(poller):
+    instance, _ = poller
+    await instance._poll_slot(0, instance._store.get())
+
+    with_profile(instance, stations=[{"crs": "PAD"}])
+    instance._store.force_profile("Morning rush")
+    instance._on_profile_change("Morning rush", instance._store.active())
+
+    assert not instance.boards()[0].stale
+
+
+async def test_a_profile_switch_publishes_at_once(poller):
+    """The browser re-themes from this frame, not from the poll behind it."""
+    instance, _ = poller
+    with_profile(instance)
+    queue = instance.subscribe()
+
+    instance._store.force_profile("Morning rush")
+    instance._on_profile_change("Morning rush", instance._store.active())
+
+    state = queue.get_nowait()
+    assert state["active_profile"] == "Morning rush"
+    assert state["display"]["theme"] == "crt"
+    assert instance._next_due == {}

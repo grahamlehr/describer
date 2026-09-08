@@ -177,6 +177,63 @@ button.danger:hover { border-color: var(--bad); }
 .station .grid { grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); }
 
 /* ---------------------------------------------------------------- weekdays */
+/* ---------------------------------------------------------------- profiles */
+/* A list of profiles and one editor for the selected one. Rendering an editor
+   per profile would need N copies of the theme options, which are keyed by
+   element id and cannot be duplicated. */
+.profile-layout { display: grid; grid-template-columns: minmax(14rem, 20rem) 1fr; gap: 1rem; align-items: start; }
+.profile-side { display: flex; flex-direction: column; gap: 0.5rem; }
+.profile-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.profile-item {
+  display: flex; align-items: center; gap: 0.3rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 0.15rem 0.4rem 0.15rem 0.15rem;
+}
+.profile-item[data-selected] { border-color: var(--accent); }
+.profile-pick {
+  flex: 1; display: flex; align-items: center; gap: 0.55rem; min-width: 0;
+  background: none; border: 0; color: inherit; font: inherit; text-align: left;
+  padding: 0.4rem; cursor: pointer;
+}
+.profile-swatch { width: 0.55rem; height: 1.6rem; border-radius: 2px; flex: none; }
+.profile-names { min-width: 0; }
+.profile-names strong { display: block; font-size: 0.85rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-names small { display: block; color: var(--muted); font-size: 0.72rem; }
+.profile-order { display: flex; gap: 0.1rem; flex: none; }
+.profile-order button { padding: 0.15rem 0.2rem; font-size: 0.7rem; }
+.profile-order button:disabled { opacity: 0.25; cursor: default; }
+button.linky.danger { color: var(--bad); }
+.profile-empty { color: var(--muted); font-size: 0.82rem; padding: 0.6rem 0.1rem; }
+.profile-editor {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 0.9rem; min-width: 0;
+}
+.profile-editor .stations { grid-template-columns: 1fr; }
+.days { display: flex; flex-wrap: wrap; gap: 0.15rem 0.9rem; margin: 0.7rem 0 0.4rem; }
+.days .check { font-size: 0.78rem; }
+
+/* Each override is a switch and the block it governs; off means the key is not
+   written at all, and the base config shows through. */
+.override { border-top: 1px solid var(--line); margin-top: 0.9rem; padding-top: 0.7rem; }
+.override-body { margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.7rem; }
+.override-body[hidden] { display: none; }
+.override-body > .ghost { align-self: start; }
+
+/* The week at a glance: first-match-wins is hard to reason about unheld. */
+.ribbon { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 1.5rem; }
+.ribbon-row, .ribbon-hours { display: flex; align-items: center; gap: 0.5rem; }
+.ribbon-day { width: 2.2rem; flex: none; color: var(--muted); font-size: 0.72rem; }
+.ribbon-bar {
+  flex: 1; display: flex; height: 1.1rem; border-radius: 3px; overflow: hidden;
+  background: var(--sunken); border: 1px solid var(--line);
+}
+.ribbon-cell { display: block; }
+.ribbon-scale { flex: 1; display: flex; justify-content: space-between; color: var(--muted); font-size: 0.65rem; }
+
+@media (max-width: 52rem) {
+  .profile-layout { grid-template-columns: 1fr; }
+}
+
 .weekdays { display: flex; flex-direction: column; gap: 0.3rem; }
 .weekday {
   display: grid; grid-template-columns: 7.5rem 8rem auto 1fr; gap: 0.5rem;
