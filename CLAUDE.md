@@ -691,13 +691,23 @@ and the render never disagree.
 - Paging slides the whole column with a transform rather than swapping the
   text, so the route line runs on across a page turn exactly as it does on
   the real panels, and the page turn stays off the main thread.
-- The route takes all the leftover height whether it needs it or not
+- The route takes the leftover height whether it needs it or not
   (`flex: 1 1 0`), so the later trains sit against the foot of the board and
   a train with five stops leaves black between the two. That is wanted, not a
   gap to close: the list holds still from board to board instead of walking up
   and down as the top train changes, and the room is already there when a
-  train with a long calling pattern comes along. Do not make the surplus fall
+  train with a long calling pattern comes along. Do not make that surplus fall
   to the bottom.
+- **The trains that are not there still claim their height.** The route is the
+  only thing on this board that grows, so a station with four services handed
+  it the four missing rows and the blue bar sat a third of the way further
+  down than the bar on the other half of a split screen. `.tl-fill` is a
+  spacer at the foot of the list of `--missing` × `--later-row`, set by
+  `thameslink.js` from the configured `--rows`, so what a short board is short
+  of shows as black under its list — where a reader expects it — and the bar
+  holds the same line on both halves. It is the *reason the route grows* that
+  makes this necessary: the surplus has to be taken away from the route
+  before the route can absorb it.
 - The stops are re-measured from a `ResizeObserver` on `.calling-points`, not
   only from the page-turn timer. The room for them is settled by flex and is
   still moving while the stylesheet lands and the later trains take their
@@ -808,30 +818,55 @@ new one. `board.js` therefore re-renders on the stylesheet's `load` and on
 Both feeds carry the reason as text (`Service.cancel_reason`,
 `delay_reason`), worded as a sentence written to follow the status:
 "This is due to a shortage of train crew". `board.js` strips that lead-in and
-joins the rest on to the status word — "Cancelled due to a shortage of train
-crew" — so the board never says the same thing twice. A reason worded any
-other way is printed whole after a colon rather than mangled.
+joins the rest on to what the train is doing, giving the wording the
+announcements use:
 
+> The 15:24 to Abbey Wood via Whitechapel is delayed due to a fault with the
+> signalling system
+
+A reason worded some other way is printed after a colon rather than mangled.
+
+- **The line names its train**, with the time and where it is going — or where
+  it is coming from, on an arrivals board. It does not always sit under the
+  train it is about, and a board is read from across a platform, so a bare
+  "Delayed due to…" under a list of eight trains says nothing useful.
 - **It belongs to a train, not to the board.** The line renders inside
   `.rows`, under the top service and under its stops, exactly as the calling
   points do. The board is describing its top service, so that is whose reason
   this is; when that train is running normally and a later one is not, the
-  later one's line is prefixed with its scheduled time so it can never be read
-  as the top train's.
-- `--reason-share` is one more claim on the matrix's height, and `board.js`
-  sets it per board to 0.9 or to 0. Most of the day it is 0 and the line costs
-  the board nothing, so **a theme that writes its own `--slot` must add it**
-  — `1990s`, `nse`, `led-matrix` and `thameslink` all do.
+  later one takes the line, and the sentence says which train either way.
 - Only the reason that matches the state the train is *in* is shown: a
   service running to time may still be carrying the reason it was late an
   hour ago, and printing that is worse than printing nothing.
-- Each theme says it its own way. `modern` colours it like the status it
-  explains, `crt` gives it a terminal prompt, `1990s` uses Teletext green and
-  red, `thameslink` sets it amber between the route and the blue bar. The
-  three themes whose text is not type take it through `renderReason`:
-  `splitflap` flaps it and pages it with the stops, `nse` pages it on the
-  matrix a word boundary at a time, and `led-matrix` scrolls it — the same
-  difference between a disc and an LED that the stops already show.
+- `--reason-share` is one more claim on the height, and `board.js` sets it per
+  board to 0.9 or to 0. Most of the day it is 0 and the line costs the board
+  nothing, so **a theme that writes its own `--slot` must add it** — `1990s`,
+  `nse` and `led-matrix` all do. `thameslink` deliberately does **not**: see
+  its own section for why.
+
+### It is a sentence, so it never simply fits
+
+Nothing here may be trusted to fit a board line at a size worth reading, and
+a reason cut off at the margin is worse than useless — the half that matters
+is usually the end of it. Every theme therefore pages or scrolls the whole
+text, the way that machine would have:
+
+| Theme | What it does |
+|-------|--------------|
+| modern, crt, 1990s, thameslink | `board.js` packs it into pages that fit and turns them with the stops, every 5 s |
+| splitflap | flaps it, paged with the stops on the drum's own 6 s |
+| nse | pages it on the matrix — a disc is a fixed place on the board |
+| led-matrix | scrolls it, a dot column at a time — an LED panel can |
+
+The default pager measures by painting candidates into `.service-reason-text`,
+a box inside the line that grows and shrinks against everything else on it, so
+what it reports is the room a theme's own prompt or label has left it, in that
+theme's font and capitals. Never split a word across a page.
+
+Colour is each theme's own: `modern` takes the colour of the status it
+explains, `crt` a terminal prompt and the cancelled blink, `1990s` Teletext
+green and red, `thameslink` amber and red. The dot themes have one colour of
+dot, so what marks the line out there is where it is.
 
 ## Verifying this by hand
 

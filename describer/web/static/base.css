@@ -140,13 +140,23 @@ html, body {
 .service-reason {
   display: flex;
   align-items: center;
+  gap: 0.4em;
   flex: 0 0 calc(var(--slot) * var(--reason-share));
   font-size: calc(var(--row-font) * 0.8);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   min-height: 0;
+}
+/* The words sit in their own box so board.js can measure them: it packs the
+   reason into pages that fit this element and turns them with the stops.
+   Growing and shrinking against everything else on the line means the room
+   it reports is the room a theme's own prompt or label has left it. */
+.service-reason-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
 }
 /* An author display beats the hidden attribute's UA rule, and every theme
    below sets one: say it here, at a specificity none of them reach. */

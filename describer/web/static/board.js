@@ -21,12 +21,14 @@ const CALLING_SEPARATOR = ' \u2022 ';
 /**
  * Both feeds word a reason as a sentence written to follow the status, as the
  * announcements do: "This is due to a shortage of train crew". Stripping the
- * lead-in lets it join on to "Cancelled" or "Delayed" instead of repeating it.
+ * lead-in lets it join on to what the train is doing rather than repeating it.
  */
 const REASON_LEAD = /^this\s+(?:is|was)\s+/i;
 const REASON_JOINS = /^(?:due to|because of|owing to)\b/i;
 /** Pages of stops for each list that board.js paints itself; themes keep their own. */
 const callingPages = new WeakMap();
+/** Pages of the reason line, for the themes whose text is ordinary type. */
+const reasonPages = new WeakMap();
 
 let state = null;
 let theme = null;
@@ -183,33 +185,45 @@ function reasonFor(service) {
   return null;
 }
 
-/** "Delayed due to a fault with the signalling system." */
-function reasonText(service) {
-  const custom = theme?.reasonText?.(service);
+/**
+ * "The 15:24 to Oxford is delayed due to a fault with the signalling system."
+ *
+ * The line names its train, because it does not always sit under the train it
+ * is about and because a board is read from across a platform. That is the
+ * wording the announcements use, and it is a sentence rather than a column, so
+ * every theme pages or scrolls it rather than trusting it to fit.
+ */
+function reasonText(service, mode) {
+  const custom = theme?.reasonText?.(service, mode);
   if (custom != null) return custom;
   const reason = reasonFor(service);
   if (!reason) return null;
-  const lead = service.status === 'cancelled' ? 'Cancelled' : 'Delayed';
+  const cancelled = service.status === 'cancelled';
+  const place = mode === 'arrivals' ? service.origin : service.destination;
+  const train = service.scheduled_time && place
+    ? `The ${service.scheduled_time} ${mode === 'arrivals' ? 'from' : 'to'} ${place}`
+    : 'This train';
+  const lead = `${train} ${cancelled ? 'has been cancelled' : 'is delayed'}`;
   const tail = reason.replace(REASON_LEAD, '').replace(/\.\s*$/, '');
-  // Anything we cannot join on to the status word is printed whole, so a
+  // Anything we cannot join on to the sentence is printed after a colon, so a
   // reason worded some other way is never mangled into nonsense.
-  return REASON_JOINS.test(tail) ? `${lead} ${tail}` : `${lead}: ${reason}`;
+  if (REASON_JOINS.test(tail)) return `${lead} ${tail}`;
+  return `${lead}: ${tail.charAt(0).toLowerCase()}${tail.slice(1)}`;
 }
 
 /**
  * One line saying why, under the stops of the train it belongs to. The board
  * is describing its top service, so that is whose reason this is; when that
- * train is running normally and a later one is not, the later one's line is
- * named by its time, so it can never be read as the top train's.
+ * train is running normally and a later one is not, the later one's reason
+ * takes the line, and the sentence names which train either way.
  */
-function renderReason(boardEl, services) {
+function renderReason(boardEl, services, mode) {
   const wrap = boardEl.querySelector('.service-reason');
   const rowsEl = boardEl.querySelector('.rows');
   const callingWrap = boardEl.querySelector('.calling-points');
   const top = services[0];
   const service = reasonFor(top) ? top : services.find((candidate) => reasonFor(candidate));
-  const body = service ? reasonText(service) : null;
-  const text = !body ? '' : service === top ? body : `${service.scheduled_time || ''} ${body}`.trim();
+  const text = (service && reasonText(service, mode)) || '';
 
   // Under the top service, and under its stops when it has them on screen.
   const anchor = !callingWrap.hidden && callingWrap.parentElement === rowsEl
@@ -228,14 +242,74 @@ function renderReason(boardEl, services) {
     delete wrap.dataset.text;
     return;
   }
-  // A theme with a drum or a matrix rather than type paints this itself.
+  wrap.dataset.text = text;
+  // A theme with a drum or a matrix rather than type paints this itself, and
+  // pages or scrolls it the way that machine would have.
   if (theme?.renderReason) {
     theme.renderReason(wrap, text);
-    wrap.dataset.text = text;
-  } else if (wrap.dataset.text !== text || wrap.textContent !== text) {
-    wrap.textContent = text;
-    wrap.dataset.text = text;
+    return;
   }
+  paintReasonPages(wrap, text);
+}
+
+/**
+ * The default renderer. A reason is a sentence, so it will not fit a board
+ * line at any size worth reading: pack it into pages that do fit and turn
+ * them with the stops above, rather than cutting it off at the margin.
+ */
+function paintReasonPages(wrap, text) {
+  const span = ensureReasonText(wrap);
+  const style = getComputedStyle(span);
+  // The font is part of the key for the same reason it is for the stops: a
+  // theme's stylesheet and web font land after the switch, and pages measured
+  // in the old face do not fit the new one.
+  const key = [text, style.font, style.letterSpacing, style.textTransform, span.clientWidth].join('|');
+  let paged = reasonPages.get(span);
+  if (!paged || paged.key !== key) {
+    paged = { key, pages: paginateWords(span, text), page: 0 };
+    reasonPages.set(span, paged);
+  }
+  paintPagedText(span, paged);
+}
+
+/** The theme owns whatever is in the line; put our own box back when it goes. */
+function ensureReasonText(wrap) {
+  let span = wrap.querySelector('.service-reason-text');
+  if (!span) {
+    wrap.textContent = '';
+    span = document.createElement('span');
+    span.className = 'service-reason-text';
+    wrap.append(span);
+  }
+  return span;
+}
+
+/**
+ * Pack words into pages that fit the line, never splitting one. Measured by
+ * painting candidates into the box itself, so the theme's font, its
+ * letter-spacing, its capitals and anything else sharing the line all count.
+ */
+function paginateWords(span, text) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  if (!span.clientWidth || !words.length) return [text];
+  const fits = (candidate) => {
+    span.textContent = candidate;
+    return span.scrollWidth <= span.clientWidth;
+  };
+  const pages = [];
+  let line = '';
+  for (const word of words) {
+    const joined = line ? `${line} ${word}` : word;
+    if (fits(joined)) {
+      line = joined;
+      continue;
+    }
+    if (line) pages.push(line);
+    // A single word wider than the line is clipped by the box; nothing to do.
+    line = word;
+  }
+  if (line) pages.push(line);
+  return pages;
 }
 
 function renderCallingPoints(boardEl, services, show) {
@@ -288,7 +362,7 @@ function renderCallingPoints(boardEl, services, show) {
     paged = { key, width, pages: paginateCallingPoints(list, points, width), page: 0 };
     callingPages.set(list, paged);
   }
-  paintCallingPage(list, paged);
+  paintPagedText(list, paged);
 }
 
 /**
@@ -318,20 +392,28 @@ function paginateCallingPoints(list, points, width) {
   return pages;
 }
 
-function paintCallingPage(list, paged) {
+function paintPagedText(el, paged) {
   const text = paged.pages[paged.page % paged.pages.length] || '';
-  if (list.textContent !== text) list.textContent = text;
+  if (el.textContent !== text) el.textContent = text;
 }
 
-function turnCallingPages() {
+/** The stops and the reason turn together, so the board reads as one thing. */
+function turnPages() {
   for (const list of boardsEl.querySelectorAll('.calling-points-list')) {
-    const paged = callingPages.get(list);
-    if (!paged || paged.pages.length < 2) continue;
-    paged.page = (paged.page + 1) % paged.pages.length;
-    paintCallingPage(list, paged);
+    turnOne(list, callingPages);
+  }
+  for (const span of boardsEl.querySelectorAll('.service-reason-text')) {
+    turnOne(span, reasonPages);
   }
 }
-setInterval(turnCallingPages, CALLING_PAGE_MS);
+
+function turnOne(el, store) {
+  const paged = store.get(el);
+  if (!paged || paged.pages.length < 2) return;
+  paged.page = (paged.page + 1) % paged.pages.length;
+  paintPagedText(el, paged);
+}
+setInterval(turnPages, CALLING_PAGE_MS);
 
 function renderBoard(boardEl, board, station, display) {
   boardEl.dataset.mode = board.mode;
@@ -351,7 +433,7 @@ function renderBoard(boardEl, board, station, display) {
 
   const services = renderRows(boardEl, board, station);
   renderCallingPoints(boardEl, services, display.show_calling_points);
-  renderReason(boardEl, services);
+  renderReason(boardEl, services, board.mode);
 
   const messages = boardEl.querySelector('.messages');
   messages.hidden = board.messages.length === 0;

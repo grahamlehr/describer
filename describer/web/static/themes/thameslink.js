@@ -67,9 +67,14 @@ export function detach() {
   observer?.disconnect();
   observer = null;
   callingLists.clear();
-  for (const el of document.querySelectorAll('.tl-later-head, .tl-pages, .tl-clock')) el.remove();
+  for (const el of document.querySelectorAll('.tl-later-head, .tl-pages, .tl-clock, .tl-fill')) {
+    el.remove();
+  }
   for (const row of document.querySelectorAll('.row[data-ordinal]')) delete row.dataset.ordinal;
-  for (const rows of document.querySelectorAll('.rows')) rows.style.removeProperty('--head-share');
+  for (const rows of document.querySelectorAll('.rows')) {
+    rows.style.removeProperty('--head-share');
+    rows.style.removeProperty('--missing');
+  }
   for (const list of document.querySelectorAll('.calling-points-list')) {
     list.style.removeProperty('transform');
     list.parentElement?.style.removeProperty('height');
@@ -287,6 +292,7 @@ export function afterRender(boardsEl) {
     if (stops) stops.dataset.status = services[0]?.dataset.status || '';
 
     layOutLaterHead(board, rows, services.length);
+    layOutFill(rows, services.length);
     ensureClock(board);
   }
   paintClocks();
@@ -315,6 +321,31 @@ function layOutLaterHead(board, rows, count) {
   // and moves the calling points on every pass, so put it back each time.
   const second = rows.querySelectorAll('.row')[1];
   if (second && second.previousElementSibling !== head) rows.insertBefore(head, second);
+}
+
+/**
+ * Reserve the height of the trains a short board does not have. The route is
+ * the only thing here that grows, so without this it swallows the surplus and
+ * the bar walks down the emptier half of a split screen; with it the bar sits
+ * on the same line on both, and the shortfall shows as black under the list.
+ */
+function layOutFill(rows, count) {
+  let fill = rows.querySelector('.tl-fill');
+  const configured = Number(getComputedStyle(rows).getPropertyValue('--rows')) || 0;
+  // Nothing to line up against when there is no list and no bar.
+  const missing = count > 1 ? Math.max(0, configured - count) : 0;
+  if (!missing) {
+    fill?.remove();
+    rows.style.removeProperty('--missing');
+    return;
+  }
+  if (!fill) {
+    fill = document.createElement('div');
+    fill.className = 'tl-fill';
+  }
+  rows.style.setProperty('--missing', String(missing));
+  // board.js appends the rows on every pass, so the filler goes back last.
+  rows.append(fill);
 }
 
 function ensureClock(board) {

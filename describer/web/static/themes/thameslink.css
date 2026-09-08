@@ -95,11 +95,20 @@ body {
      list and gain no lines of route at all. Held here, every pixel a row
      gives up lands in the route. */
   --later-share: 0.74;
+  /* What one later train actually measures: halfway between its own text and
+     the slot it would otherwise take. Named because the filler at the foot of
+     a short list has to claim exactly this, times the trains that are absent. */
+  --later-row: calc((var(--row-font) * 0.696 + var(--slot) * var(--later-share)) / 2);
   --stops-share: calc(var(--calling-share) * 4.2);
+  /* --reason-share is deliberately NOT a term here. The route is flex: 1 1 0
+     and holds all the slack, so a reason line takes its height out of the
+     route rather than out of the board: the slot is the same size whether a
+     train has something wrong with it or not, and the blue bar stays on the
+     same line across a split screen instead of stepping down on the half
+     that has a message. The route simply turns another page. */
   --slot: calc(100cqh / (
     (var(--rows) - 1) * var(--later-share)
     + var(--feature-share) + var(--head-share) + var(--stops-share)
-    + var(--reason-share)
   ));
   --row-font: min(calc(100cqw / var(--char-budget)), calc(var(--slot) * 0.78));
 }
@@ -282,9 +291,17 @@ body {
      line, with half the air. 0.696em is the 0.58em type at the 1.2 line-height
      inherited from base.css. A row this size stops the list from pushing the
      first train's route into needless pages. */
-  flex: 0 0 calc((var(--row-font) * 0.696 + var(--slot) * 0.74) / 2);
+  flex: 0 0 var(--later-row);
   font-size: calc(var(--row-font) * 0.58);
 }
+
+/* The trains that are not there. A station with fewer services would otherwise
+   hand the surplus to the route above, which is the one thing on this board
+   that grows, and the blue bar would sit lower on that half of a split screen
+   than on the other. The filler claims exactly what the absent rows would have
+   claimed, so the bar holds its line and the shortfall shows as black at the
+   foot of the list, where it belongs. thameslink.js sets --missing. */
+.tl-fill { flex: 0 0 calc(var(--later-row) * var(--missing, 0)); }
 .row:not(.selected)[data-ordinal]::before {
   content: attr(data-ordinal);
   color: var(--tl-blue);
