@@ -115,6 +115,7 @@ class Poller:
 
     def boards(self) -> list[Board]:
         config = self._store.active()
+        now = datetime.now().astimezone()
         result: list[Board] = []
         for index, station in enumerate(config.stations):
             key = _slot_key(index, station.crs, station.mode)
@@ -131,13 +132,19 @@ class Poller:
                 updates: dict[str, object] = {}
                 if station.name:
                     updates["name"] = station.name
-                if station.platforms:
+                if station.platforms or station.walk_time:
                     # Filtering here rather than at the fetch keeps the whole
-                    # board in hand, so widening the filter needs no new call.
+                    # board in hand, so widening a filter needs no new call —
+                    # and the walk time, which is measured against the clock,
+                    # is re-applied on every read rather than frozen into the
+                    # cached board.
                     updates["services"] = [
                         service
                         for service in board.services
                         if station.accepts_platform(service.platform)
+                        and station.accepts_time(
+                            service.seconds_until(now) if service.time_is_known else None
+                        )
                     ]
                 if updates:
                     board = board.model_copy(update=updates)

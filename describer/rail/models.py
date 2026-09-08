@@ -68,6 +68,16 @@ class Service(BaseModel):
             case _:
                 return self.expected_time or ""
 
+    @property
+    def time_is_known(self) -> bool:
+        """Can anything be decided from this service's time?
+
+        A service the feed calls only "Delayed" carries no estimate, so its
+        scheduled time is all there is and that time has usually passed. It
+        has not gone, and nothing says when it goes.
+        """
+        return self.status is not ServiceStatus.DELAYED
+
     def effective_time(self) -> str | None:
         """The time we actually expect, preferring the estimate over the plan."""
         if self.status is ServiceStatus.EXPECTED and self.expected_time:

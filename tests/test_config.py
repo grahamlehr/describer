@@ -126,6 +126,29 @@ def test_announce_any_needs_both_switches():
     assert not Config(stations=[{"crs": "PAD"}], announcements={"enabled": False}).announce_any
 
 
+def test_a_walk_time_of_zero_keeps_every_train():
+    station = Config(stations=[{"crs": "RDG"}]).stations[0]
+
+    assert station.walk_time == 0
+    assert station.accepts_time(0)
+    assert station.accepts_time(-120)
+
+
+def test_a_walk_time_drops_the_trains_that_cannot_be_reached():
+    station = Config(stations=[{"crs": "RDG", "walk_time": 10}]).stations[0]
+
+    assert not station.accepts_time(9 * 60)
+    assert station.accepts_time(10 * 60)
+    assert station.accepts_time(30 * 60)
+
+
+def test_a_train_with_no_readable_time_survives_the_walk_time():
+    """Dropping it would take it off the board for the wrong reason."""
+    station = Config(stations=[{"crs": "RDG", "walk_time": 10}]).stations[0]
+
+    assert station.accepts_time(None)
+
+
 def test_platforms_are_normalised_and_deduplicated():
     station = Config(stations=[{"crs": "RDG", "platforms": [" 2a ", "7", "2A", ""]}]).stations[0]
 

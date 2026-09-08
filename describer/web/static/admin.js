@@ -88,6 +88,7 @@ function stationCard(station, index, onRemove) {
   field('announce').checked = station.announce !== false;
   field('platforms').value = (station.platforms || []).join(', ');
   field('show_unplatformed').checked = station.show_unplatformed === true;
+  field('walk_time').value = station.walk_time ?? 0;
 
   card.querySelector('[data-remove]').addEventListener('click', () => onRemove(index));
   return card;
@@ -132,6 +133,7 @@ function readStationList(host) {
         .map((entry) => entry.trim().toUpperCase())
         .filter(Boolean),
       show_unplatformed: field('show_unplatformed').checked,
+      walk_time: Number(field('walk_time').value) || 0,
     };
   });
 }

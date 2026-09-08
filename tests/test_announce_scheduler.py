@@ -79,6 +79,27 @@ async def test_ignores_a_service_beyond_the_lead_time(scheduler):
     assert engine.spoken == []
 
 
+async def test_a_walk_time_widens_the_lead_so_the_call_still_comes(scheduler):
+    """The train leaves the board at the walk time, so that is the last call."""
+    announcer, engine = scheduler
+    config = Config(stations=[{"crs": "PAD", "walk_time": 10}])
+
+    await announcer.on_boards([board_with(service_at(9.5))], config)
+    await drain(announcer)
+
+    assert len(engine.spoken) == 1
+
+
+async def test_a_walk_time_does_not_announce_the_whole_board(scheduler):
+    announcer, engine = scheduler
+    config = Config(stations=[{"crs": "PAD", "walk_time": 10}])
+
+    await announcer.on_boards([board_with(service_at(30))], config)
+    await drain(announcer)
+
+    assert engine.spoken == []
+
+
 async def test_each_service_is_announced_once(scheduler):
     announcer, engine = scheduler
     config = Config(stations=[{"crs": "PAD"}])

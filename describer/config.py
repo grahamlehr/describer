@@ -53,6 +53,11 @@ class StationConfig(BaseModel):
     #: for most of the hour with this off — and carries other platforms' trains
     #: with it on.
     show_unplatformed: bool = False
+    #: Minutes needed to reach the platform. A train leaving (or, on an
+    #: arrivals board, arriving) sooner than this is dropped: it cannot be
+    #: caught from where the board is read, so printing it only pushes the
+    #: trains that can be caught off the bottom. 0 shows everything.
+    walk_time: int = Field(default=0, ge=0, le=120)
 
     @field_validator("crs")
     @classmethod
@@ -88,6 +93,18 @@ class StationConfig(BaseModel):
         if platform is None or not platform.strip():
             return self.show_unplatformed
         return platform.strip().upper() in self.platforms
+
+    def accepts_time(self, seconds_until: float | None) -> bool:
+        """Is a service ``seconds_until`` away still worth showing?
+
+        A service whose time we cannot read (no estimate, no schedule) is
+        kept: the walk time is a judgement about a known departure, and
+        dropping the unknowns would take trains off the board for the wrong
+        reason.
+        """
+        if not self.walk_time or seconds_until is None:
+            return True
+        return seconds_until >= self.walk_time * 60
 
 
 #: A colour as the admin page's picker writes it: "#rrggbb", held lower-case.

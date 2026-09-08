@@ -20,6 +20,11 @@ stations:
     # A platform is withheld by both feeds until it is confirmed, so a filtered
     # board runs short until then. Set this true to keep those trains on it.
     show_unplatformed: false
+    # Minutes it takes to reach the platform. A train leaving sooner than this
+    # is dropped from the board: you could not catch it, and printing it pushes
+    # the trains you could catch off the bottom. On an arrivals board it hides
+    # trains arriving too soon to meet. 0 (the default) shows every train.
+    walk_time: 0            # e.g. 10 for a ten-minute walk
 
 display:
   theme: modern             # modern | crt | splitflap | 1990s | nse | led-matrix | thameslink

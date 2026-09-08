@@ -11,7 +11,7 @@ import contextlib
 import logging
 from datetime import datetime, timedelta
 
-from ..config import Config
+from ..config import Config, StationConfig
 from ..rail.models import Board, Service, ServiceStatus
 from .phrasing import AnnouncementKind, build_text
 from .tts import TtsEngine, TtsError
@@ -55,7 +55,11 @@ class AnnouncementScheduler:
     # -- decisions ---------------------------------------------------------
 
     def _pending_kinds(
-        self, service: Service, config: Config, now: datetime
+        self,
+        service: Service,
+        config: Config,
+        station: StationConfig,
+        now: datetime,
     ) -> list[AnnouncementKind]:
         options = config.announcements
         kinds: list[AnnouncementKind] = []
@@ -70,8 +74,13 @@ class AnnouncementScheduler:
         ):
             kinds.append(AnnouncementKind.DELAYED)
 
+        # A walk time takes the train off the board before it is close, so
+        # the lead has to reach at least that far or the announcement never
+        # comes: the last useful moment to call a train you have to walk to
+        # is the moment it stops being catchable.
+        lead = max(options.lead_time, station.walk_time * 60)
         remaining = service.seconds_until(now)
-        if remaining is not None and -GRACE_SECONDS <= remaining <= options.lead_time:
+        if remaining is not None and -GRACE_SECONDS <= remaining <= lead:
             kinds.append(AnnouncementKind.ARRIVING)
         return kinds
 
@@ -84,6 +93,7 @@ class AnnouncementScheduler:
         for index, board in enumerate(boards):
             if index >= len(config.stations) or not config.stations[index].announce:
                 continue
+            station = config.stations[index]
             for service in board.services:
                 # Keyed on the train, not on Service.id: the two sources number
                 # the same train differently, and a failover must not re-announce it.
@@ -94,7 +104,7 @@ class AnnouncementScheduler:
                 for kind in AnnouncementKind:
                     if (identity, kind.value) in self._announced:
                         self._announced[(identity, kind.value)] = now
-                for kind in self._pending_kinds(service, config, now):
+                for kind in self._pending_kinds(service, config, station, now):
                     if (identity, kind.value) in self._announced:
                         continue
                     self._announced[(identity, kind.value)] = now

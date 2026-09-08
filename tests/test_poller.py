@@ -7,6 +7,7 @@ import pytest
 from describer.config import Config, ConfigStore
 from describer.rail import sources as sources_module
 from describer.rail.ldbws import RailApiError, parse_board
+from describer.rail.models import ServiceStatus
 from describer.rail.poller import Poller
 
 
@@ -259,6 +260,65 @@ async def test_widening_the_filter_needs_no_new_fetch(poller):
 
     assert len(instance.boards()[0].services) == 4
     assert fake.calls == [("PAD", "departures")]
+
+
+async def test_a_walk_time_drops_the_trains_that_cannot_be_caught(poller):
+    """Four trains, at 5, 15, 25 and 35 minutes out; a 10-minute walk keeps three."""
+    instance, _ = poller
+    await instance._poll_slot(0, instance._store.get())
+    board = instance._boards[next(iter(instance._boards))]
+    now = datetime.now().astimezone()
+    for offset, service in enumerate(board.services):
+        away = now + timedelta(minutes=5 + offset * 10)
+        service.scheduled_time = away.strftime("%H:%M")
+        service.expected_time = "On time"
+
+    instance._store.set(
+        Config(stations=[{"crs": "PAD", "walk_time": 10}], sources={"fallback": None}),
+        persist=False,
+    )
+
+    assert len(instance.boards()[0].services) == 3
+
+
+async def test_the_walk_time_is_measured_against_the_estimate(poller):
+    """A train 5 minutes out but running 20 late is catchable after all."""
+    instance, _ = poller
+    await instance._poll_slot(0, instance._store.get())
+    board = instance._boards[next(iter(instance._boards))]
+    now = datetime.now().astimezone()
+    service = board.services[0]
+    service.scheduled_time = (now + timedelta(minutes=5)).strftime("%H:%M")
+    service.expected_time = (now + timedelta(minutes=25)).strftime("%H:%M")
+    service.status = ServiceStatus.EXPECTED
+    del board.services[1:]
+
+    instance._store.set(
+        Config(stations=[{"crs": "PAD", "walk_time": 10}], sources={"fallback": None}),
+        persist=False,
+    )
+
+    assert len(instance.boards()[0].services) == 1
+
+
+async def test_an_indefinitely_delayed_train_survives_the_walk_time(poller):
+    """ "Delayed" with no estimate is not a time; the train has not gone."""
+    instance, _ = poller
+    await instance._poll_slot(0, instance._store.get())
+    board = instance._boards[next(iter(instance._boards))]
+    now = datetime.now().astimezone()
+    service = board.services[0]
+    service.scheduled_time = (now - timedelta(minutes=5)).strftime("%H:%M")
+    service.expected_time = "Delayed"
+    service.status = ServiceStatus.DELAYED
+    del board.services[1:]
+
+    instance._store.set(
+        Config(stations=[{"crs": "PAD", "walk_time": 10}], sources={"fallback": None}),
+        persist=False,
+    )
+
+    assert len(instance.boards()[0].services) == 1
 
 
 # -- profiles ---------------------------------------------------------------

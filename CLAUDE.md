@@ -101,6 +101,21 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
   The filter is applied where boards are handed out rather than where they
   are fetched, so widening it from `/admin` needs no new API call, and
   announcements follow it.
+- Per-station `walk_time` (minutes, 0 = off): a train whose effective time is
+  nearer than that is dropped, because it cannot be reached from where the
+  board is read and printing it pushes a catchable train off the bottom. It is
+  measured against `Service.effective_time`, so a train running late comes
+  *back* on to a filtered board. A service whose time will not parse is kept,
+  and so is one the feed calls only "Delayed" (`Service.time_is_known`): its
+  scheduled time has usually passed but the train has not gone, and nothing
+  says when it goes. Applied beside the
+  platform filter in `Poller.boards()`, so it is re-evaluated against the clock
+  on every read rather than frozen into the cached board.
+  **It moves the announcement lead with it.** A train leaves a walk-filtered
+  board before it is ever within `announcements.lead_time`, so the arriving
+  call would simply never come; the scheduler announces at
+  `max(lead_time, walk_time)` instead — the last useful moment to call a train
+  is the moment it stops being catchable.
 
 ### Themes (selectable in config, switchable live from `/admin`)
 1. **modern** — clean, high-contrast, sans-serif, dark background,

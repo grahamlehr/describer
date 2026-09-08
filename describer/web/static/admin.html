@@ -394,6 +394,11 @@
           until then unless the box below is ticked.</small>
       </label>
       <label class="check wide"><input type="checkbox" data-station="show_unplatformed"> Keep trains with no platform yet</label>
+      <label class="wide">Walking time (minutes)
+        <input type="number" data-station="walk_time" min="0" max="120" step="1">
+        <small class="hint">Hide trains leaving sooner than this — they cannot be
+          reached from here. <code>0</code> shows every train.</small>
+      </label>
       <label class="check wide"><input type="checkbox" data-station="announce"> Announcements for this station</label>
     </div>
   </div>

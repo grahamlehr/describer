@@ -235,6 +235,32 @@ fetched, so the whole board stays in hand: widening the filter from `/admin`
 shows the extra trains without waiting for another API call. Announcements
 follow the filter too — a train filtered off the board is not announced.
 
+If the station is a walk away, `walk_time` hides the trains you could not get
+to in time:
+
+```yaml
+stations:
+  - crs: ABW
+    mode: departures
+    walk_time: 10           # minutes to the platform; 0 (the default) is off
+```
+
+A ten-minute walk means a train leaving in nine minutes is not a train — it is
+a row pushing the 07:42 you could still make off the bottom of the board. The
+cut is made against the time the train is actually expected, so one running
+twenty minutes late reappears on the board, and it is re-made on every refresh
+rather than baked into the stored board. A train whose time the feed does not
+give is left on, and so is one showing a bare "Delayed": its booked time has
+gone but the train has not, and nothing says when it will.
+
+On an arrivals board it reads the same way, hiding trains arriving too soon to
+meet.
+
+Announcements move with it. A walk time larger than `announcements.lead_time`
+would otherwise mean a train is dropped from the board before it is ever close
+enough to be called, so the announcement comes at whichever of the two is
+longer — the last moment the train is still worth walking for.
+
 ### Themes
 
 | Theme       | Look                                                        |
