@@ -697,6 +697,13 @@ asks it again for the wording, so the timer and the render never disagree.
   it. 1.95 is 2.5em of content over the 0.78 cap, so it is right where the
   type is height-bound (a whole screen) and generous where it is width-bound
   (half of one), which is the direction that costs nothing.
+- A later train's row is the mean of its own text and the slot it would
+  otherwise take: the same line, with half the air. `--later-share` (0.74) is
+  then a reserve that no longer matches a row, and that is the point — drop it
+  to what a row measures and the slot grows, taking the type and the stops
+  with it, so the list tightens and the route gains nothing. Held where it
+  was, every pixel a row gives up lands in the route: 4 stops a page instead
+  of 3 on a whole screen, 12 instead of 8 on half of one.
 - Both of the block's lines are set at the row's full size, the countdown
   included: how long until the train goes is what people look up for, so it
   is not sized like the labels it shares a line with. They sit on one

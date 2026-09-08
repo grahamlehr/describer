@@ -80,7 +80,12 @@ body {
   --feature-share: 1.95;
   --head-share: 0.5;
   /* The later trains are a packed list, not the board: they take less than a
-     slot each, and what they give up goes to the route above them. */
+     slot each, and what they give up goes to the route above them. This is
+     the *reserve* in the slot maths, and it stays at what a row used to
+     measure even though a row is now shorter — dropping it would enlarge the
+     slot, and with it the type and the stops, which is how you tighten the
+     list and gain no lines of route at all. Held here, every pixel a row
+     gives up lands in the route. */
   --later-share: 0.74;
   --stops-share: calc(var(--calling-share) * 4.2);
   --slot: calc(100cqh / (
@@ -251,7 +256,11 @@ body {
 
 /* 3rd | 15:34 | Sutton via Wimbledon | 4 | 11 min */
 .row:not(.selected) {
-  flex: 0 0 calc(var(--slot) * var(--later-share));
+  /* Halfway between the row's own text and the slot it used to take: the same
+     line, with half the air. 0.696em is the 0.58em type at the 1.2 line-height
+     inherited from base.css. A row this size stops the list from pushing the
+     first train's route into needless pages. */
+  flex: 0 0 calc((var(--row-font) * 0.696 + var(--slot) * 0.74) / 2);
   font-size: calc(var(--row-font) * 0.58);
 }
 .row:not(.selected)[data-ordinal]::before {
