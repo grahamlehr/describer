@@ -10,6 +10,7 @@
   --tl-bar: #14477e;           /* the printed-looking blue bars */
   --tl-amber: #e8a33d;         /* the route, and anything the board warns about */
   --tl-dim: #7c838c;           /* cancelled, and the things that only matter twice a day */
+  --tl-rule: rgba(90, 169, 230, 0.35);  /* the hairline under the station name */
 }
 
 body {
@@ -28,6 +29,11 @@ body {
   padding: 1.4vh 1.6vw;
 }
 .board-header { display: contents; }
+/* The station and the mode are two cells of one grid row with no gap between
+   them, so a border under each reads as one hairline across the board. Both
+   stretch to the row, which is what keeps the two ends of it level despite
+   the difference in type size. */
+.station-name, .board-mode { border-bottom: 1px solid var(--tl-rule); padding-bottom: 0.7vh; }
 .station-name {
   grid-row: 1;
   grid-column: 1;
@@ -43,7 +49,7 @@ body {
   opacity: 1;
 }
 .stale { grid-row: 2; grid-column: 1 / -1; color: var(--tl-amber); }
-.rows { grid-row: 3; grid-column: 1 / -1; margin-top: 0.3vh; }
+.rows { grid-row: 3; grid-column: 1 / -1; margin-top: 0.9vh; }
 .messages { grid-row: 4; grid-column: 1 / -1; color: var(--tl-amber); border: 0; }
 .source { grid-row: 5; grid-column: 2; align-self: center; color: var(--tl-dim); }
 
