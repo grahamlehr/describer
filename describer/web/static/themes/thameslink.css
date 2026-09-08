@@ -1,0 +1,271 @@
+/* thameslink — the LCD "next train" panels on the Thameslink core: one train
+   given the whole top of the screen with its route drawn beneath it, then a
+   blue-barred "Later trains" list underneath. Flat colour throughout, no
+   filters and no shadows, so the Pi repaints only the text that changed. */
+
+:root {
+  --tl-bg: #000;
+  --tl-white: #ffffff;
+  --tl-blue: #5aa9e6;          /* headings, "via", ordinals */
+  --tl-bar: #14477e;           /* the printed-looking blue bars */
+  --tl-amber: #e8a33d;         /* the route, and anything the board warns about */
+  --tl-dim: #7c838c;           /* cancelled, and the things that only matter twice a day */
+}
+
+body {
+  background: var(--tl-bg);
+  color: var(--tl-white);
+  font-family: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+
+/* header | stale | rows | messages | clock. The header dissolves into the
+   board grid so the clock can sit at the foot, in its own white panel, the
+   way it does on the real screens. */
+.board {
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  padding: 1.4vh 1.6vw;
+}
+.board-header { display: contents; }
+.station-name {
+  grid-row: 1;
+  grid-column: 1;
+  font-size: 2.4vh;
+  font-weight: 700;
+  color: var(--tl-blue);
+}
+.board-mode {
+  grid-row: 1;
+  grid-column: 2;
+  font-size: 1.8vh;
+  color: var(--tl-blue);
+  opacity: 1;
+}
+.stale { grid-row: 2; grid-column: 1 / -1; color: var(--tl-amber); }
+.rows { grid-row: 3; grid-column: 1 / -1; margin-top: 1.2vh; }
+.messages { grid-row: 4; grid-column: 1 / -1; color: var(--tl-amber); border: 0; }
+.source { grid-row: 5; grid-column: 2; align-self: center; color: var(--tl-dim); }
+
+/* board.js owns .clock and rewrites it every quarter second, so the panel is
+   a mirror of it that thameslink.js keeps in step; the original is hidden. */
+.clock { display: none; }
+.tl-clock {
+  grid-row: 5;
+  grid-column: 1;
+  justify-self: start;
+  margin-top: 0.8vh;
+  padding: 0.1vh 0.5vw;
+  background: var(--tl-white);
+  color: #000;
+  font-size: 3.4vh;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+}
+.tl-clock[hidden] { display: none; }
+.tl-seconds { font-size: 0.5em; vertical-align: baseline; }
+
+/*
+ * One featured train, its route, a bar, then the later trains. The shares are
+ * in row slots, and the stops take theirs from --calling-share so that hiding
+ * the calling points (board.js sets it to 0) gives the height back to the list.
+ */
+.rows {
+  --char-budget: 24;
+  --feature-share: 2.2;
+  --head-share: 0.5;
+  /* The later trains are a packed list, not the board: they take less than a
+     slot each, and what they give up goes to the route above them. */
+  --later-share: 0.74;
+  --stops-share: calc(var(--calling-share) * 4.2);
+  --slot: calc(100cqh / (
+    (var(--rows) - 1) * var(--later-share)
+    + var(--feature-share) + var(--head-share) + var(--stops-share)
+  ));
+  --row-font: min(calc(100cqw / var(--char-budget)), calc(var(--slot) * 0.78));
+}
+
+/* ------------------------------------------------------- the next train */
+
+/*  1st train              Plat 2            6 min
+ *  15:24 Three Bridges
+ */
+.row.selected {
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 0.6em;
+  row-gap: 0.1em;
+  flex: 0 0 calc(var(--slot) * var(--feature-share));
+  font-size: var(--row-font);
+  font-weight: 700;
+  padding: 0;
+  background: none;
+}
+.row.selected[data-ordinal]::before {
+  content: attr(data-ordinal) " train";
+  grid-row: 1;
+  grid-column: 1;
+  color: var(--tl-blue);
+  font-size: 0.62em;
+}
+.row.selected .cell.platform {
+  grid-row: 1;
+  grid-column: 2;
+  color: var(--tl-blue);
+  font-size: 0.62em;
+  text-align: left;
+}
+.row.selected .cell.platform:not(:empty)::before { content: "Plat "; }
+.row.selected .cell.status {
+  grid-row: 1;
+  grid-column: 3;
+  font-size: 0.62em;
+  text-align: right;
+  color: var(--tl-white);
+}
+.row.selected .cell.time { grid-row: 2; grid-column: 1; }
+.row.selected .cell.destination { grid-row: 2; grid-column: 2 / -1; }
+.row.selected .cell.operator { display: none; }
+
+.row[data-status="cancelled"].selected .cell.status,
+.row[data-status="expected"].selected .cell.status { color: var(--tl-amber); }
+
+/* --------------------------------------------------------- the route line */
+
+.calling-points {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  flex: 1 1 0;
+  gap: 0 0.6em;
+  padding-top: 0.2em;
+  font-size: calc(var(--row-font) * 0.72);
+  min-height: 0;
+}
+.calling-points-label {
+  grid-row: 1;
+  grid-column: 1;
+  font-size: 0.82em;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 1;
+  color: var(--tl-white);
+}
+.calling-points-label::after { content: ":"; }
+/* Which page of the route is showing. thameslink.js owns this element. */
+.tl-pages {
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: end;
+  font-size: 0.72em;
+  color: var(--tl-blue);
+}
+.calling-points-track {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  overflow: hidden;
+  white-space: normal;
+}
+.calling-points-list { display: block; }
+
+/* Each stop carries its own segment of the line, so the line is exactly as
+   long as the stops on screen and continues across a page turn. */
+.tl-stop {
+  position: relative;
+  display: block;
+  padding: 0.08em 0 0.08em 1.1em;
+  color: var(--tl-amber);
+  line-height: 1.32;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-stop::after {
+  content: "";
+  position: absolute;
+  left: 0.28em;
+  top: 0;
+  bottom: 0;
+  width: 0.09em;
+  background: var(--tl-amber);
+}
+.tl-stop:first-child::after { top: 50%; }
+.tl-stop:last-child::after { bottom: 50%; }
+.tl-stop::before {
+  content: "";
+  position: absolute;
+  left: 0.28em;
+  top: calc(50% - 0.045em);
+  width: 0.45em;
+  height: 0.09em;
+  background: var(--tl-amber);
+}
+/* The train ends here: a filled dot, and the name in white like the row above. */
+.tl-stop.tl-final { color: var(--tl-white); font-weight: 700; }
+.tl-stop.tl-final::before {
+  left: 0.06em;
+  top: calc(50% - 0.19em);
+  width: 0.38em;
+  height: 0.38em;
+  border-radius: 50%;
+  background: var(--tl-amber);
+}
+
+/* --------------------------------------------------------- later trains */
+
+/* The bar, built by thameslink.js. It shares the later row's columns so its
+   headings sit over what they name: "Later trains", then Plat, then Departs. */
+.tl-later-head,
+.row:not(.selected) {
+  grid-template-columns: 2.6em 3.6em minmax(0, 1fr) 2.6em 4.6em;
+  align-items: center;
+  gap: 0 0.6em;
+  padding: 0 0.5em;
+  white-space: nowrap;
+}
+.tl-later-head {
+  display: grid;
+  flex: 0 0 calc(var(--slot) * var(--head-share));
+  margin-top: 0.3em;
+  background: var(--tl-bar);
+  color: var(--tl-white);
+  font-size: calc(var(--row-font) * 0.55);
+  font-weight: 700;
+}
+.tl-later-head > :first-child { grid-column: 1 / 4; }
+.tl-later-head > :nth-child(2) { grid-column: 4; text-align: right; }
+.tl-later-head > :last-child { grid-column: 5; text-align: right; }
+
+/* 3rd | 15:34 | Sutton via Wimbledon | 4 | 11 min */
+.row:not(.selected) {
+  flex: 0 0 calc(var(--slot) * var(--later-share));
+  font-size: calc(var(--row-font) * 0.58);
+}
+.row:not(.selected)[data-ordinal]::before {
+  content: attr(data-ordinal);
+  color: var(--tl-blue);
+  font-size: 0.8em;
+}
+.row:not(.selected) .cell.time { color: var(--tl-white); }
+.row:not(.selected) .cell.destination { font-weight: 400; }
+.row:not(.selected) .cell.status { text-align: right; }
+.row:not(.selected) .cell.platform { text-align: right; color: var(--tl-white); }
+.row:not(.selected) .cell.operator { display: none; }
+
+/* A "via" is how the reader tells two Suttons apart, so it stays, quieter. */
+.tl-via { color: var(--tl-blue); font-size: 0.82em; margin-left: 0.4em; }
+
+.row[data-status="expected"] .cell.status { color: var(--tl-amber); }
+.row[data-status="cancelled"] { color: var(--tl-dim); }
+.row[data-status="cancelled"]::before,
+.row[data-status="cancelled"] .cell.platform,
+.row[data-status="cancelled"] .cell.time,
+.row[data-status="cancelled"] .cell.destination,
+.row[data-status="cancelled"] .cell.status { color: var(--tl-dim); }
+.row[data-status="cancelled"] .tl-via { color: var(--tl-dim); }
+
+.empty { color: var(--tl-blue); font-size: 2.4vh; padding: 2vh 0; }
+.connection { background: var(--tl-bar); color: var(--tl-white); border-radius: 0; }
+.boards[data-count="2"] .board + .board { border-left: 1px solid rgba(90, 169, 230, 0.35); }

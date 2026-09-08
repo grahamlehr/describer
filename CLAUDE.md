@@ -113,6 +113,10 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
    it turns a page at a time, because a disc cannot slide sideways.
 6. **led-matrix** — the amber LED panel of the 2000s: one field edge to edge,
    so every word on it is lit dots, and a long line scrolls.
+7. **thameslink** — the LCD "next train" panels on the Thameslink core: one
+   service given the top of the screen with its route drawn down an amber
+   line beneath it, then a blue-barred "Later trains" list counting down in
+   minutes, and the clock in a white panel at the foot.
 
 Themes share one DOM structure and one data model; a theme is a CSS file
 plus an optional JS module for animation. Adding a theme must not require
@@ -553,6 +557,7 @@ Measured budgets (1920×1080, two boards, so `100cqw` = 906px):
 | splitflap | 39 | one tile per character, and tiles cannot be condensed | 23px / 48px |
 | nse | 23 | 34 dot-matrix characters at 0.6em, and no operator column | 37px / 53px |
 | led-matrix | 23 | the same 34 characters, on a panel with no printed casing | 39px / 59px |
+| thameslink | 24 | proportional, and the featured line is a time plus a destination | 38px / 62px |
 
 (Second figure is the single-board layout.)
 
@@ -644,6 +649,36 @@ asks it again for the wording, so the timer and the render never disagree.
 - A cell asked for before `nse.css` has arrived (`--chars` computes to the
   empty string) is queued and painted from `afterRender`; `board.js` will not
   ask again for text that has not changed.
+
+## thameslink specifics
+
+- The board is not a list of equals: the top service gets `--feature-share`
+  (2.2) slots with its route under it, and the rest are a packed list at
+  `--later-share` (0.74) of a slot each under a bar of `--head-share` (0.5).
+  What the later trains give up is what the route gets to use. The stops take
+  the slack (`flex: 1 1 0`), sized from `--calling-share` so that board.js
+  hiding them still hands the height back.
+- **The stops are measured against the block, not the track.** The track is a
+  `1fr` grid row inside a column flex item, and Chromium sizes that to its
+  content rather than to the height flex handed the block, so `clientHeight`
+  on the track reads back the whole list. `measure()` works from
+  `.calling-points` minus the label's offset instead, then snaps the track to
+  a whole number of stops: half a station name under the fold reads as a
+  fault, not as a page that continues.
+- Paging slides the whole column with a transform rather than swapping the
+  text, so the route line runs on across a page turn exactly as it does on
+  the real panels, and the page turn stays off the main thread.
+- The status column counts down — "6 min", "Due" — which leaves nowhere to
+  print an estimate, so a delayed service alternates the countdown with
+  `Exp HH:MM` on the 15 s refresh tick, in one phase shared by the board.
+  "Now" comes from the `.clock` board.js keeps against the Pi, not from the
+  browser's own clock.
+- The clock panel is a mirror. board.js rewrites `.clock` every quarter
+  second and compares `textContent`, so a `<sup>` for the seconds inside it
+  would be wiped on the next tick; `.clock` is hidden and `.tl-clock` is
+  read back on its own timer, as `nse` does.
+- `--head-share` is set to 0 from `afterRender` when a board has fewer than
+  two services, so the bar claims no height with nothing under it.
 
 ## Two dot-matrix themes, one font
 

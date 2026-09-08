@@ -78,7 +78,9 @@ class ThemesConfig(BaseModel):
 
 class DisplayConfig(BaseModel):
     #: Active theme; switchable live from /admin.
-    theme: Literal["modern", "crt", "splitflap", "1990s", "nse", "led-matrix"] = "modern"
+    theme: Literal["modern", "crt", "splitflap", "1990s", "nse", "led-matrix", "thameslink"] = (
+        "modern"
+    )
     #: Show the live clock in each board header.
     clock: bool = True
     #: Expand the first row to scroll its calling points.
