@@ -704,10 +704,13 @@ asks it again for the wording, so the timer and the render never disagree.
   with it, so the list tightens and the route gains nothing. Held where it
   was, every pixel a row gives up lands in the route: 4 stops a page instead
   of 3 on a whole screen, 12 instead of 8 on half of one.
-- Both of the block's lines are set at the row's full size, the countdown
-  included: how long until the train goes is what people look up for, so it
-  is not sized like the labels it shares a line with. They sit on one
-  baseline rather than being centred against each other.
+- The countdown rides the second line, right-aligned against the time and the
+  destination and at their size: how long until the train goes is what people
+  look up for, so it belongs on the line that says which train, not up among
+  the labels. The destination's column is the flexible one, so a long name
+  ellipsises before the countdown gives up any room. The first line carries
+  only the ordinal and the platform, and the two lines sit on their own
+  baselines rather than being centred against each other.
 - The status column counts down — "6 min", "Due" — which leaves nowhere to
   print an estimate, so a delayed service alternates the countdown with
   `Exp HH:MM` on the 15 s refresh tick, in one phase shared by the board.
