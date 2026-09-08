@@ -3,7 +3,7 @@
 A live UK National Rail departure board for a Raspberry Pi 4B on a 16:9
 monitor. It polls the Darwin feed through the Rail Data Marketplace — falling
 back to Realtime Trains when Darwin is unreachable — renders one or two
-stations full screen in one of six themes, and speaks platform-style
+stations full screen in one of seven themes, and speaks platform-style
 announcements as trains approach.
 
 ```
@@ -221,6 +221,7 @@ stations:
 | `1990s`     | Ceefax-style Teletext page: white-on-blue bars, yellow times. |
 | `nse`       | Network SouthEast sign over a flip-dot indicator; discs flip column by column and the stops turn a page at a time. |
 | `led-matrix` | Amber LED dot-matrix panel of the 2000s; every word on the screen is lit dots, and long lines scroll. |
+| `thameslink` | The LCD "next train" panels on the Thameslink core; one service takes the head of the board with its route drawn beneath it, the rest are a "Later trains" list counting down in minutes. |
 
 A theme is a CSS file in `describer/web/static/themes/` plus a same-named JS
 module. The module may export `attach`, `configure`, `detach`, `renderText`,
@@ -233,6 +234,13 @@ so the config validates.
 `dotmatrix.js` in that directory is not a theme. It is the 5x7 dot font and
 the text fitting that `nse` and `led-matrix` both draw with, kept in one
 place so the letters cannot drift apart.
+
+Most themes give every service the same row. `thameslink` does not: it spends
+the top of the board on one train and its calling points, and packs the rest
+into a shorter list beneath a bar, which is why its rows and its stops take
+shares of the height rather than a slot each. It also counts down — "6 min",
+"Due" — instead of printing an estimate, so a delayed train alternates the
+countdown with the time it is now expected.
 
 There is no build step, and static files are served with `Cache-Control:
 no-cache`, so an edited theme takes effect on the next page load.

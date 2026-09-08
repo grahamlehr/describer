@@ -188,6 +188,7 @@ describer/
           1990s.css       1990s.js
           nse.css         nse.js
           led-matrix.css  led-matrix.js
+          thameslink.css  thameslink.js
           dotmatrix.js    # the shared 5x7 dot font; not a theme
   deploy/
     install.sh             # Pi setup: apt deps, venv, piper, cage, services
@@ -784,11 +785,14 @@ reading layout out of CSS has to run against a connected node.
 
 ## Open items
 
-- Verified at 1280×720 and 1920×1080, one and two boards, all six themes:
+- Verified at 1280×720 and 1920×1080, one and two boards, all seven themes:
   rows fill 100% of the height, no page overflow in either axis, and no cell
   clips except in `modern` and `crt` (see below). The model is width-bound at
   both sizes and the two are proportional, so 720p is not a separate case —
-  what fits at 1080p fits at 720p, smaller.
+  what fits at 1080p fits at 720p, smaller. `thameslink` is the exception to
+  the width-bound half of that: its type is capped at `0.78` of a slot, which
+  binds on a whole screen and not on half of one, so both counts were checked
+  rather than inferred. It fits `Abbey Wood via Whitechapel` at either.
 - `modern` and `crt` still ellipsise a destination past about 10.4em
   (`Abbey Wood via Whitechapel`, `London Charing Cross` on a split screen).
   That is the proportional themes working as designed, but they have no
