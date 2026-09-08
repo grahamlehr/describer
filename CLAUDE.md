@@ -687,10 +687,20 @@ asks it again for the wording, so the timer and the render never disagree.
   the next timer tick corrected it — five seconds of a station name cut in
   half, every time the board loads. Observe the block, never the track: the
   track's height is the one `measure()` sets.
-- The next train is not centred in its share. `--feature-share` is 1.5 with
-  `align-content: start`, because a taller block with centred content puts
+- The next train's block is `flex: 0 0 auto` — exactly its two lines, never a
+  share it might not fill. A block sized to a share and centred in it puts
   half its slack between the station name and the train, which reads as the
-  board having failed to draw something.
+  board having failed to draw something; sized to a share and aligned to the
+  start it merely moves that slack below. `--feature-share` (1.95) stays in
+  the slot maths as the *reserve* for the block, and whatever the reserve
+  over-provides falls to the route below, which is `flex: 1 1 0` and takes
+  it. 1.95 is 2.5em of content over the 0.78 cap, so it is right where the
+  type is height-bound (a whole screen) and generous where it is width-bound
+  (half of one), which is the direction that costs nothing.
+- Both of the block's lines are set at the row's full size, the countdown
+  included: how long until the train goes is what people look up for, so it
+  is not sized like the labels it shares a line with. They sit on one
+  baseline rather than being centred against each other.
 - The status column counts down — "6 min", "Due" — which leaves nowhere to
   print an estimate, so a delayed service alternates the countdown with
   `Exp HH:MM` on the 15 s refresh tick, in one phase shared by the board.

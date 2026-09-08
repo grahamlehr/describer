@@ -73,10 +73,11 @@ body {
  */
 .rows {
   --char-budget: 24;
-  /* The next train is two lines of type, not two rows: enough for them and a
-     little air under the second, since anything more opens a blank band
-     between the station name and the train. */
-  --feature-share: 1.5;
+  /* The next train is two lines of type, not two rows. Both are set at the
+     row's full size — the countdown included — so the block is about 2.5em,
+     which is 1.95 slots wherever the type is capped by the slot rather than
+     by the width. */
+  --feature-share: 1.95;
   --head-share: 0.5;
   /* The later trains are a packed list, not the board: they take less than a
      slot each, and what they give up goes to the route above them. */
@@ -91,18 +92,21 @@ body {
 
 /* ------------------------------------------------------- the next train */
 
-/*  1st train              Plat 2            6 min
+/*  1st train    Plat 2                     6 min
  *  15:24 Three Bridges
  */
 .row.selected {
   grid-template-columns: auto auto minmax(0, 1fr);
   grid-template-rows: auto auto;
-  /* Not centred: whatever the block does not use belongs under the train,
-     not between it and the station name. */
-  align-content: start;
+  /* The labels are small and the time is not, so they sit on one baseline
+     rather than being centred against each other. */
+  align-items: baseline;
   column-gap: 0.6em;
   row-gap: 0.1em;
-  flex: 0 0 calc(var(--slot) * var(--feature-share));
+  /* Exactly its two lines. --feature-share reserves the room in the slot
+     maths; anything that reserve over-provides goes to the route below,
+     never into a blank band between the station name and the train. */
+  flex: 0 0 auto;
   font-size: var(--row-font);
   font-weight: 700;
   padding: 0;
@@ -123,10 +127,12 @@ body {
   text-align: left;
 }
 .row.selected .cell.platform:not(:empty)::before { content: "Plat "; }
+/* How long until it goes is the thing people look up for, so it is set as
+   large as the time and the destination under it, not as small as the labels
+   it shares a line with. */
 .row.selected .cell.status {
   grid-row: 1;
   grid-column: 3;
-  font-size: 0.62em;
   text-align: right;
   color: var(--tl-white);
 }
