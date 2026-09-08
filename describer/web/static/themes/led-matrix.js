@@ -32,7 +32,7 @@ const SCROLL_GAP = 10 * CHAR_W;
 /** How often the dot clock reads back the clock board.js is writing. */
 const CLOCK_MS = 500;
 /** Longest each mirrored field may run before it is abbreviated. */
-const IDENT_CHARS = { station: 20, mode: 10, clock: 8, empty: 30 };
+const IDENT_CHARS = { station: 20, mode: 10, clock: 8, empty: 30, connection: 24 };
 const SEPARATOR = '   ';
 
 const HEADINGS = {
@@ -60,8 +60,10 @@ export function attach(boardsEl) {
   });
   scrollTimer = setInterval(scrollTick, SCROLL_MS);
   // board.js writes the clock straight into .clock, with no theme hook, so the
-  // dot clock reads it back rather than being told.
-  clockTimer = setInterval(paintClocks, CLOCK_MS);
+  // dot clock reads it back rather than being told. The connection warning is
+  // read back on the same timer: board.js only toggles the overlay's hidden
+  // flag from the SSE handlers, so there is no render pass to hook.
+  clockTimer = setInterval(readBack, CLOCK_MS);
 }
 
 export function detach() {
@@ -74,7 +76,9 @@ export function detach() {
   for (const canvas of cells) canvas.remove();
   // Every line of dots this theme added to mirror text board.js paints as
   // plain words for the themes that have no matrix.
-  for (const el of document.querySelectorAll('.dm-columns, .dm-header, .dm-message, .dm-label, .dm-empty')) {
+  for (const el of document.querySelectorAll(
+    '.dm-columns, .dm-header, .dm-message, .dm-label, .dm-empty, .dm-stale, .dm-connection',
+  )) {
     el.remove();
   }
   cells.clear();
@@ -293,10 +297,12 @@ export function afterRender(boardsEl) {
   for (const board of boardsEl.querySelectorAll('.board')) {
     paintHeader(board);
     paintHeadings(board);
+    paintStale(board);
     paintLabel(board);
     paintMessage(board);
     paintEmpty(board);
   }
+  paintConnection();
 }
 
 /** The top line of the panel: which station, which way, and the time. */
@@ -316,6 +322,12 @@ function paintHeader(board) {
   paintText(line.querySelector('.dm-station'), board.querySelector('.station-name').textContent, IDENT_CHARS.station);
   paintText(line.querySelector('.dm-mode'), board.querySelector('.board-mode').textContent, IDENT_CHARS.mode);
   paintClock(board, line.querySelector('.dm-clock'));
+}
+
+/** Everything board.js writes with no theme hook, read back on a timer. */
+function readBack() {
+  paintClocks();
+  paintConnection();
 }
 
 /** Every board's clock, read back from board.js on its own timer. */
@@ -351,6 +363,55 @@ function paintHeadings(board) {
   Array.from(head.children).forEach((cell, i) => {
     paintText(cell, labels[i], labels[i].length);
   });
+}
+
+/**
+ * A fault is lit like everything else. There is no second surface on this
+ * board to write it on: the panel is the whole screen, so the warning takes
+ * the top line of the matrix, under the headings, and scrolls when it is too
+ * long for it. A healthy board gives the height back.
+ */
+function paintStale(board) {
+  const rows = board.querySelector('.rows');
+  const source = board.querySelector('.stale');
+  let line = rows.querySelector('.dm-stale');
+  if (!line) {
+    line = document.createElement('div');
+    line.className = 'dm-stale';
+  }
+  // Under the headings and above the first service. board.js appends the rows
+  // on every pass, so anything inserted here stays ahead of them; the line is
+  // kept in the tree at no height when there is nothing wrong.
+  const head = rows.querySelector('.dm-columns');
+  if (head) { if (head.nextElementSibling !== line) head.after(line); }
+  else if (rows.firstElementChild !== line) rows.prepend(line);
+
+  const text = source.hidden ? '' : source.textContent;
+  rows.style.setProperty('--stale-share', text ? '0.9' : '0');
+  if (!text) {
+    line.textContent = '';
+    return;
+  }
+  paintScroll(line, text);
+}
+
+/**
+ * The reconnecting warning. board.js only toggles this overlay's hidden flag
+ * from the SSE handlers, so there is no render pass to hang it off; readBack
+ * paints it on the clock's timer instead. The stylesheet sizes the words to
+ * nothing, so what shows is the LEDs.
+ */
+function paintConnection() {
+  const source = document.getElementById('connection');
+  if (!source) return;
+  let host = source.querySelector('.dm-connection');
+  if (!host) {
+    host = document.createElement('span');
+    host.className = 'dm-connection';
+    source.append(host);
+  }
+  // The ellipsis has no glyph in a 5x7 font, and would only cost dot columns.
+  paintText(host, source.textContent.replace(/\u2026/g, '').trim(), IDENT_CHARS.connection);
 }
 
 /** "Calling at" is on the panel too, so it is lit like the stops beside it. */

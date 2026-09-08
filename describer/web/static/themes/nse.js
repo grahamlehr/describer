@@ -23,7 +23,7 @@ const WATCHDOG_MS = 250;
 /** How often the dot clock reads the clock board.js is writing. */
 const CLOCK_MS = 500;
 /** Longest each mirrored field may run before it is abbreviated. */
-const IDENT_CHARS = { station: 20, mode: 10, clock: 8 };
+const IDENT_CHARS = { station: 20, mode: 10, clock: 8, empty: 30, connection: 24 };
 const SEPARATOR = '  ';
 
 /** Every canvas we own, whether still or mid-sweep. */
@@ -51,8 +51,10 @@ export function attach(boardsEl, options) {
   });
   pageTimer = setInterval(turnPage, PAGE_MS);
   // board.js writes the clock straight into .clock, with no theme hook, so the
-  // dot clock reads it back rather than being told.
-  clockTimer = setInterval(paintClocks, CLOCK_MS);
+  // dot clock reads it back rather than being told. The connection warning is
+  // read back on the same timer: board.js only toggles the overlay's hidden
+  // flag from the SSE handlers, so there is no render pass to hook.
+  clockTimer = setInterval(readBack, CLOCK_MS);
 }
 
 export function configure(options = {}) {
@@ -82,7 +84,9 @@ export function detach() {
   for (const canvas of cells) canvas.remove();
   // Everything this casing added: the printed labels and the lines of dots
   // that mirror text board.js paints as plain text for other themes.
-  for (const el of document.querySelectorAll('.nse-columns, .nse-ident, .nse-message, .nse-label')) {
+  for (const el of document.querySelectorAll(
+    '.nse-columns, .nse-ident, .nse-message, .nse-label, .nse-stale, .nse-empty, .nse-connection',
+  )) {
     el.remove();
   }
   cells.clear();
@@ -413,10 +417,13 @@ export function afterRender(boardsEl) {
   root = boardsEl;
   for (const board of boardsEl.querySelectorAll('.board')) {
     paintHeadings(board);
+    paintStale(board);
     paintLabel(board);
     paintMessage(board);
     paintIdent(board);
+    paintEmpty(board);
   }
+  paintConnection();
 }
 
 /** The one thing on the matrix that is printed rather than flipped. */
@@ -483,6 +490,72 @@ function paintMessage(board) {
 }
 
 /**
+ * A stale board is a fault, and a fault is a message like any other: on a
+ * flip-dot sign there is nowhere but the matrix for it to appear, so it takes
+ * the top line, under the printed headings, and pages when it is too long.
+ * A healthy board gives the height back.
+ */
+function paintStale(board) {
+  const rows = board.querySelector('.rows');
+  const source = board.querySelector('.stale');
+  let line = rows.querySelector('.nse-stale');
+  if (!line) {
+    line = document.createElement('div');
+    line.className = 'nse-stale';
+  }
+  // Under the printed headings and above the first service. The rows are
+  // appended by board.js on every pass, so anything inserted here stays ahead
+  // of them; the line is kept in the tree at no height when there is no fault.
+  const head = rows.querySelector('.nse-columns');
+  if (head) { if (head.nextElementSibling !== line) head.after(line); }
+  else if (rows.firstElementChild !== line) rows.prepend(line);
+
+  const text = source.hidden ? '' : source.textContent;
+  rows.style.setProperty('--stale-share', text ? '0.9' : '0');
+  if (!text) {
+    line.textContent = '';
+    return;
+  }
+  paintPaged(line, text.split(/\s+/).filter(Boolean), ' ');
+}
+
+/** A board with no trains says so in dots, like everything else on the sign. */
+function paintEmpty(board) {
+  const rows = board.querySelector('.rows');
+  const source = rows.querySelector('.empty');
+  let host = rows.querySelector('.nse-empty');
+  if (!source) {
+    host?.remove();
+    return;
+  }
+  if (!host) {
+    host = document.createElement('div');
+    host.className = 'nse-empty';
+  }
+  source.after(host);
+  paintText(host, source.textContent, IDENT_CHARS.empty);
+}
+
+/**
+ * The reconnecting warning. board.js only toggles this overlay's hidden flag
+ * from the SSE handlers, so there is no render pass to hang it off; readBack
+ * paints it on the clock's timer instead. The stylesheet sizes the words to
+ * nothing, so what shows is the dots.
+ */
+function paintConnection() {
+  const source = document.getElementById('connection');
+  if (!source) return;
+  let host = source.querySelector('.nse-connection');
+  if (!host) {
+    host = document.createElement('span');
+    host.className = 'nse-connection';
+    source.append(host);
+  }
+  // The ellipsis has no glyph in a 5x7 font, and would only cost dot columns.
+  paintText(host, source.textContent.replace(/\u2026/g, '').trim(), IDENT_CHARS.connection);
+}
+
+/**
  * The bottom line of the matrix: which station this is, whether it is showing
  * departures or arrivals, and the time. All three change, so all three flip.
  */
@@ -503,6 +576,12 @@ function paintIdent(board) {
   paintText(ident.querySelector('.nse-station'), board.querySelector('.station-name').textContent, IDENT_CHARS.station);
   paintText(ident.querySelector('.nse-mode'), board.querySelector('.board-mode').textContent, IDENT_CHARS.mode);
   paintClock(board, ident.querySelector('.nse-clock'));
+}
+
+/** Everything board.js writes with no theme hook, read back on a timer. */
+function readBack() {
+  paintClocks();
+  paintConnection();
 }
 
 /** Every board's clock, read back from board.js on its own timer. */

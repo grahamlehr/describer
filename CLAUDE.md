@@ -614,15 +614,27 @@ asks it again for the wording, so the timer and the render never disagree.
   bottom, in the *last* grid row by CSS. The three-slash logo is a skewed
   gradient on `.board-header::before` with the wordmark on `::after`.
 - **Everything that changes is dots.** `board.js` writes the station, mode,
-  clock, stops label and messages straight into its own elements with no theme
-  hook, so the stylesheet hides all five and `afterRender` mirrors each into a
-  line of dots it owns (`.nse-ident`, `.nse-message`, `.nse-label`). The clock
-  has no hook at all, so a timer reads `.clock` back every `CLOCK_MS`.
-- The matrix therefore has five claims on its height: `--rows`,
-  `--calling-share`, `--heading-share`, `--message-share` and `--ident-share`.
-  `nse.js` sets `--message-share` per board, to 0.9 or 0. The message line is
-  kept in the tree even when empty, because its `margin-top: auto` is what
-  pins it and the identification line to the foot of a half-empty board.
+  clock, stops label, messages, the stale warning, the no-services placeholder
+  and the reconnecting overlay straight into its own elements with no theme
+  hook, so the stylesheet hides all of them and `afterRender` mirrors each into
+  a line of dots it owns (`.nse-ident`, `.nse-message`, `.nse-label`,
+  `.nse-stale`, `.nse-empty`, `.nse-connection`). Nothing on this sign is
+  written rather than flipped: the casing is printed plastic and cannot say
+  anything new, so a fault belongs on the matrix like any other message. The
+  clock and the reconnecting overlay have no hook at all, so a timer reads
+  `.clock` and `#connection` back every `CLOCK_MS`; the overlay especially,
+  because `board.js` only toggles its `hidden` flag from the SSE handlers and
+  there is no render pass to hang it off.
+- The matrix therefore has six claims on its height: `--rows`,
+  `--calling-share`, `--heading-share`, `--stale-share`, `--message-share` and
+  `--ident-share`. `nse.js` sets `--message-share` and `--stale-share` per
+  board, to 0.9 or 0. The fault line takes the top of the matrix, under the
+  printed headings; both it and the message line are kept in the tree even when
+  empty, because the message line's `margin-top: auto` is what pins it and the
+  identification line to the foot of a half-empty board.
+- `.connection` is sized `font-size: 0` so only the dots show, which also
+  collapses the `em` padding it inherits from `base.css`; both dot themes give
+  it a padding in viewport units instead.
 - The watchdog must not be re-armed while one is pending. `scrollTick` calls
   `start()` every 45 ms, and pushing the deadline back each time meant it never
   fired — so when frames stopped, the stops froze at their first offset and the
@@ -655,9 +667,27 @@ page; an LED panel is free to scroll. The LED paint is three `Path2D` fills
 (dark, bloom, core) costing about 0.7 ms for a full-width scrolling line on a
 dev Mac, and there are at most two such lines per board.
 
+Both mirror the same set of text: the two carry the station, mode and clock in
+different places (`nse` along the foot of the matrix, `led-matrix` along the
+top), but the stale warning, the no-services placeholder, the stops label, the
+messages and the reconnecting overlay are lit on both. `led-matrix` hides
+`.stale` for the same reason `nse` does — the panel is the whole screen, so
+there is no surface left to write a fault on that is not made of LEDs.
+
 `led-matrix` has no config block. Its field would have to be named
 `led-matrix`, which is not a Python identifier, and amber is the only colour
 those panels came in. The palette is two constants at the top of the module.
+
+## `hidden` needs saying when the theme sets a display
+
+`base.css` gives `.calling-points` `display: flex`, and an author `display`
+beats the `hidden` attribute's UA rule, so `wrap.hidden = true` did nothing:
+the block stayed laid out, on `grid-row: 3` of `.board`. Every theme got away
+with it because the element then overlapped whatever else was in that row. It
+only became visible in `nse` once the fault line let its stale row collapse and
+the header moved up, at which point a stray "CALLING AT" appeared under the
+logo. `.calling-points[hidden] { display: none; }` is now in `base.css`; any
+new rule that sets `display` on an element `board.js` hides needs the same.
 
 ## Calling points belong to their service
 

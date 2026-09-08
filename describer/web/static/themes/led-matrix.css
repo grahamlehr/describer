@@ -24,15 +24,17 @@ body {
   background: var(--dm-panel);
   border: 0.3vh solid #16161a;
   border-radius: 0.5vh;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 .board-header { grid-row: 1; }
-.stale { grid-row: 2; }
-.rows { grid-row: 3; }
+.rows { grid-row: 2; }
 
 /* All of these are words board.js writes itself; led-matrix.js mirrors each into
-   dots, so the panel shows the dots and never the words. */
-.station-name, .board-mode, .clock, .messages, .calling-points-label, .empty, .source {
+   dots, so the panel shows the dots and never the words. The stale warning is
+   among them: the panel is the whole screen, so there is no surface left to
+   write a fault on that is not made of LEDs. */
+.station-name, .board-mode, .clock, .messages, .calling-points-label, .empty,
+.source, .stale {
   display: none;
 }
 
@@ -55,25 +57,16 @@ body {
 }
 .dm-header > span[hidden] { display: none; }
 
-/* A fault is the one thing that is not part of the illusion: it has to be
-   legible at a glance, so it is written rather than lit. */
-.stale {
-  color: #ff5a3c;
-  font-size: 1.6vh;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.4vh 0 0;
-}
-
 /* The matrix claims the rest. Its lines are the headings, the services, the
-   stops and the message line, which gives its height back when it is empty. */
+   stops, the fault line and the message line, each of which gives its height
+   back when there is nothing for it to say. */
 .rows {
   --char-budget: 23;
   --heading-share: 1;
+  --stale-share: 0;
   --message-share: 0;
   --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--heading-share)
-    + var(--message-share)));
+    + var(--stale-share) + var(--message-share)));
   margin-top: 0.8vh;
 }
 
@@ -126,6 +119,18 @@ body {
 .calling-points-track { display: block; }
 .calling-points-list { display: block; width: 100%; }
 
+/* A fault, lit on the top line of the matrix under the headings. It scrolls
+   when it is too long, like anything else on the panel, and a healthy board
+   sets the share to 0 so the line keeps none of the height. */
+.dm-stale {
+  display: flex;
+  align-items: center;
+  flex: 0 0 calc(var(--slot) * var(--stale-share));
+  font-size: calc(var(--row-font) * 0.9);
+  overflow: hidden;
+}
+.dm-stale .dots { width: 100%; }
+
 .dm-message {
   display: flex;
   align-items: center;
@@ -136,5 +141,18 @@ body {
 }
 
 .dm-empty { font-size: var(--row-font); padding-top: 1vh; }
+
+/* The reconnecting warning, as a scrap of panel rather than a written label:
+   the words are sized to nothing so only led-matrix.js's LEDs show. */
+.connection {
+  background: var(--dm-panel);
+  border: 0.2vh solid #16161a;
+  border-radius: 0;
+  /* base.css sizes the padding in em, and the words here are sized to nothing
+     so only the dots show; give the panel a margin the dots can sit inside. */
+  padding: 0.5vh 0.6vw;
+  font-size: 0;
+}
+.dm-connection { font-size: 1.8vh; }
 
 .boards[data-count="2"] .board + .board { border-left: 0.3vh solid #16161a; }

@@ -31,16 +31,18 @@ body {
 .board {
   padding: 0;
   background: var(--nse-casing);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
-.stale { grid-row: 1; }
-.rows { grid-row: 2; }
-.board-header { grid-row: 3; }
+.rows { grid-row: 1; }
+.board-header { grid-row: 2; }
 
-/* The station, the mode, the clock, the stops label and the service messages
-   are mirrored into the matrix as dots by nse.js; board.js keeps writing the
-   words into these, and the matrix reads them back. */
-.station-name, .board-mode, .clock, .messages, .calling-points-label {
+/* The station, the mode, the clock, the stops label, the service messages,
+   the stale warning and the no-services placeholder are all mirrored into the
+   matrix as dots by nse.js; board.js keeps writing the words into these, and
+   the matrix reads them back. Nothing on this sign is written rather than
+   flipped: the casing is printed plastic and cannot say anything new. */
+.station-name, .board-mode, .clock, .messages, .calling-points-label,
+.stale, .empty {
   display: none;
 }
 
@@ -80,23 +82,17 @@ body {
 /* A flip-dot sign has no feed to name. */
 .source { display: none; }
 
-.stale {
-  background: var(--nse-red);
-  color: var(--nse-white);
-  font-weight: 700;
-  padding: 0.4vh 1.4vw;
-}
-
 /* The matrix. Every line inside it claims a share of the height: the printed
    labels, the stops, the message line (nothing to say gives it back, and
    nse.js sets it) and the identification line along the foot. */
 .rows {
   --char-budget: 23;
   --heading-share: 0.7;
+  --stale-share: 0;
   --message-share: 0;
   --ident-share: 0.85;
   --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--heading-share)
-    + var(--message-share) + var(--ident-share)));
+    + var(--stale-share) + var(--message-share) + var(--ident-share)));
   margin: 0 1.4vw;
   padding: 0 1vw 0.6vh;
   background: var(--nse-panel);
@@ -119,6 +115,19 @@ body {
   overflow: hidden;
 }
 .nse-ident > span[hidden] { display: none; }
+
+/* A fault, flipped on to the top line of the matrix under the printed
+   headings. Red belongs to the casing, not to a board whose discs are one
+   colour, so it is the words that carry the warning, not the dots. A healthy
+   board sets the share to 0 and the line keeps none of the height. */
+.nse-stale {
+  display: flex;
+  align-items: center;
+  flex: 0 0 calc(var(--slot) * var(--stale-share));
+  font-size: calc(var(--row-font) * 0.9);
+  overflow: hidden;
+}
+.nse-stale .dots { width: 100%; }
 
 /* Service messages, on their own line, scrolling when they do not fit. A
    board with nothing to say keeps the line at no height: its auto top margin
@@ -199,6 +208,20 @@ body {
 .calling-points-track { display: block; }
 .calling-points-list { display: block; width: 100%; }
 
-.empty { color: var(--nse-print); padding: 2vh 0; }
+/* No services: dots too, at the size of a row that is not there. */
+.nse-empty { font-size: var(--row-font); padding-top: 2vh; }
+
+/* The reconnecting warning, as a scrap of matrix rather than a printed label:
+   the words are sized to nothing so only nse.js's discs show. */
+.connection {
+  background: var(--nse-panel);
+  border: 0.2vh solid var(--nse-frame);
+  border-radius: 0;
+  /* base.css sizes the padding in em, and the words here are sized to nothing
+     so only the dots show; give the panel a margin the dots can sit inside. */
+  padding: 0.5vh 0.6vw;
+  font-size: 0;
+}
+.nse-connection { font-size: 1.8vh; }
 
 .boards[data-count="2"] .board + .board { border-left: 0.3vh solid var(--nse-grey); }

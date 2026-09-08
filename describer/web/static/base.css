@@ -121,6 +121,9 @@ html, body {
   overflow: hidden;
   min-height: 0;
 }
+/* An author display beats the hidden attribute's UA rule, so say it here:
+   board.js hides this block whenever the top service has no stops to show. */
+.calling-points[hidden] { display: none; }
 .calling-points-label { flex: 0 0 auto; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.7em; }
 .calling-points-track { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
 .calling-points-list { display: inline-block; }
