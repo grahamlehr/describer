@@ -27,6 +27,12 @@ display:
   show_calling_points: true # expand the first row to page through its calling points
   resolution: auto          # auto | 1080p | 720p — force the HDMI mode; a 4K panel makes the Pi crawl
   themes:
+    # Palette overrides, in the vocabulary every theme shares: background,
+    # text, dim_text, accent, on_time, late, cancelled. Each is "#rrggbb", and
+    # a colour left out keeps the one in the theme's own stylesheet. Editable
+    # from /admin, which also reports the contrast of each against the ground.
+    modern:
+      colours: {}
     crt:
       phosphor: amber       # amber | green
       scanlines: true       # scanline overlay
@@ -37,6 +43,9 @@ display:
     nse:
       dot_colour: yellow    # yellow | white | green — the lit face of each disc
       click_sound: false    # rattle as the discs flip
+    thameslink:
+      # No on_time here: this board counts down in the text colour.
+      colours: {}
 
 # Two independent upstreams. The primary is used while it works; after
 # failover_after consecutive failures the fallback takes over, and the primary

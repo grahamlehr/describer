@@ -89,6 +89,42 @@ class StationConfig(BaseModel):
         return platform.strip().upper() in self.platforms
 
 
+#: A colour as the admin page's picker writes it: "#rrggbb", held lower-case.
+Colour = Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}$")]
+
+
+class ThemeColoursConfig(BaseModel):
+    """One theme's palette, in the vocabulary every theme shares.
+
+    A role left unset (``None``) means the theme's own stylesheet decides, so
+    the CSS stays the source of truth and a redesign still reaches a board
+    that never touched the picker. A theme uses the roles it has: thameslink
+    has no on-time colour, because it counts down in white, and ignores
+    ``on_time`` if one is written here by hand.
+    """
+
+    background: Colour | None = None
+    text: Colour | None = None
+    dim_text: Colour | None = None
+    accent: Colour | None = None
+    on_time: Colour | None = None
+    late: Colour | None = None
+    cancelled: Colour | None = None
+
+    @field_validator("*")
+    @classmethod
+    def _lower(cls, v: str | None) -> str | None:
+        return v.lower() if isinstance(v, str) else v
+
+
+class ModernThemeConfig(BaseModel):
+    colours: ThemeColoursConfig = ThemeColoursConfig()
+
+
+class ThameslinkThemeConfig(BaseModel):
+    colours: ThemeColoursConfig = ThemeColoursConfig()
+
+
 class CrtThemeConfig(BaseModel):
     phosphor: Literal["amber", "green"] = "amber"
     scanlines: bool = True
@@ -111,9 +147,11 @@ class NseThemeConfig(BaseModel):
 
 
 class ThemesConfig(BaseModel):
+    modern: ModernThemeConfig = ModernThemeConfig()
     crt: CrtThemeConfig = CrtThemeConfig()
     splitflap: SplitflapThemeConfig = SplitflapThemeConfig()
     nse: NseThemeConfig = NseThemeConfig()
+    thameslink: ThameslinkThemeConfig = ThameslinkThemeConfig()
 
 
 class DisplayConfig(BaseModel):

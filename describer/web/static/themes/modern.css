@@ -4,7 +4,9 @@
   --bg: #06080c;
   --fg: #f2f5f8;
   --muted: #8d97a5;
-  --rule: rgba(255, 255, 255, 0.10);
+  /* Derived, so a recoloured board keeps its hairlines and its selection
+     tint in step with the two colours they are made of. */
+  --rule: color-mix(in srgb, var(--fg) 10%, transparent);
   --on-time: #4ade80;
   --late: #fbbf24;
   --cancelled: #f87171;
@@ -31,7 +33,7 @@ body {
   border-bottom: 1px solid var(--rule);
   transition: background-color 200ms ease;
 }
-.row.selected { background: rgba(96, 165, 250, 0.08); }
+.row.selected { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .cell.time { font-variant-numeric: tabular-nums; color: var(--fg); }
 .cell.platform { color: var(--muted); font-variant-numeric: tabular-nums; }
 .cell.operator { color: var(--muted); }

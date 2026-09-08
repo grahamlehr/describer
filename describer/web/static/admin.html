@@ -76,11 +76,21 @@
 
     <div class="subpanel" id="theme-options">
       <h3>Theme options</h3>
-      <p class="hint theme-opts" data-theme="modern">Modern has no options of its own.</p>
+      <div class="theme-opts" data-theme="modern">
+        <p class="hint">A colour left on <em>Default</em> is the one in the theme’s own
+          stylesheet, so it follows the theme if the theme is ever redrawn.</p>
+        <div class="colours" data-colours="modern"></div>
+        <div class="preview" data-preview="modern"></div>
+      </div>
       <p class="hint theme-opts" data-theme="1990s">The Ceefax theme has no options of its own.</p>
       <p class="hint theme-opts" data-theme="led-matrix">Amber was the only colour these panels
         came in, so the LED matrix has no options.</p>
-      <p class="hint theme-opts" data-theme="thameslink">Thameslink has no options of its own.</p>
+      <div class="theme-opts" data-theme="thameslink">
+        <p class="hint">This board counts down in the text colour and has no separate
+          on-time colour; its blue bars are structural and stay in the stylesheet.</p>
+        <div class="colours" data-colours="thameslink"></div>
+        <div class="preview" data-preview="thameslink"></div>
+      </div>
       <div class="grid theme-opts" data-theme="crt">
         <label>Phosphor
           <select name="display.themes.crt.phosphor">

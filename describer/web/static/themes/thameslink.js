@@ -8,6 +8,12 @@
  * in the status column, which has to be recomputed as the clock moves.
  */
 
+import { applyColours, clearColours } from './colours.js';
+
+/** The roles this board has. It counts down in --fg, so it has no on-time
+ *  colour to offer, and its blue bars and hairline are structural. */
+const ROLES = ['background', 'text', 'dim_text', 'accent', 'late', 'cancelled'];
+
 /** How often the countdowns are recomputed, and the delay wording alternates. */
 const REFRESH_MS = 15000;
 /** How long one page of the route holds before the next. */
@@ -34,9 +40,10 @@ let api = null;
 /** Shared by every delayed service on screen, so they alternate together. */
 let delayPhase = false;
 
-export function attach(boardsEl, _options, themeApi) {
+export function attach(boardsEl, options, themeApi) {
   root = boardsEl;
   api = themeApi;
+  configure(options);
   refreshTimer = setInterval(() => {
     delayPhase = !delayPhase;
     api.render();
@@ -59,7 +66,12 @@ export function attach(boardsEl, _options, themeApi) {
   clockTimer = setInterval(paintClocks, CLOCK_MS);
 }
 
+export function configure(options = {}) {
+  applyColours(options.colours, ROLES);
+}
+
 export function detach() {
+  clearColours(ROLES);
   clearInterval(refreshTimer);
   clearInterval(pageTimer);
   clearInterval(clockTimer);

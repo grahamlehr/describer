@@ -157,3 +157,34 @@ def test_an_unconfirmed_platform_is_dropped_unless_asked_for():
     assert not strict.accepts_platform("  ")
     assert lenient.accepts_platform(None)
     assert lenient.accepts_platform("  ")
+
+
+def test_theme_colours_default_to_the_stylesheet():
+    colours = Config(stations=[{"crs": "PAD"}]).display.themes.modern.colours
+
+    # None everywhere means the config says nothing and the CSS decides.
+    assert set(colours.model_dump().values()) == {None}
+
+
+def test_theme_colours_round_trip_and_are_held_lower_case(tmp_path):
+    path = tmp_path / "config.yaml"
+    config = Config(
+        stations=[{"crs": "PAD"}],
+        display={"themes": {"modern": {"colours": {"accent": "#AABBCC"}}}},
+    )
+    assert config.display.themes.modern.colours.accent == "#aabbcc"
+
+    save_config(config, path)
+    raw = yaml.safe_load(path.read_text())
+    assert raw["display"]["themes"]["modern"]["colours"]["accent"] == "#aabbcc"
+    assert raw["display"]["themes"]["thameslink"]["colours"]["late"] is None
+    assert load_config(path) == config
+
+
+@pytest.mark.parametrize("value", ["red", "#abc", "#12345g", "rgb(1,2,3)", ""])
+def test_a_colour_that_is_not_a_six_digit_hex_is_rejected(value):
+    with pytest.raises(ValidationError):
+        Config(
+            stations=[{"crs": "PAD"}],
+            display={"themes": {"thameslink": {"colours": {"background": value}}}},
+        )

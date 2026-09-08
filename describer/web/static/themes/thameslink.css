@@ -4,19 +4,22 @@
    filters and no shadows, so the Pi repaints only the text that changed. */
 
 :root {
-  --tl-bg: #000;
-  --tl-white: #ffffff;
-  --tl-blue: #5aa9e6;          /* headings, "via", ordinals */
-  --tl-bar: #14477e;           /* the printed-looking blue bars */
-  --tl-amber: #e8a33d;         /* the route, and anything the board warns about */
-  --tl-dim: #7c838c;           /* cancelled, and the things that only matter twice a day */
-  --tl-red: #e0453a;           /* the word "Cancelled", and nothing else */
-  --tl-rule: rgba(90, 169, 230, 0.35);  /* the hairline under the station name */
+  --bg: #000;
+  --fg: #ffffff;
+  --accent: #5aa9e6;          /* headings, "via", ordinals */
+  --late: #e8a33d;            /* the route, and anything the board warns about */
+  --muted: #7c838c;           /* cancelled, and the things that only matter twice a day */
+  --cancelled: #e0453a;       /* the word "Cancelled", and nothing else */
+  /* Structural, and not offered in /admin: the printed-looking blue bars and
+     the hairline under the station name. This board has no on-time colour —
+     it counts down in --fg. */
+  --tl-bar: #14477e;
+  --tl-rule: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 body {
-  background: var(--tl-bg);
-  color: var(--tl-white);
+  background: var(--bg);
+  color: var(--fg);
   font-family: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   font-feature-settings: "tnum" 1;
 }
@@ -40,19 +43,19 @@ body {
   grid-column: 1;
   font-size: 2.4vh;
   font-weight: 700;
-  color: var(--tl-blue);
+  color: var(--accent);
 }
 .board-mode {
   grid-row: 1;
   grid-column: 2;
   font-size: 1.8vh;
-  color: var(--tl-blue);
+  color: var(--accent);
   opacity: 1;
 }
-.stale { grid-row: 2; grid-column: 1 / -1; color: var(--tl-amber); }
+.stale { grid-row: 2; grid-column: 1 / -1; color: var(--late); }
 .rows { grid-row: 3; grid-column: 1 / -1; margin-top: 0.9vh; }
-.messages { grid-row: 4; grid-column: 1 / -1; color: var(--tl-amber); border: 0; }
-.source { grid-row: 5; grid-column: 2; align-self: center; color: var(--tl-dim); }
+.messages { grid-row: 4; grid-column: 1 / -1; color: var(--late); border: 0; }
+.source { grid-row: 5; grid-column: 2; align-self: center; color: var(--muted); }
 
 /* board.js owns .clock and rewrites it every quarter second, so the panel is
    a mirror of it that thameslink.js keeps in step; the original is hidden. */
@@ -63,8 +66,10 @@ body {
   justify-self: start;
   margin-top: 0.8vh;
   padding: 0.1vh 0.5vw;
-  background: var(--tl-white);
-  color: #000;
+  /* The panel is the text colour with the ground written on it, so a
+     recoloured board keeps a legible clock. */
+  background: var(--fg);
+  color: var(--bg);
   font-size: 3.4vh;
   font-weight: 700;
   line-height: 1.15;
@@ -139,13 +144,13 @@ body {
   content: attr(data-ordinal) " train";
   grid-row: 1;
   grid-column: 1;
-  color: var(--tl-blue);
+  color: var(--accent);
   font-size: 0.62em;
 }
 .row.selected .cell.platform {
   grid-row: 1;
   grid-column: 2;
-  color: var(--tl-blue);
+  color: var(--accent);
   font-size: 0.62em;
   text-align: left;
 }
@@ -157,13 +162,13 @@ body {
   grid-row: 2;
   grid-column: 3;
   text-align: right;
-  color: var(--tl-white);
+  color: var(--fg);
 }
 .row.selected .cell.time { grid-row: 2; grid-column: 1; }
 .row.selected .cell.destination { grid-row: 2; grid-column: 2; }
 .row.selected .cell.operator { display: none; }
 
-.row[data-status="expected"].selected .cell.status { color: var(--tl-amber); }
+.row[data-status="expected"].selected .cell.status { color: var(--late); }
 
 /* --------------------------------------------------------- the route line */
 
@@ -184,7 +189,7 @@ body {
   text-transform: none;
   letter-spacing: 0;
   opacity: 1;
-  color: var(--tl-white);
+  color: var(--fg);
 }
 .calling-points-label::after { content: ":"; }
 /* Which page of the route is showing. thameslink.js owns this element. */
@@ -193,7 +198,7 @@ body {
   grid-column: 2;
   justify-self: end;
   font-size: 0.72em;
-  color: var(--tl-blue);
+  color: var(--accent);
 }
 .calling-points-track {
   grid-row: 2;
@@ -209,7 +214,7 @@ body {
   position: relative;
   display: block;
   padding: 0.08em 0 0.08em 1.1em;
-  color: var(--tl-amber);
+  color: var(--late);
   line-height: 1.32;
   white-space: nowrap;
   overflow: hidden;
@@ -222,7 +227,7 @@ body {
   top: 0;
   bottom: 0;
   width: 0.09em;
-  background: var(--tl-amber);
+  background: var(--late);
 }
 .tl-stop:first-child::after { top: 50%; }
 .tl-stop:last-child::after { bottom: 50%; }
@@ -233,10 +238,10 @@ body {
   top: calc(50% - 0.045em);
   width: 0.45em;
   height: 0.09em;
-  background: var(--tl-amber);
+  background: var(--late);
 }
 /* The train ends here: a filled dot, and the name in white like the row above. */
-.tl-stop.tl-final { color: var(--tl-white); font-weight: 700; }
+.tl-stop.tl-final { color: var(--fg); font-weight: 700; }
 .tl-stop.tl-final::before {
   /* Centred on the line: the line runs 0.28em to 0.37em, so its middle is at
      0.325em and a 0.38em dot starts half its width before that. */
@@ -245,7 +250,7 @@ body {
   width: 0.38em;
   height: 0.38em;
   border-radius: 50%;
-  background: var(--tl-amber);
+  background: var(--late);
 }
 
 /* The reason, under the route and above the bar: still part of the block the
@@ -255,10 +260,10 @@ body {
 .service-reason {
   font-size: calc(var(--row-font) * 0.62);
   font-weight: 700;
-  color: var(--tl-amber);
+  color: var(--late);
   padding: 0.1em 0.5em 0;
 }
-.service-reason[data-status="cancelled"] { color: var(--tl-red); }
+.service-reason[data-status="cancelled"] { color: var(--cancelled); }
 
 /* --------------------------------------------------------- later trains */
 
@@ -277,7 +282,7 @@ body {
   flex: 0 0 calc(var(--slot) * var(--head-share));
   margin-top: 0.3em;
   background: var(--tl-bar);
-  color: var(--tl-white);
+  color: var(--fg);
   font-size: calc(var(--row-font) * 0.55);
   font-weight: 700;
 }
@@ -304,39 +309,39 @@ body {
 .tl-fill { flex: 0 0 calc(var(--later-row) * var(--missing, 0)); }
 .row:not(.selected)[data-ordinal]::before {
   content: attr(data-ordinal);
-  color: var(--tl-blue);
+  color: var(--accent);
   font-size: 0.8em;
 }
-.row:not(.selected) .cell.time { color: var(--tl-white); }
+.row:not(.selected) .cell.time { color: var(--fg); }
 .row:not(.selected) .cell.destination { font-weight: 400; }
 .row:not(.selected) .cell.status { text-align: right; }
-.row:not(.selected) .cell.platform { text-align: right; color: var(--tl-white); }
+.row:not(.selected) .cell.platform { text-align: right; color: var(--fg); }
 .row:not(.selected) .cell.operator { display: none; }
 
 /* A "via" is how the reader tells two Suttons apart, so it stays, quieter. */
-.tl-via { color: var(--tl-blue); font-size: 0.82em; margin-left: 0.4em; }
+.tl-via { color: var(--accent); font-size: 0.82em; margin-left: 0.4em; }
 
-.row[data-status="expected"] .cell.status { color: var(--tl-amber); }
-.row[data-status="cancelled"] { color: var(--tl-dim); }
+.row[data-status="expected"] .cell.status { color: var(--late); }
+.row[data-status="cancelled"] { color: var(--muted); }
 .row[data-status="cancelled"]::before,
 .row[data-status="cancelled"] .cell.platform,
 .row[data-status="cancelled"] .cell.time,
-.row[data-status="cancelled"] .cell.destination { color: var(--tl-dim); }
-.row[data-status="cancelled"] .tl-via { color: var(--tl-dim); }
+.row[data-status="cancelled"] .cell.destination { color: var(--muted); }
+.row[data-status="cancelled"] .tl-via { color: var(--muted); }
 /* Everything about the train goes grey; the one word saying why stays loud,
    and red is the only colour on this board that means "not happening". */
 .row[data-status="cancelled"] .cell.status,
-.row[data-status="cancelled"].selected .cell.status { color: var(--tl-red); }
+.row[data-status="cancelled"].selected .cell.status { color: var(--cancelled); }
 
 /* The route belongs to the train above it, so it greys out with it.
    thameslink.js copies the top service's status onto the block. */
 .calling-points[data-status="cancelled"] .calling-points-label,
 .calling-points[data-status="cancelled"] .tl-pages,
 .calling-points[data-status="cancelled"] .tl-stop,
-.calling-points[data-status="cancelled"] .tl-stop.tl-final { color: var(--tl-dim); }
+.calling-points[data-status="cancelled"] .tl-stop.tl-final { color: var(--muted); }
 .calling-points[data-status="cancelled"] .tl-stop::before,
-.calling-points[data-status="cancelled"] .tl-stop::after { background: var(--tl-dim); }
+.calling-points[data-status="cancelled"] .tl-stop::after { background: var(--muted); }
 
-.empty { color: var(--tl-blue); font-size: 2.4vh; padding: 2vh 0; }
-.connection { background: var(--tl-bar); color: var(--tl-white); border-radius: 0; }
-.boards[data-count="2"] .board + .board { border-left: 1px solid rgba(90, 169, 230, 0.35); }
+.empty { color: var(--accent); font-size: 2.4vh; padding: 2vh 0; }
+.connection { background: var(--tl-bar); color: var(--fg); border-radius: 0; }
+.boards[data-count="2"] .board + .board { border-left: 1px solid var(--tl-rule); }
