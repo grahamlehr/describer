@@ -169,10 +169,10 @@ contract and what the two dot-matrix themes share.
   live without restart where possible (theme, stations, announcements).
   Show current API status, last fetch time, and a "test announcement"
   button. LAN-only; no login.
-- The options are split across tabs (Stations, Display, Data sources,
-  Announcements, Schedule, Status), one panel visible at a time, with the
-  current tab in the URL hash. Save, Discard and a live health chip sit in a
-  sticky bar, because the fields no longer end anywhere near a button.
+- The options are split across tabs (Stations, Display, Profiles, Data
+  sources, Announcements, Schedule, Status), one panel visible at a time, with
+  the current tab in the URL hash. Save, Discard and a live health chip sit in
+  a sticky bar, because the fields no longer end anywhere near a button.
 - **The form is `novalidate` on purpose.** A `required` field on a hidden tab
   cannot be focused, so the browser refuses to submit and reports nothing;
   `admin.js` finds the first invalid field itself, opens its tab, and calls
@@ -195,6 +195,7 @@ describer/
     main.py                # FastAPI app, SSE endpoint, static + admin routes
     config.py              # load/validate/save YAML (pydantic models)
     schedule.py            # display on/off schedule
+    profiles.py            # which profile is in force, and merging it in
     rail/
       base.py              # RailSource protocol, RailApiError
       models.py            # Service, Board dataclasses
@@ -223,6 +224,7 @@ describer/
           led-matrix.css  led-matrix.js
           thameslink.css  thameslink.js
           dotmatrix.js    # the shared 5x7 dot font; not a theme
+          colours.js      # writes the Addendum 5 palette; not a theme
   deploy/
     install.sh             # Pi setup: apt deps, venv, piper, cage, services
     describer.service      # systemd *user* unit for the backend
@@ -617,7 +619,7 @@ those.
 | `renderText(cell, text)` | per cell | replaces `textContent` |
 | `statusText(service)` | per status cell | return `null` to accept the default wording |
 | `renderCallingPoints(list, points)` | per board | replaces the default paging |
-| `reasonText(service)` | per reason line | return `null` to accept the default wording |
+| `reasonText(service, mode)` | per reason line | return `null` to accept the default wording |
 | `renderReason(el, text)` | per board | replaces `textContent` on the reason line |
 | `afterRender(boardsEl)` | after a pass | anything left over |
 
@@ -678,10 +680,11 @@ and the render never disagree.
 - `.connection` is sized `font-size: 0` so only the dots show, which also
   collapses the `em` padding it inherits from `base.css`; both dot themes give
   it a padding in viewport units instead.
-- The watchdog must not be re-armed while one is pending. `scrollTick` calls
-  `start()` every 45 ms, and pushing the deadline back each time meant it never
-  fired — so when frames stopped, the stops froze at their first offset and the
-  clock stuck part-swept.
+- The watchdog must not be re-armed while one is pending. `setTarget` calls
+  `start()` for every cell it retargets and the sweep re-enters it on each
+  frame, so pushing the deadline back each time meant it never fired — which is
+  precisely when frames have stopped and it is needed: the board froze
+  part-swept. `armWatchdog` returns early while one is outstanding.
 - The stops and the message line turn a page at a time, never splitting a
   name. They cannot scroll: a disc is a fixed place on the board.
 - A cell asked for before `nse.css` has arrived (`--chars` computes to the
@@ -691,7 +694,7 @@ and the render never disagree.
 ## thameslink specifics
 
 - The board is not a list of equals: the top service gets `--feature-share`
-  (2.2) slots with its route under it, and the rest are a packed list at
+  (1.95) slots with its route under it, and the rest are a packed list at
   `--later-share` (0.74) of a slot each under a bar of `--head-share` (0.5).
   What the later trains give up is what the route gets to use. The stops take
   the slack (`flex: 1 1 0`), sized from `--calling-share` so that board.js
@@ -799,6 +802,9 @@ there is no surface left to write a fault on that is not made of LEDs.
 `led-matrix` has no config block. Its field would have to be named
 `led-matrix`, which is not a Python identifier, and amber is the only colour
 those panels came in. The palette is two constants at the top of the module.
+`1990s` has none either, for the first of those reasons and because the seven
+Teletext colours are not ours to choose. `ThemesConfig` therefore carries five
+of the seven themes; a theme whose name is not an identifier cannot have one.
 
 ## `hidden` needs saying when the theme sets a display
 
@@ -1226,18 +1232,18 @@ The forced re-poll costs one board call per station per switch. Four switches
 a day is eight calls, immaterial against RTT's hourly allowance, and the
 `min_poll_interval` floor applies as normal afterwards. Do not special-case it.
 
-## The announcer re-announces, and that is a bug today
+## The announcer forgets on age, not on absence
 
-`_prune` keeps only the identities present on the current boards, so a station
-leaving the board drops everything announced for it. Restore that station
-later in the day and every train on it is announced again. Give `_announced` a
-last-seen timestamp and prune on age — thirty minutes — rather than on
-absence. This is worth fixing before profiles exist; profiles are simply what
-makes it happen daily rather than never.
+`_prune` used to keep only the identities present on the current boards, so a
+station leaving the board dropped everything announced for it, and restoring
+that station later in the day announced every train on it again. `_announced`
+now carries a last-seen timestamp and is pruned against `FORGET_AFTER` (thirty
+minutes) instead. Profiles are what would have made that happen daily rather
+than never, which is why it was fixed alongside them.
 
 ## Surfaces
 
-- `/api/status` gains `active_profile`, `next_profile` and
+- `/api/status` gains `active_profile`, `forced_profile`, `next_profile` and
   `profile_changes_at`; the admin Status block shows them, and a **Force
   profile** select sits next to Force source.
 - `/api/state` carries `active_profile` so a theme could name it. None do.

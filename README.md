@@ -275,15 +275,17 @@ longer — the last moment the train is still worth walking for.
 
 A theme is a CSS file in `describer/web/static/themes/` plus a same-named JS
 module. The module may export `attach`, `configure`, `detach`, `renderText`,
-`statusText`, `renderCallingPoints` and `afterRender`, all optional;
-`board.js` calls them and hands over the theme's own config block.
-`modern.js` is a no-op example to copy. Adding a theme touches no backend
-code beyond adding its name to the `theme` literal in `describer/config.py`,
-so the config validates.
+`statusText`, `renderCallingPoints`, `reasonText`, `renderReason` and
+`afterRender`, all optional; `board.js` calls them and hands over the theme's
+own config block. `modern.js` is the smallest example to copy: no animation at
+all, so the module exists only to apply the palette. Adding a theme touches no
+backend code beyond adding its name to the `theme` literal in
+`describer/config.py`, so the config validates.
 
-`dotmatrix.js` in that directory is not a theme. It is the 5x7 dot font and
-the text fitting that `nse` and `led-matrix` both draw with, kept in one
-place so the letters cannot drift apart.
+Two files in that directory are not themes. `dotmatrix.js` is the 5x7 dot font
+and the text fitting that `nse` and `led-matrix` both draw with, kept in one
+place so the letters cannot drift apart; `colours.js` is the only thing that
+writes a configured colour on to the page.
 
 Most themes give every service the same row. `thameslink` does not: it spends
 the top of the board on one train and its calling points, and packs the rest
@@ -294,6 +296,58 @@ countdown with the time it is now expected.
 
 There is no build step, and static files are served with `Cache-Control:
 no-cache`, so an edited theme takes effect on the next page load.
+
+#### Colours
+
+`modern` and `thameslink` take their palette from the config, under seven
+role names shared by every theme that has them:
+
+```yaml
+display:
+  themes:
+    modern:
+      colours:
+        background: "#06080c"
+        text: "#f2f5f8"
+        dim_text: "#8d97a5"
+        accent: "#60a5fa"
+        on_time: "#4ade80"
+        late: "#fbbf24"
+        cancelled: "#f87171"
+```
+
+A role left out keeps whatever the theme's own stylesheet says, so the CSS
+stays the source of truth and a board whose owner once opened the picker still
+gets a later redesign. Hairlines and the selected-row wash are mixed from these
+rather than set separately, so they stay in step. `thameslink` has no
+`on_time`: it counts down in the text colour.
+
+The other themes are deliberately not configurable. Their colours are not a
+palette — `crt` has a phosphor, `splitflap` has flaps, `1990s` has the seven
+Teletext colours by name, and the two dot themes have one colour of dot — so
+renaming those into roles would say something untrue about them. The `/admin`
+Display tab draws a mock row in the chosen colours and reports the contrast of
+each against the background, marking anything under 4.5:1. It still saves: it
+is your board.
+
+#### Why a train is late
+
+Both feeds carry the reason as text, and the board prints it on one line
+beneath the top service and its calling points:
+
+> The 15:24 to Abbey Wood via Whitechapel is delayed due to a fault with the
+> signalling system
+
+The board is describing its top service, so that is whose reason this is; when
+that train is running normally and a later one is not, the later one takes the
+line. Either way the sentence names its train, because a board is read from
+across a platform, where a bare "Delayed due to…" over a list of eight trains
+says nothing useful. Only the reason matching the state the train is actually
+in is shown — a service running to time may still be carrying the reason it was
+late an hour ago. It is a
+sentence rather than a column, so no theme trusts it to fit: most page it with
+the stops every 5 s, `nse` pages it across the dots, and `led-matrix` scrolls
+it. The line costs the board no height on the many days nothing is wrong.
 
 ### Announcements
 
