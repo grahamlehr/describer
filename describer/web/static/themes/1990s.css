@@ -92,7 +92,8 @@ body {
 .rows {
   --char-budget: 33;
   --heading-share: 0.8;
-  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--heading-share)));
+  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--reason-share)
+    + var(--heading-share)));
 }
 
 /* Column headings, inserted by 1990s.js. Same tracks as .row in base.css. */
@@ -123,6 +124,11 @@ body {
 .row[data-status="delayed"] .cell.status { color: var(--tt-green); }
 .row[data-status="cancelled"] .cell.status { color: var(--tt-red); }
 .row[data-status="cancelled"] .cell.destination { color: var(--tt-red); }
+
+/* Teletext said what it meant with the seven colours it had: green for a
+   train that is only late, red for one that is not running at all. */
+.service-reason { color: var(--tt-green); padding-left: 0.5vw; }
+.service-reason[data-status="cancelled"] { color: var(--tt-red); }
 
 .calling-points { color: var(--tt-white); padding-left: 0.5vw; }
 .calling-points-label { color: var(--tt-cyan); opacity: 1; letter-spacing: 0; }

@@ -33,6 +33,14 @@ body[data-phosphor="green"] .row.selected { background: rgba(51, 255, 102, 0.10)
 /* A monochrome tube has one colour: a cancelled service blinks, nothing more. */
 .row[data-status="cancelled"] { animation: crt-blink 1.4s steps(1) infinite; }
 
+/* A monochrome tube has one colour, so the reason is marked the way a
+   terminal marks a line it wants read: a prompt in front of it. */
+.service-reason { text-transform: uppercase; }
+.service-reason::before { content: "> "; color: var(--phosphor-dim); }
+/* Nothing on this screen is red, so a cancellation blinks here as it does
+   in the row above. */
+.service-reason[data-status="cancelled"] { animation: crt-blink 1.4s steps(1) infinite; }
+
 .calling-points { border-top: 1px solid var(--phosphor-dim); text-transform: uppercase; }
 .messages { color: var(--phosphor-dim); border-top: 1px solid var(--phosphor-dim); }
 .empty { color: var(--phosphor-dim); padding: 2vh 0; }
@@ -85,5 +93,5 @@ body[data-curvature="1"]::before {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .crt-cursor, .row[data-status="cancelled"] { animation: none; }
+  .crt-cursor, .row[data-status="cancelled"], .service-reason[data-status="cancelled"] { animation: none; }
 }

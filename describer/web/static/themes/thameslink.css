@@ -99,6 +99,7 @@ body {
   --slot: calc(100cqh / (
     (var(--rows) - 1) * var(--later-share)
     + var(--feature-share) + var(--head-share) + var(--stops-share)
+    + var(--reason-share)
   ));
   --row-font: min(calc(100cqw / var(--char-budget)), calc(var(--slot) * 0.78));
 }
@@ -237,6 +238,18 @@ body {
   border-radius: 50%;
   background: var(--tl-amber);
 }
+
+/* The reason, under the route and above the bar: still part of the block the
+   top of the screen gives to one train. Amber is what this board warns in,
+   and red is kept for a train that is not running at all — the same two
+   colours the status column beside the destination is using. */
+.service-reason {
+  font-size: calc(var(--row-font) * 0.62);
+  font-weight: 700;
+  color: var(--tl-amber);
+  padding: 0.1em 0.5em 0;
+}
+.service-reason[data-status="cancelled"] { color: var(--tl-red); }
 
 /* --------------------------------------------------------- later trains */
 

@@ -602,11 +602,14 @@ those.
 | `renderText(cell, text)` | per cell | replaces `textContent` |
 | `statusText(service)` | per status cell | return `null` to accept the default wording |
 | `renderCallingPoints(list, points)` | per board | replaces the default paging |
+| `reasonText(service)` | per reason line | return `null` to accept the default wording |
+| `renderReason(el, text)` | per board | replaces `textContent` on the reason line |
 | `afterRender(boardsEl)` | after a pass | anything left over |
 
-`statusText` and `renderCallingPoints` are new. A theme that wants to repaint
-on a timer keeps the state itself and calls `api.render()`; `board.js` then
-asks it again for the wording, so the timer and the render never disagree.
+`statusText`, `renderCallingPoints`, `reasonText` and `renderReason` are new.
+A theme that wants to repaint on a timer keeps the state itself and calls
+`api.render()`; `board.js` then asks it again for the wording, so the timer
+and the render never disagree.
 
 ## Splitflap specifics
 
@@ -799,6 +802,36 @@ list, so the font is part of the cache key: a theme's stylesheet and web font
 arrive after the switch, and a page measured in the old face does not fit the
 new one. `board.js` therefore re-renders on the stylesheet's `load` and on
 `document.fonts` `loadingdone`.
+
+## Why a train is late or cancelled
+
+Both feeds carry the reason as text (`Service.cancel_reason`,
+`delay_reason`), worded as a sentence written to follow the status:
+"This is due to a shortage of train crew". `board.js` strips that lead-in and
+joins the rest on to the status word — "Cancelled due to a shortage of train
+crew" — so the board never says the same thing twice. A reason worded any
+other way is printed whole after a colon rather than mangled.
+
+- **It belongs to a train, not to the board.** The line renders inside
+  `.rows`, under the top service and under its stops, exactly as the calling
+  points do. The board is describing its top service, so that is whose reason
+  this is; when that train is running normally and a later one is not, the
+  later one's line is prefixed with its scheduled time so it can never be read
+  as the top train's.
+- `--reason-share` is one more claim on the matrix's height, and `board.js`
+  sets it per board to 0.9 or to 0. Most of the day it is 0 and the line costs
+  the board nothing, so **a theme that writes its own `--slot` must add it**
+  — `1990s`, `nse`, `led-matrix` and `thameslink` all do.
+- Only the reason that matches the state the train is *in* is shown: a
+  service running to time may still be carrying the reason it was late an
+  hour ago, and printing that is worse than printing nothing.
+- Each theme says it its own way. `modern` colours it like the status it
+  explains, `crt` gives it a terminal prompt, `1990s` uses Teletext green and
+  red, `thameslink` sets it amber between the route and the blue bar. The
+  three themes whose text is not type take it through `renderReason`:
+  `splitflap` flaps it and pages it with the stops, `nse` pages it on the
+  matrix a word boundary at a time, and `led-matrix` scrolls it — the same
+  difference between a disc and an LED that the stops already show.
 
 ## Verifying this by hand
 

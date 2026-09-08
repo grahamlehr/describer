@@ -91,8 +91,9 @@ body {
   --stale-share: 0;
   --message-share: 0;
   --ident-share: 0.85;
-  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--heading-share)
-    + var(--stale-share) + var(--message-share) + var(--ident-share)));
+  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--reason-share)
+    + var(--heading-share) + var(--stale-share) + var(--message-share)
+    + var(--ident-share)));
   margin: 0 1.4vw;
   padding: 0 1vw 0.6vh;
   background: var(--nse-panel);
@@ -196,6 +197,15 @@ body {
 .nse-columns .platform, .nse-columns .status { text-align: right; }
 /* PLAT is wider than its two-character column; let it grow leftwards. */
 .nse-columns .platform { justify-self: end; width: max-content; overflow: visible; }
+
+/* Why, on its own line of the matrix under the stops it belongs with. One
+   colour of disc means it cannot be marked out by colour, so it is marked
+   out by where it is: hard against the train it is about. */
+.service-reason {
+  align-items: center;
+  font-size: calc(var(--row-font) * 0.8);
+}
+.service-reason .dots { width: 100%; }
 
 /* The stops run along the bottom line of the matrix and scroll if they must. */
 .calling-points {

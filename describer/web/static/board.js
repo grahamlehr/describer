@@ -18,6 +18,13 @@ const SOURCE_LABELS = { rdm: 'Darwin', rtt: 'RTT' };
 /** How long one page of calling points holds before the next. */
 const CALLING_PAGE_MS = 5000;
 const CALLING_SEPARATOR = ' \u2022 ';
+/**
+ * Both feeds word a reason as a sentence written to follow the status, as the
+ * announcements do: "This is due to a shortage of train crew". Stripping the
+ * lead-in lets it join on to "Cancelled" or "Delayed" instead of repeating it.
+ */
+const REASON_LEAD = /^this\s+(?:is|was)\s+/i;
+const REASON_JOINS = /^(?:due to|because of|owing to)\b/i;
 /** Pages of stops for each list that board.js paints itself; themes keep their own. */
 const callingPages = new WeakMap();
 
@@ -56,6 +63,12 @@ async function applyTheme(name, options) {
   for (const list of boardsEl.querySelectorAll('.calling-points-list')) {
     list.textContent = '';
     callingPages.delete(list);
+  }
+  // Flaps and canvases belong to the theme that made them; the next theme
+  // rebuilds the line from dataset.text on its first pass.
+  for (const reason of boardsEl.querySelectorAll('.service-reason')) {
+    reason.textContent = '';
+    delete reason.dataset.text;
   }
 
   themeLoading = import(`/static/themes/${name}.js`)
@@ -156,6 +169,72 @@ function statusText(service) {
     case 'delayed': return 'Delayed';
     case 'expected': return `Exp ${service.expected_time}`;
     default: return service.expected_time || '';
+  }
+}
+
+/* ---------------------------------------------------------------- reasons */
+
+/** The reason that goes with the state the train is actually in, or none. */
+function reasonFor(service) {
+  if (!service) return null;
+  if (service.status === 'cancelled') return service.cancel_reason || service.delay_reason || null;
+  if (service.status === 'expected' || service.status === 'delayed') return service.delay_reason || null;
+  // An on-time train may still carry the reason it was late an hour ago.
+  return null;
+}
+
+/** "Delayed due to a fault with the signalling system." */
+function reasonText(service) {
+  const custom = theme?.reasonText?.(service);
+  if (custom != null) return custom;
+  const reason = reasonFor(service);
+  if (!reason) return null;
+  const lead = service.status === 'cancelled' ? 'Cancelled' : 'Delayed';
+  const tail = reason.replace(REASON_LEAD, '').replace(/\.\s*$/, '');
+  // Anything we cannot join on to the status word is printed whole, so a
+  // reason worded some other way is never mangled into nonsense.
+  return REASON_JOINS.test(tail) ? `${lead} ${tail}` : `${lead}: ${reason}`;
+}
+
+/**
+ * One line saying why, under the stops of the train it belongs to. The board
+ * is describing its top service, so that is whose reason this is; when that
+ * train is running normally and a later one is not, the later one's line is
+ * named by its time, so it can never be read as the top train's.
+ */
+function renderReason(boardEl, services) {
+  const wrap = boardEl.querySelector('.service-reason');
+  const rowsEl = boardEl.querySelector('.rows');
+  const callingWrap = boardEl.querySelector('.calling-points');
+  const top = services[0];
+  const service = reasonFor(top) ? top : services.find((candidate) => reasonFor(candidate));
+  const body = service ? reasonText(service) : null;
+  const text = !body ? '' : service === top ? body : `${service.scheduled_time || ''} ${body}`.trim();
+
+  // Under the top service, and under its stops when it has them on screen.
+  const anchor = !callingWrap.hidden && callingWrap.parentElement === rowsEl
+    ? callingWrap
+    : rowsEl.querySelector('.row');
+  if (anchor && wrap.previousElementSibling !== anchor) {
+    rowsEl.insertBefore(wrap, anchor.nextSibling);
+  }
+
+  // A board with nothing wrong on it gives the height back to the services.
+  rowsEl.style.setProperty('--reason-share', text ? '0.9' : '0');
+  wrap.dataset.status = text ? service.status : '';
+  wrap.hidden = !text;
+  if (!text) {
+    wrap.textContent = '';
+    delete wrap.dataset.text;
+    return;
+  }
+  // A theme with a drum or a matrix rather than type paints this itself.
+  if (theme?.renderReason) {
+    theme.renderReason(wrap, text);
+    wrap.dataset.text = text;
+  } else if (wrap.dataset.text !== text || wrap.textContent !== text) {
+    wrap.textContent = text;
+    wrap.dataset.text = text;
   }
 }
 
@@ -272,6 +351,7 @@ function renderBoard(boardEl, board, station, display) {
 
   const services = renderRows(boardEl, board, station);
   renderCallingPoints(boardEl, services, display.show_calling_points);
+  renderReason(boardEl, services);
 
   const messages = boardEl.querySelector('.messages');
   messages.hidden = board.messages.length === 0;

@@ -65,8 +65,8 @@ body {
   --heading-share: 1;
   --stale-share: 0;
   --message-share: 0;
-  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--heading-share)
-    + var(--stale-share) + var(--message-share)));
+  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--reason-share)
+    + var(--heading-share) + var(--stale-share) + var(--message-share)));
   margin-top: 0.8vh;
 }
 
@@ -130,6 +130,15 @@ body {
   overflow: hidden;
 }
 .dm-stale .dots { width: 100%; }
+
+/* Why, on the line under the stops it belongs with, scrolling through it the
+   way these panels scrolled everything they could not fit. Every LED is the
+   same amber, so its place on the panel is what marks it out. */
+.service-reason {
+  align-items: center;
+  font-size: calc(var(--row-font) * 0.8);
+}
+.service-reason .dots { width: 100%; }
 
 .dm-message {
   display: flex;

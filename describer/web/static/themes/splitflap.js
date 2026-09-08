@@ -68,7 +68,8 @@ let statusPhase = 0;
 let statusTimer = null;
 let callingTimer = null;
 let requestRender = null;
-const callingLists = new Set();
+/** Every line we are turning pages on: the stops, and the reason under them. */
+const pagedHosts = new Set();
 
 export function attach(_boardsEl, options, api) {
   configure(options);
@@ -78,7 +79,7 @@ export function attach(_boardsEl, options, api) {
     // The phase lives here, so board.js must ask us again for the wording.
     requestRender?.();
   }, STATUS_CYCLE_MS);
-  callingTimer = setInterval(turnCallingPage, CALLING_PAGE_MS);
+  callingTimer = setInterval(turnPage, CALLING_PAGE_MS);
 }
 
 export function configure(options = {}) {
@@ -96,7 +97,7 @@ export function detach() {
   clearInterval(statusTimer);
   clearInterval(callingTimer);
   statusTimer = callingTimer = requestRender = null;
-  callingLists.clear();
+  pagedHosts.clear();
   document.body.style.removeProperty('--flap-ms');
   if (audio) { audio.close(); audio = null; }
 }
@@ -160,53 +161,68 @@ function paint(cell, text, width) {
  * scroll, so fill one full-width row and turn the page instead.
  */
 export function renderCallingPoints(list, points) {
-  const key = points.join(SEPARATOR);
-  const width = measureWidth(list);
-  if (list.__key !== key || list.__width !== width) {
-    list.__key = key;
-    list.__width = width;
-    list.__pages = paginate(points, width);
-    list.__page = 0;
+  paintPaged(list, list.parentElement, points, SEPARATOR);
+}
+
+/**
+ * And why that train is late or cancelled. A drum can spell out a sentence
+ * as readily as a station name, so it is flapped like everything else and
+ * turned a page at a time, in step with the stops above it.
+ */
+export function renderReason(host, text) {
+  paintPaged(host, host, String(text).split(/\s+/).filter(Boolean), ' ');
+}
+
+/** Pack `items` into rows of flaps that fit `container`, and show one. */
+function paintPaged(host, container, items, separator) {
+  const key = items.join(separator);
+  const width = measureWidth(host, container);
+  if (host.__key !== key || host.__width !== width) {
+    host.__key = key;
+    host.__width = width;
+    host.__pages = paginate(items, width, separator);
+    host.__page = 0;
   }
-  callingLists.add(list);
-  paintPage(list);
+  pagedHosts.add(host);
+  paintPage(host);
 }
 
-function paintPage(list) {
-  const pages = list.__pages || [];
+function paintPage(host) {
+  const pages = host.__pages || [];
   if (!pages.length) return;
-  paint(list, pages[list.__page % pages.length], list.__width || 1);
+  paint(host, pages[host.__page % pages.length], host.__width || 1);
 }
 
-function turnCallingPage() {
-  for (const list of callingLists) {
-    if (!list.isConnected) {
-      callingLists.delete(list);
+/** Every paged line turns together, so the board reads as one machine. */
+function turnPage() {
+  for (const host of pagedHosts) {
+    if (!host.isConnected) {
+      pagedHosts.delete(host);
       continue;
     }
-    if ((list.__pages || []).length < 2) continue;
-    list.__page = (list.__page + 1) % list.__pages.length;
-    paintPage(list);
+    if ((host.__pages || []).length < 2) continue;
+    host.__page = (host.__page + 1) % host.__pages.length;
+    paintPage(host);
   }
 }
 
 /** How many flaps fit the row, measured rather than assumed from the CSS. */
-function measureWidth(list) {
-  const available = list.parentElement ? list.parentElement.clientWidth : 0;
+function measureWidth(host, container) {
+  const available = container ? container.clientWidth : 0;
   if (!available) return 0;
-  ensureFlaps(list, Math.max(list.children.length, 1));
-  const gap = parseFloat(getComputedStyle(list).columnGap) || 0;
-  const flap = list.firstElementChild.getBoundingClientRect().width + gap;
+  ensureFlaps(host, Math.max(host.children.length, 1));
+  const gap = parseFloat(getComputedStyle(host).columnGap) || 0;
+  const flap = host.firstElementChild.getBoundingClientRect().width + gap;
   return flap > 0 ? Math.max(1, Math.floor((available + gap) / flap)) : 0;
 }
 
-/** Pack stops into full rows without splitting a station name across pages. */
-function paginate(points, width) {
+/** Pack stops, or words, into full rows without splitting one across pages. */
+function paginate(points, width, separator) {
   if (!width) return [];
   const pages = [];
   let line = '';
   for (const point of points) {
-    const joined = line ? line + SEPARATOR + point : point;
+    const joined = line ? line + separator + point : point;
     if (joined.length <= width) {
       line = joined;
       continue;

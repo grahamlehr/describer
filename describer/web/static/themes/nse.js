@@ -132,6 +132,15 @@ export function renderCallingPoints(list, points) {
   paintPaged(list, points, SEPARATOR);
 }
 
+/**
+ * Why a train is late or cancelled, on the line under its stops. A sentence
+ * is longer than a station name and the discs still cannot slide sideways,
+ * so it is paged a word boundary at a time like the message line.
+ */
+export function renderReason(host, text) {
+  paintPaged(host, String(text).split(/\s+/).filter(Boolean), ' ');
+}
+
 /** Pack `items` into pages that fit the line, and show the one in hand. */
 function paintPaged(host, items, separator) {
   const canvas = ensureCanvas(host);

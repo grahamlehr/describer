@@ -83,8 +83,13 @@ html, body {
   container-type: size;
   --rows: 8;
   --calling-share: 0.9;
+  /* The reason a train is late or cancelled, when the feed gives us one.
+     Nought most of the time, so the line costs the board nothing until
+     something has gone wrong; board.js sets it per board, as it does the
+     calling points. Any theme that writes its own --slot must count it. */
+  --reason-share: 0;
   --char-budget: 30;
-  --slot: calc(100cqh / (var(--rows) + var(--calling-share)));
+  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--reason-share)));
   --row-font: min(calc(100cqw / var(--char-budget)), calc(var(--slot) * 0.6));
 }
 
@@ -127,6 +132,25 @@ html, body {
 .calling-points-label { flex: 0 0 auto; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.7em; }
 .calling-points-track { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
 .calling-points-list { display: inline-block; }
+
+/* Why a train is late or cancelled, on its own line under the stops of the
+   service it belongs to. The wording comes from board.js; a theme with a
+   matrix or a drum instead of type takes it through renderReason. Sized like
+   the stops, so the two read as one block of detail about the same train. */
+.service-reason {
+  display: flex;
+  align-items: center;
+  flex: 0 0 calc(var(--slot) * var(--reason-share));
+  font-size: calc(var(--row-font) * 0.8);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 0;
+}
+/* An author display beats the hidden attribute's UA rule, and every theme
+   below sets one: say it here, at a specificity none of them reach. */
+.service-reason[hidden] { display: none; }
 
 .messages {
   grid-row: 4;

@@ -46,6 +46,20 @@ body {
   color: var(--flap-fg);
 }
 
+/* The reason, flapped like the stops above it and turned in step with them.
+   A row of flaps has no ellipsis and no condensing, so the line is packed to
+   the width splitflap.js measures off a real tile; what will not fit waits
+   for the next page. Orange is what the status column already uses for a
+   train that is not running. */
+.service-reason {
+  display: flex;
+  gap: 0.08em;
+  align-items: center;
+  font-size: calc(var(--row-font) * 0.8);
+  color: var(--flap-dim);
+}
+.service-reason[data-status="cancelled"] { color: var(--cancelled); }
+
 /* Nine flaps of "CANCELLED" need more room than the shared layout allows;
    platform and operator have slack to lend. */
 .row {

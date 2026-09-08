@@ -109,6 +109,15 @@ export function renderCallingPoints(list, points) {
   paintScroll(list, points.join(SEPARATOR));
 }
 
+/**
+ * Why a train is late or cancelled, on the line under its stops. This is the
+ * line these panels were bought for: an LED can scroll, so a whole sentence
+ * runs through the line rather than being turned a page at a time.
+ */
+export function renderReason(host, text) {
+  paintScroll(host, text);
+}
+
 /* ---------------------------------------------------------------- painting */
 
 /** One line of dots at a width the stylesheet chose. */
