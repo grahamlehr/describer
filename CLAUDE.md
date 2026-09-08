@@ -680,6 +680,13 @@ asks it again for the wording, so the timer and the render never disagree.
 - Paging slides the whole column with a transform rather than swapping the
   text, so the route line runs on across a page turn exactly as it does on
   the real panels, and the page turn stays off the main thread.
+- The route takes all the leftover height whether it needs it or not
+  (`flex: 1 1 0`), so the later trains sit against the foot of the board and
+  a train with five stops leaves black between the two. That is wanted, not a
+  gap to close: the list holds still from board to board instead of walking up
+  and down as the top train changes, and the room is already there when a
+  train with a long calling pattern comes along. Do not make the surplus fall
+  to the bottom.
 - The stops are re-measured from a `ResizeObserver` on `.calling-points`, not
   only from the page-turn timer. The room for them is settled by flex and is
   still moving while the stylesheet lands and the later trains take their
