@@ -228,7 +228,9 @@ body {
 /* The train ends here: a filled dot, and the name in white like the row above. */
 .tl-stop.tl-final { color: var(--tl-white); font-weight: 700; }
 .tl-stop.tl-final::before {
-  left: 0.06em;
+  /* Centred on the line: the line runs 0.28em to 0.37em, so its middle is at
+     0.325em and a 0.38em dot starts half its width before that. */
+  left: 0.135em;
   top: calc(50% - 0.19em);
   width: 0.38em;
   height: 0.38em;
