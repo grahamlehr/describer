@@ -79,10 +79,11 @@ body {
  */
 .rows {
   --char-budget: 24;
-  /* The next train is two lines of type, not two rows. Both are set at the
-     row's full size — the countdown included — so the block is about 2.5em,
-     which is 1.95 slots wherever the type is capped by the slot rather than
-     by the width. */
+  /* The next train is two lines of type, not two rows: a line of labels over
+     a line at the row's full size, which measures 2.04em. This is only the
+     reserve in the slot maths — the block itself is sized to its content —
+     and it is deliberately larger than the block, so the surplus lands in the
+     route rather than in the type. */
   --feature-share: 1.95;
   --head-share: 0.5;
   /* The later trains are a packed list, not the board: they take less than a

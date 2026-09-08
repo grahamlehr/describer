@@ -94,6 +94,13 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
   show its calling points, paged every 5 s.
 - Configurable number of rows and clock display. Always show station name
   and a live clock.
+- Per-station `platforms` filter (empty = every platform), matched ignoring
+  case and space. Both feeds withhold a platform until it is confirmed, so a
+  filtered board runs short until then; `show_unplatformed` keeps those
+  trains on it, at the cost of some that turn out to be another platform's.
+  The filter is applied where boards are handed out rather than where they
+  are fetched, so widening it from `/admin` needs no new API call, and
+  announcements follow it.
 
 ### Themes (selectable in config, switchable live from `/admin`)
 1. **modern** — clean, high-contrast, sans-serif, dark background,
@@ -250,8 +257,9 @@ and `sudo systemctl status kiosk`.
 
 ## Out of scope for v1
 
-Destination/calling-point filters, multi-Pi sync, mock data mode,
-authentication, packaging for other users, portrait layout, non-UK data.
+Destination/calling-point filters (the per-platform filter above is in),
+multi-Pi sync, mock data mode, authentication, packaging for other users,
+portrait layout, non-UK data.
 
 ---
 
@@ -569,7 +577,7 @@ Measured budgets (1920×1080, two boards, so `100cqw` = 906px):
 | splitflap | 39 | one tile per character, and tiles cannot be condensed | 23px / 48px |
 | nse | 23 | 34 dot-matrix characters at 0.6em, and no operator column | 37px / 53px |
 | led-matrix | 23 | the same 34 characters, on a panel with no printed casing | 39px / 59px |
-| thameslink | 24 | proportional, and the featured line is a time plus a destination | 38px / 62px |
+| thameslink | 24 | proportional, and the featured line is a time plus a destination | 37px / 63px |
 
 (Second figure is the single-board layout.)
 
@@ -701,16 +709,17 @@ asks it again for the wording, so the timer and the render never disagree.
   start it merely moves that slack below. `--feature-share` (1.95) stays in
   the slot maths as the *reserve* for the block, and whatever the reserve
   over-provides falls to the route below, which is `flex: 1 1 0` and takes
-  it. 1.95 is 2.5em of content over the 0.78 cap, so it is right where the
-  type is height-bound (a whole screen) and generous where it is width-bound
-  (half of one), which is the direction that costs nothing.
+  it. The block measures 2.04em, which is 1.59 slots where the type is capped
+  by the slot, so 1.95 is deliberately more than the block ever needs: the
+  reserve is what the *slot* is divided by, and over-providing there sends the
+  difference to the route instead of into the type.
 - A later train's row is the mean of its own text and the slot it would
   otherwise take: the same line, with half the air. `--later-share` (0.74) is
   then a reserve that no longer matches a row, and that is the point — drop it
   to what a row measures and the slot grows, taking the type and the stops
   with it, so the list tightens and the route gains nothing. Held where it
-  was, every pixel a row gives up lands in the route: 4 stops a page instead
-  of 3 on a whole screen, 12 instead of 8 on half of one.
+  was, every pixel a row gives up lands in the route: 4 stops a page against
+  3 on a whole screen, and 11 against 8 on half of one.
 - The countdown rides the second line, right-aligned against the time and the
   destination and at their size: how long until the train goes is what people
   look up for, so it belongs on the line that says which train, not up among
