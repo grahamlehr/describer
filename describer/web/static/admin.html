@@ -7,50 +7,110 @@
 <link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
-<header class="top">
-  <h1>Describer</h1>
-  <nav><a href="/">Open board</a></nav>
+
+<header class="topbar">
+  <div class="bar">
+    <h1>Describer</h1>
+    <button type="button" class="glance" id="glance" title="Go to Status">
+      <span class="dot" id="glance-dot"></span>
+      <span id="glance-text">Connecting&hellip;</span>
+    </button>
+    <span class="spacer"></span>
+    <span id="message" class="message" role="status"></span>
+    <a class="link" href="/" target="_blank" rel="noopener">Open board&nbsp;&#8599;</a>
+    <button type="button" id="reload" class="ghost">Discard</button>
+    <button type="submit" form="config-form" id="save">Save</button>
+  </div>
+  <nav class="tabs" id="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="stations" aria-selected="true">Stations</button>
+    <button type="button" role="tab" data-tab="display" aria-selected="false">Display</button>
+    <button type="button" role="tab" data-tab="sources" aria-selected="false">Data sources</button>
+    <button type="button" role="tab" data-tab="announcements" aria-selected="false">Announcements</button>
+    <button type="button" role="tab" data-tab="schedule" aria-selected="false">Schedule</button>
+    <button type="button" role="tab" data-tab="status" aria-selected="false">Status</button>
+  </nav>
 </header>
 
-<section class="status" id="status">
-  <h2>Status</h2>
-  <dl id="status-list"><dd>Loading&hellip;</dd></dl>
-  <div class="row-actions">
-    <label>Force source
-      <select id="force-source">
-        <option value="auto">Auto (failover)</option>
-        <option value="rdm">Rail Data Marketplace</option>
-        <option value="rtt">Realtime Trains</option>
-      </select>
-    </label>
-    <button type="button" id="apply-force" class="secondary">Apply</button>
-    <span class="hint">Testing only — held in memory, never written to the config file.</span>
-  </div>
-</section>
+<main>
+<form id="config-form" novalidate>
 
-<form id="config-form">
-  <section>
-    <h2>Stations</h2>
-    <p class="hint">One or two. Two stations render side by side. List the same
-      station twice with different modes to show departures and arrivals.</p>
-    <div id="stations"></div>
-    <button type="button" id="add-station" class="secondary">Add station</button>
+  <!-- ------------------------------------------------------------ stations -->
+  <section class="panel" data-panel="stations" role="tabpanel">
+    <div class="panel-head">
+      <div>
+        <h2>Stations</h2>
+        <p class="hint">One or two. Two render side by side. List the same station
+          twice with different modes to show both departures and arrivals.</p>
+      </div>
+      <button type="button" id="add-station" class="ghost">Add station</button>
+    </div>
+    <div id="stations" class="stations"></div>
   </section>
 
-  <section>
-    <h2>Display</h2>
+  <!-- ------------------------------------------------------------- display -->
+  <section class="panel" data-panel="display" role="tabpanel" hidden>
+    <h2>Theme</h2>
+    <div class="themes" id="themes">
+      <label class="theme"><input type="radio" name="display.theme" value="modern">
+        <span class="swatch modern"></span><span class="theme-name">Modern</span>
+        <span class="theme-note">Clean, high contrast</span></label>
+      <label class="theme"><input type="radio" name="display.theme" value="crt">
+        <span class="swatch crt"></span><span class="theme-name">CRT</span>
+        <span class="theme-note">Phosphor terminal</span></label>
+      <label class="theme"><input type="radio" name="display.theme" value="splitflap">
+        <span class="swatch splitflap"></span><span class="theme-name">Split-flap</span>
+        <span class="theme-note">Solari mechanical</span></label>
+      <label class="theme"><input type="radio" name="display.theme" value="1990s">
+        <span class="swatch teletext"></span><span class="theme-name">1990s</span>
+        <span class="theme-note">Ceefax page</span></label>
+      <label class="theme"><input type="radio" name="display.theme" value="nse">
+        <span class="swatch nse"></span><span class="theme-name">Network SouthEast</span>
+        <span class="theme-note">Flip-dot indicator</span></label>
+      <label class="theme"><input type="radio" name="display.theme" value="led-matrix">
+        <span class="swatch led"></span><span class="theme-name">LED matrix</span>
+        <span class="theme-note">2000s amber panel</span></label>
+      <label class="theme"><input type="radio" name="display.theme" value="thameslink">
+        <span class="swatch thameslink"></span><span class="theme-name">Thameslink</span>
+        <span class="theme-note">LCD next train</span></label>
+    </div>
+
+    <div class="subpanel" id="theme-options">
+      <h3>Theme options</h3>
+      <p class="hint theme-opts" data-theme="modern">Modern has no options of its own.</p>
+      <p class="hint theme-opts" data-theme="1990s">The Ceefax theme has no options of its own.</p>
+      <p class="hint theme-opts" data-theme="led-matrix">Amber was the only colour these panels
+        came in, so the LED matrix has no options.</p>
+      <p class="hint theme-opts" data-theme="thameslink">Thameslink has no options of its own.</p>
+      <div class="grid theme-opts" data-theme="crt">
+        <label>Phosphor
+          <select name="display.themes.crt.phosphor">
+            <option value="amber">Amber</option>
+            <option value="green">Green</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" name="display.themes.crt.scanlines"> Scanlines</label>
+        <label class="check"><input type="checkbox" name="display.themes.crt.curvature"> Curvature and bloom</label>
+      </div>
+      <div class="grid theme-opts" data-theme="splitflap">
+        <label class="check"><input type="checkbox" name="display.themes.splitflap.click_sound"> Click sound</label>
+        <label>Flap speed <span class="unit">ms per step</span>
+          <input type="number" name="display.themes.splitflap.flap_ms" min="10" max="200" step="1">
+        </label>
+      </div>
+      <div class="grid theme-opts" data-theme="nse">
+        <label>Dot colour
+          <select name="display.themes.nse.dot_colour">
+            <option value="yellow">Yellow</option>
+            <option value="white">White</option>
+            <option value="green">Green</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" name="display.themes.nse.click_sound"> Rattle as discs flip</label>
+      </div>
+    </div>
+
+    <h3>Screen</h3>
     <div class="grid">
-      <label>Theme
-        <select name="display.theme">
-          <option value="modern">Modern</option>
-          <option value="crt">CRT</option>
-          <option value="splitflap">Split-flap</option>
-          <option value="1990s">1990s (Teletext)</option>
-          <option value="nse">Network SouthEast (flip-dot)</option>
-          <option value="led-matrix">LED matrix (2000s amber)</option>
-          <option value="thameslink">Thameslink (LCD next train)</option>
-        </select>
-      </label>
       <label class="check"><input type="checkbox" name="display.clock"> Show clock</label>
       <label class="check"><input type="checkbox" name="display.show_calling_points"> Show calling points</label>
       <label>Resolution
@@ -59,48 +119,19 @@
           <option value="1080p">1920 × 1080</option>
           <option value="720p">1280 × 720</option>
         </select>
+        <small class="hint">A 4K screen makes the Pi composite four times the pixels
+          the board needs and the animations stutter. Forcing a mode takes effect at
+          once under cage; the monitor upscales.</small>
       </label>
-    </div>
-    <p class="hint">A 4K screen makes the Pi composite four times the pixels the
-      board needs and the animations stutter. Forcing 1080p or 720p sets the
-      HDMI output mode with <code>wlr-randr</code> and takes effect at once
-      under cage; the monitor upscales.</p>
-    <h3>CRT theme</h3>
-    <div class="grid">
-      <label>Phosphor
-        <select name="display.themes.crt.phosphor">
-          <option value="amber">Amber</option>
-          <option value="green">Green</option>
-        </select>
-      </label>
-      <label class="check"><input type="checkbox" name="display.themes.crt.scanlines"> Scanlines</label>
-      <label class="check"><input type="checkbox" name="display.themes.crt.curvature"> Curvature and bloom</label>
-    </div>
-    <h3>Split-flap theme</h3>
-    <div class="grid">
-      <label class="check"><input type="checkbox" name="display.themes.splitflap.click_sound"> Click sound</label>
-      <label>Flap speed (ms per step)
-        <input type="number" name="display.themes.splitflap.flap_ms" min="10" max="200" step="1">
-      </label>
-    </div>
-    <h3>Network SouthEast theme</h3>
-    <div class="grid">
-      <label>Dot colour
-        <select name="display.themes.nse.dot_colour">
-          <option value="yellow">Yellow</option>
-          <option value="white">White</option>
-          <option value="green">Green</option>
-        </select>
-      </label>
-      <label class="check"><input type="checkbox" name="display.themes.nse.click_sound"> Rattle as discs flip</label>
     </div>
   </section>
 
-  <section>
-    <h2>Data sources</h2>
-    <p class="hint">The primary source is used while it works. After enough
-      consecutive failures the fallback takes over, and the primary is retried
-      quietly in the background until it comes back.</p>
+  <!-- ------------------------------------------------------------- sources -->
+  <section class="panel" data-panel="sources" role="tabpanel" hidden>
+    <h2>Failover</h2>
+    <p class="hint">The primary is used while it works. After enough consecutive
+      failures the fallback takes over, and the primary is retried quietly in the
+      background until it comes back.</p>
     <div class="grid">
       <label>Primary
         <select name="sources.primary">
@@ -115,121 +146,211 @@
           <option value="rtt">Realtime Trains</option>
         </select>
       </label>
-      <label>Failover after (failures)
+      <label>Fail over after <span class="unit">failures</span>
         <input type="number" name="sources.failover_after" min="1" max="20" step="1" required>
       </label>
-      <label>Retry the primary every (s)
+      <label>Retry the primary every <span class="unit">seconds</span>
         <input type="number" name="sources.recover_after" min="30" max="86400" step="10" required>
       </label>
-      <label>Poll interval (s)
+      <label>Poll interval <span class="unit">seconds</span>
         <input type="number" name="sources.poll_interval" min="20" max="600" step="1" required>
       </label>
-      <label>Stale after (s)
+      <label>Stale after <span class="unit">seconds</span>
         <input type="number" name="sources.stale_after" min="30" max="3600" step="10" required>
       </label>
     </div>
-    <h3>Rail Data Marketplace (Darwin)</h3>
-    <div class="grid">
-      <label class="wide">LDBWS base URL
-        <input type="url" name="sources.rdm.base_url" required>
-      </label>
-      <label>Request timeout (s)
-        <input type="number" name="sources.rdm.timeout" min="1" max="60" step="0.5" required>
-      </label>
-    </div>
+
     <h3>Realtime Trains</h3>
+    <p class="hint">The free tier allows 1000 calls a day shared by everything
+      holding the token, so the floor below is obeyed whenever RTT is live.</p>
     <div class="grid">
-      <label class="wide">RTT base URL
-        <input type="url" name="sources.rtt.base_url" required>
+      <label>Minimum poll interval <span class="unit">seconds</span>
+        <input type="number" name="sources.rtt.min_poll_interval" min="60" max="600" step="10" required>
       </label>
-      <label>Request timeout (s)
-        <input type="number" name="sources.rtt.timeout" min="1" max="60" step="0.5" required>
-      </label>
-      <label class="check"><input type="checkbox" name="sources.rtt.include_buses"> Include bus services</label>
       <label>Rows with calling points
         <input type="number" name="sources.rtt.detail_rows" min="1" max="12" step="1" required>
       </label>
-      <label>Time window (minutes)
+      <label>Time window <span class="unit">minutes</span>
         <input type="number" name="sources.rtt.time_window" min="30" max="360" step="10" required>
       </label>
-      <label>Minimum poll interval (s)
-        <input type="number" name="sources.rtt.min_poll_interval" min="60" max="600" step="10" required>
-      </label>
+      <label class="check"><input type="checkbox" name="sources.rtt.include_buses"> Include bus services</label>
     </div>
+
+    <details class="advanced">
+      <summary>Endpoints and timeouts</summary>
+      <div class="grid">
+        <label class="wide">Rail Data Marketplace base URL
+          <input type="url" name="sources.rdm.base_url" required>
+        </label>
+        <label>RDM timeout <span class="unit">seconds</span>
+          <input type="number" name="sources.rdm.timeout" min="1" max="60" step="0.5" required>
+        </label>
+        <label class="wide">Realtime Trains base URL
+          <input type="url" name="sources.rtt.base_url" required>
+        </label>
+        <label>RTT timeout <span class="unit">seconds</span>
+          <input type="number" name="sources.rtt.timeout" min="1" max="60" step="0.5" required>
+        </label>
+      </div>
+    </details>
+
     <p class="hint">Credentials never live in this file. The Rail Data Marketplace
-      key comes from <code>RDM_API_KEY</code>; Realtime Trains uses a bearer token
-      in <code>RTT_TOKEN</code>, requested from
+      key comes from <code>RDM_API_KEY</code>; Realtime Trains uses a bearer token in
+      <code>RTT_TOKEN</code>, requested from
       <a href="https://api-portal.rtt.io">api-portal.rtt.io</a>.</p>
   </section>
 
-  <section>
-    <h2>Announcements</h2>
-    <div class="grid">
-      <label class="check"><input type="checkbox" name="announcements.enabled"> Enabled</label>
-      <label class="check"><input type="checkbox" name="announcements.chime"> Two-tone chime</label>
-      <label class="check"><input type="checkbox" name="announcements.announce_delays"> Announce delays</label>
-      <label class="check"><input type="checkbox" name="announcements.announce_cancellations"> Announce cancellations</label>
-      <label>Lead time (s)
-        <input type="number" name="announcements.lead_time" min="0" max="1800" step="10">
-      </label>
-      <label>Volume
-        <input type="range" name="announcements.volume" min="0" max="1" step="0.05">
-      </label>
-      <label>Voice
-        <input type="text" name="announcements.voice" placeholder="en_GB-alan-medium">
-      </label>
-      <label>Voices directory
-        <input type="text" name="announcements.voices_dir">
-      </label>
-      <label>Piper binary
-        <input type="text" name="announcements.piper_binary">
-      </label>
-      <label>Clip cache directory
-        <input type="text" name="announcements.cache_dir">
-      </label>
-      <label>Audio output
-        <select name="announcements.audio_device">
-          <option value="hdmi">HDMI</option>
-          <option value="jack">3.5 mm jack</option>
-          <option value="default">System default</option>
-        </select>
-      </label>
-      <label>Max calling points spoken
-        <input type="number" name="announcements.max_calling_points" min="1" max="30" step="1">
-      </label>
+  <!-- ------------------------------------------------------- announcements -->
+  <section class="panel" data-panel="announcements" role="tabpanel" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Announcements</h2>
+        <p class="hint">Spoken by Piper on the Pi itself, in platform phrasing.</p>
+      </div>
+      <label class="switch"><input type="checkbox" name="announcements.enabled" data-gate="announcements"> Enabled</label>
     </div>
-    <div class="row-actions">
-      <input type="text" id="test-text" placeholder="Test announcement text (optional)">
-      <button type="button" id="test-announce" class="secondary">Test announcement</button>
+
+    <div class="gated" id="announcements-gate">
+      <div class="grid">
+        <label>Voice
+          <input type="text" name="announcements.voice" placeholder="en_GB-alan-medium">
+        </label>
+        <label>Volume
+          <input type="range" name="announcements.volume" min="0" max="1" step="0.05">
+        </label>
+        <label>Lead time <span class="unit">seconds before the train</span>
+          <input type="number" name="announcements.lead_time" min="0" max="1800" step="10">
+        </label>
+        <label>Audio output
+          <select name="announcements.audio_device">
+            <option value="hdmi">HDMI</option>
+            <option value="jack">3.5 mm jack</option>
+            <option value="default">System default</option>
+          </select>
+        </label>
+      </div>
+      <div class="grid checks">
+        <label class="check"><input type="checkbox" name="announcements.chime"> Two-tone chime first</label>
+        <label class="check"><input type="checkbox" name="announcements.announce_delays"> Announce delays</label>
+        <label class="check"><input type="checkbox" name="announcements.announce_cancellations"> Announce cancellations</label>
+      </div>
+
+      <details class="advanced">
+        <summary>Piper paths and limits</summary>
+        <div class="grid">
+          <label class="wide">Piper binary
+            <input type="text" name="announcements.piper_binary">
+          </label>
+          <label class="wide">Voices directory
+            <input type="text" name="announcements.voices_dir">
+          </label>
+          <label class="wide">Clip cache directory
+            <input type="text" name="announcements.cache_dir">
+          </label>
+          <label>Max calling points spoken
+            <input type="number" name="announcements.max_calling_points" min="1" max="30" step="1">
+          </label>
+        </div>
+      </details>
+
+      <div class="inline-actions">
+        <input type="text" id="test-text" placeholder="Test announcement text (optional)">
+        <button type="button" id="test-announce" class="ghost">Test announcement</button>
+      </div>
     </div>
   </section>
 
-  <section>
-    <h2>Display schedule</h2>
-    <div class="grid">
-      <label class="check"><input type="checkbox" name="schedule.enabled"> Enabled</label>
-      <label>On at <input type="time" name="schedule.on_time"></label>
-      <label>Off at <input type="time" name="schedule.off_time"></label>
-      <label>Power method
-        <select name="schedule.power_method">
-          <option value="wlr-randr">wlr-randr (cage)</option>
-          <option value="vcgencmd">vcgencmd</option>
-          <option value="none">None</option>
-        </select>
-      </label>
+  <!-- ------------------------------------------------------------ schedule -->
+  <section class="panel" data-panel="schedule" role="tabpanel" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Display schedule</h2>
+        <p class="hint">While off, the HDMI output sleeps and polling and
+          announcements stop.</p>
+      </div>
+      <label class="switch"><input type="checkbox" name="schedule.enabled" data-gate="schedule"> Enabled</label>
     </div>
-    <h3>Per-weekday overrides</h3>
-    <p class="hint">Leave a day unticked to use the times above. Tick "Off all day"
-      to keep the screen dark.</p>
-    <div id="weekdays" class="weekdays"></div>
+
+    <div class="gated" id="schedule-gate">
+      <div class="grid">
+        <label>On at <input type="time" name="schedule.on_time"></label>
+        <label>Off at <input type="time" name="schedule.off_time"></label>
+        <label>Power method
+          <select name="schedule.power_method">
+            <option value="wlr-randr">wlr-randr (cage)</option>
+            <option value="vcgencmd">vcgencmd</option>
+            <option value="none">None</option>
+          </select>
+        </label>
+      </div>
+
+      <h3>Per-weekday overrides</h3>
+      <p class="hint">A day left unticked uses the times above. "Off all day" keeps
+        the screen dark.</p>
+      <div id="weekdays" class="weekdays"></div>
+    </div>
   </section>
 
-  <div class="actions">
-    <button type="submit">Save and apply</button>
-    <button type="button" id="reload" class="secondary">Discard changes</button>
-    <span id="message" class="message" role="status"></span>
-  </div>
+  <!-- -------------------------------------------------------------- status -->
+  <section class="panel" data-panel="status" role="tabpanel" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Status</h2>
+        <p class="hint">Refreshed every 15 seconds.</p>
+      </div>
+      <div class="inline-actions">
+        <label class="inline">Force source
+          <select id="force-source">
+            <option value="auto">Auto (failover)</option>
+            <option value="rdm">Rail Data Marketplace</option>
+            <option value="rtt">Realtime Trains</option>
+          </select>
+        </label>
+        <button type="button" id="apply-force" class="ghost">Apply</button>
+      </div>
+    </div>
+    <p class="hint">Forcing a source is for testing the fallback: it is held in
+      memory and never written to the config file.</p>
+    <dl id="status-list"><dd>Loading&hellip;</dd></dl>
+  </section>
+
 </form>
+</main>
+
+<template id="station-template">
+  <div class="station">
+    <div class="station-head">
+      <strong class="station-title"></strong>
+      <button type="button" class="danger" data-remove>Remove</button>
+    </div>
+    <div class="grid">
+      <label>CRS code
+        <input type="text" data-station="crs" maxlength="3" pattern="[A-Za-z]{3}"
+               placeholder="PAD" autocomplete="off" required>
+      </label>
+      <label>Mode
+        <select data-station="mode">
+          <option value="departures">Departures</option>
+          <option value="arrivals">Arrivals</option>
+        </select>
+      </label>
+      <label>Rows
+        <input type="number" data-station="rows" min="1" max="20" step="1">
+      </label>
+      <label class="wide">Name override
+        <input type="text" data-station="name" placeholder="(use the feed's name)">
+      </label>
+      <label class="wide">Platforms
+        <input type="text" data-station="platforms" placeholder="(all platforms)">
+        <small class="hint">Comma-separated, e.g. <code>1, 2A</code>. Both feeds
+          withhold a platform until it is confirmed, so a filtered board runs short
+          until then unless the box below is ticked.</small>
+      </label>
+      <label class="check wide"><input type="checkbox" data-station="show_unplatformed"> Keep trains with no platform yet</label>
+      <label class="check wide"><input type="checkbox" data-station="announce"> Announcements for this station</label>
+    </div>
+  </div>
+</template>
 
 <script type="module" src="/static/admin.js"></script>
 </body>

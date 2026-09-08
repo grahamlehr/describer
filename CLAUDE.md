@@ -147,6 +147,17 @@ contract and what the two dot-matrix themes share.
   live without restart where possible (theme, stations, announcements).
   Show current API status, last fetch time, and a "test announcement"
   button. LAN-only; no login.
+- The options are split across tabs (Stations, Display, Data sources,
+  Announcements, Schedule, Status), one panel visible at a time, with the
+  current tab in the URL hash. Save, Discard and a live health chip sit in a
+  sticky bar, because the fields no longer end anywhere near a button.
+- **The form is `novalidate` on purpose.** A `required` field on a hidden tab
+  cannot be focused, so the browser refuses to submit and reports nothing;
+  `admin.js` finds the first invalid field itself, opens its tab, and calls
+  `reportValidity()` there. Anything added to a panel must keep that path.
+- Only the selected theme's options are rendered, and a switched-off
+  announcements or schedule block is `inert` and dimmed rather than removed —
+  `readForm` still reads it, so the values in the file survive the round trip.
 
 ## Project layout
 
