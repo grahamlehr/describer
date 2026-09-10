@@ -72,7 +72,11 @@ ask() {  # ask <VAR> <prompt> [silent]
   else
     read -r -p "  $2: " answer
   fi
-  [ -n "$answer" ] && printf -v "$1" '%s' "$answer"
+  # An if, not `[ ] && printf`: a blank answer would leave the function
+  # returning 1, and set -e would end the install at "keep existing".
+  if [ -n "$answer" ]; then
+    printf -v "$1" '%s' "$answer"
+  fi
 }
 
 echo "Credentials (leave blank to keep what is already there):"
