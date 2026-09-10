@@ -20,7 +20,8 @@ sudo apt-get install -y \
   python3 python3-venv python3-pip \
   cage chromium \
   alsa-utils curl ca-certificates \
-  wlr-randr
+  wlr-randr \
+  python3-gpiozero python3-lgpio
 
 say "Creating the Python environment"
 cd "$REPO_DIR"
@@ -152,9 +153,19 @@ if [ -f "$HOME/.config/systemd/user/kiosk.service" ]; then
   systemctl --user disable --now kiosk.service || true
   rm -f "$HOME/.config/systemd/user/kiosk.service"
 fi
+
+# Six presses within 10 s of a button on GPIO21 (pin 40, other leg to GND on
+# pin 39) powers off cleanly. A system service on the system Python and the
+# apt gpiozero, so it works whatever state the checkout or venv is in.
+say "Installing the shutdown button"
+sudo install -m 755 deploy/shutdown_button.py /usr/local/bin/shutdown-button
+sudo install -m 644 deploy/shutdown-button.service /etc/systemd/system/shutdown-button.service
+
 sudo systemctl daemon-reload
 sudo systemctl set-default graphical.target
 sudo systemctl enable kiosk.service
+sudo systemctl enable shutdown-button.service
+sudo systemctl restart shutdown-button.service
 
 say "Done"
 cat <<MSG

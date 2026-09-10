@@ -229,6 +229,8 @@ describer/
     install.sh             # Pi setup: apt deps, venv, piper, cage, services
     describer.service      # systemd *user* unit for the backend
     kiosk.service          # systemd *system* unit for cage + chromium
+    shutdown_button.py     # six presses on GPIO21 in 10 s -> poweroff; system python
+    shutdown-button.service  # systemd *system* unit for the above
   tests/
     fixtures/              # recorded LDBWS and RTT JSON responses
 ```

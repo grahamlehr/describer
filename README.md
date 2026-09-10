@@ -59,7 +59,7 @@ git clone <this repo> ~/describer && cd ~/describer
 ```
 
 The script installs system packages, builds the venv, fetches Piper and a
-voice, and installs two systemd services:
+voice, and installs three systemd services:
 
 - `describer.service` — a **user** service running the FastAPI backend on
   port 8080
@@ -67,6 +67,27 @@ voice, and installs two systemd services:
   in `--kiosk` against localhost. It has to be a system service: cage needs a
   logind seat for the display and input devices, and a lingering user session
   never gets one.
+- `shutdown-button.service` — a **system** service watching a button for the
+  clean-shutdown gesture (below).
+
+### Shutdown button
+
+Cutting mains power on a running Pi risks the SD card, so a momentary
+normally-open button gives a safe "off" with no keyboard or network. Wire one
+leg to **GPIO21 (pin 40)** and the other to **GND (pin 39)**; the internal
+pull-up means no resistor. **Six presses within 10 seconds** runs
+`systemctl poweroff`. Wait for the green ACT LED to stop flashing before
+pulling the power. There is no abort once the sixth press lands, and testing
+it means cycling power to bring the Pi back.
+
+The watcher is `deploy/shutdown_button.py`, installed to
+`/usr/local/bin/shutdown-button` and run by the system Python with the apt
+`python3-gpiozero`/`python3-lgpio` (not the venv). Only one process can own
+GPIO21, so any other gesture on that button belongs in the same script.
+
+```bash
+sudo journalctl -u shutdown-button -n 5   # "watching GPIO21 for 6 presses within 10s"
+```
 
 `install.sh` asks for both sets of credentials and writes them to
 `/etc/describer/describer.env` (mode 600). To change them later, edit that

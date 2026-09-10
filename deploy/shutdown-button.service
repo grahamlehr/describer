@@ -1,0 +1,16 @@
+[Unit]
+Description=Six-press clean-shutdown button (GPIO21)
+
+[Service]
+Type=simple
+# System Python with the apt gpiozero/lgpio, not the app venv. Runs as root so
+# systemctl poweroff needs no sudoers entry.
+ExecStart=/usr/bin/python3 /usr/local/bin/shutdown-button
+Environment=PYTHONUNBUFFERED=1
+# lgpio is the pin backend that works on current Pi OS (RPi.GPIO does not).
+Environment=GPIOZERO_PIN_FACTORY=lgpio
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
