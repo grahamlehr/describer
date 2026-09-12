@@ -192,6 +192,17 @@ def test_empty_payload_yields_empty_board():
     assert board.name == "PAD"
 
 
+def test_position_and_formation_are_never_set(rtt_departures_payload, rtt_arrivals_payload):
+    """RTT gives us neither in a usable form; the fields stay unset. Length still is."""
+    departures = parse_board(rtt_departures_payload, "PAD", "departures")
+    arrivals = parse_board(rtt_arrivals_payload, "RDG", "arrivals")
+
+    for service in departures.services + arrivals.services:
+        assert service.position is None
+        assert service.formation is None
+    assert departures.services[0].length == 9
+
+
 def test_a_real_capture_still_parses(rtt_live_payload):
     """Guards against the API changing shape under us."""
     departures = parse_board(rtt_live_payload, "PAD", "departures")

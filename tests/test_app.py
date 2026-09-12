@@ -80,6 +80,39 @@ def test_state_endpoint(client):
     assert len(state["boards"]) == 1
 
 
+def test_state_carries_position_and_formation(
+    monkeypatch, tmp_path, rdm_credentials, lbg_arrdep_payload
+):
+    """The real LBG capture has both; /api/state must pass them through untouched."""
+    board = parse_board(lbg_arrdep_payload, "LBG", "departures")
+
+    class FakeClient:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        async def fetch_board(self, crs, mode="departures"):
+            return board.model_copy(deep=True)
+
+        async def aclose(self):
+            pass
+
+    monkeypatch.setattr(sources_module, "LdbwsClient", FakeClient)
+    monkeypatch.setattr(main_module, "load_dotenv", lambda *a, **k: None)
+    path = tmp_path / "config.yaml"
+    save_config(Config(stations=[{"crs": "LBG"}]), path)
+    monkeypatch.setenv("DESCRIBER_CONFIG", str(path))
+
+    from describer.main import app
+
+    with TestClient(app) as test_client:
+        services = test_client.get("/api/state").json()["boards"][0]["services"]
+
+    with_formation = next(s for s in services if s["formation"])
+    assert with_formation["formation"]["coaches"][0]["number"] == "A1"
+    with_position = next(s for s in services if s["position"])
+    assert with_position["position"]["state"] in ("not_started", "between", "approaching")
+
+
 def test_config_round_trips_through_the_api(client, tmp_path):
     config = client.get("/api/config").json()
     config["display"]["theme"] = "crt"

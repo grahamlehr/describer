@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -25,7 +26,38 @@ class CallingPoint(BaseModel):
     crs: str | None = None
     scheduled_time: str | None = None
     expected_time: str | None = None
+    #: Actual time the train left this stop, "HH:MM". None until it has.
+    actual_time: str | None = None
     cancelled: bool = False
+
+
+class Position(BaseModel):
+    """Where the train is relative to this station, from reported stops only."""
+
+    state: Literal["not_started", "between", "approaching"]
+    #: The last stop it has left.
+    last: str | None = None
+    #: When it left, "HH:MM".
+    last_time: str | None = None
+    #: The next stop; None means this station.
+    next: str | None = None
+    #: Stops still to call at before this one.
+    stops_away: int = 0
+
+
+class Coach(BaseModel):
+    #: What the feed prints on it: "A", "1".
+    number: str | None = None
+    first_class: bool = False
+    accessible_toilet: bool = False
+    #: 0-100, None when the feed has no figure for this coach.
+    loading: int | None = None
+
+
+class Formation(BaseModel):
+    coaches: list[Coach]
+    #: Mean of the coaches with a loading figure; None when none have one.
+    average_loading: int | None = None
 
 
 class Service(BaseModel):
@@ -48,6 +80,10 @@ class Service(BaseModel):
     delay_reason: str | None = None
     calling_points: list[CallingPoint] = Field(default_factory=list)
     length: int | None = None
+    #: Where the train is now, from the stops it has already reported leaving.
+    position: Position | None = None
+    #: Per-coach loading and layout. None when the feed has no formation for it.
+    formation: Formation | None = None
 
     @property
     def is_cancelled(self) -> bool:

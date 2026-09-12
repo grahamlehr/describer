@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from describer.rail.models import Service, ServiceStatus
+from describer.rail.models import Coach, Formation, Position, Service, ServiceStatus
 
 
 def service(**overrides) -> Service:
@@ -37,3 +37,29 @@ def test_a_time_long_past_is_read_as_tomorrow():
 def test_unknown_times_give_nothing():
     assert service().seconds_until(datetime.now()) is None
     assert service(scheduled_time="Delayed").seconds_until(datetime.now()) is None
+
+
+def test_position_and_formation_default_to_none():
+    plain = service()
+
+    assert plain.position is None
+    assert plain.formation is None
+
+
+def test_position_and_formation_serialise():
+    with_detail = service(
+        position=Position(state="between", last="Oxted", last_time="19:54", next="Croydon"),
+        formation=Formation(coaches=[Coach(number="A1", loading=42)], average_loading=42),
+    )
+
+    dumped = with_detail.model_dump()
+
+    assert dumped["position"] == {
+        "state": "between",
+        "last": "Oxted",
+        "last_time": "19:54",
+        "next": "Croydon",
+        "stops_away": 0,
+    }
+    assert dumped["formation"]["average_loading"] == 42
+    assert dumped["formation"]["coaches"][0]["number"] == "A1"

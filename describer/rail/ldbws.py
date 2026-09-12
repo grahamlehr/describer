@@ -19,7 +19,7 @@ import httpx
 from .base import HHMM_RE as _HHMM_RE
 from .base import RailApiError
 from .base import delay_minutes as _delay_minutes
-from .models import Board, CallingPoint, Service, ServiceStatus
+from .models import Board, CallingPoint, Coach, Formation, Position, Service, ServiceStatus
 
 log = logging.getLogger(__name__)
 
@@ -88,6 +88,17 @@ def _status(raw: str | None, cancelled: bool, delay: int) -> ServiceStatus:
     return ServiceStatus.UNKNOWN
 
 
+def _actual_time(point: dict[str, Any]) -> str | None:
+    """A previous calling point's ``at``, normalised like any other Darwin estimate."""
+    text = str(point.get("at") or "").strip()
+    lowered = text.lower()
+    if lowered == "on time":
+        return point.get("st")
+    if not text or lowered in ("delayed", "no report"):
+        return None
+    return text
+
+
 def _calling_points(service: dict[str, Any], mode: str) -> list[CallingPoint]:
     key = "subsequentCallingPoints" if mode == "departures" else "previousCallingPoints"
     groups = service.get(key) or []
@@ -105,10 +116,90 @@ def _calling_points(service: dict[str, Any], mode: str) -> list[CallingPoint]:
                     crs=point.get("crs"),
                     scheduled_time=point.get("st"),
                     expected_time=expected,
-                    cancelled=str(expected or "").lower() == "cancelled",
+                    actual_time=_actual_time(point),
+                    cancelled=bool(point.get("isCancelled"))
+                    or str(expected or "").lower() == "cancelled",
                 )
             )
     return points
+
+
+def _position(raw: dict[str, Any]) -> Position | None:
+    """Where the train is, from the stops behind it that Darwin has reported.
+
+    Reads ``previousCallingPoints`` regardless of the board's mode: for an
+    arrival that is the list already read by ``_calling_points``, for a
+    departure it is a second read of the same response.
+    """
+    if raw.get("isCancelled"):
+        return None
+    points: list[dict[str, Any]] = []
+    for group in raw.get("previousCallingPoints") or []:
+        if not isinstance(group, dict):
+            continue
+        for point in group.get("callingPoint") or []:
+            if isinstance(point, dict) and not point.get("isCancelled"):
+                points.append(point)
+    if not points:
+        return None
+
+    last_reported = -1
+    for index, point in enumerate(points):
+        if _actual_time(point) is not None:
+            last_reported = index
+
+    if last_reported == -1:
+        return Position(
+            state="not_started",
+            next=_location_name(raw.get("origin")) or None,
+            stops_away=len(points),
+        )
+
+    last_point = points[last_reported]
+    ahead = points[last_reported + 1 :]
+    if not ahead:
+        return Position(
+            state="approaching",
+            last=str(last_point.get("locationName") or ""),
+            last_time=_actual_time(last_point),
+        )
+    return Position(
+        state="between",
+        last=str(last_point.get("locationName") or ""),
+        last_time=_actual_time(last_point),
+        next=str(ahead[0].get("locationName") or ""),
+        stops_away=len(ahead),
+    )
+
+
+def _formation(raw: dict[str, Any]) -> Formation | None:
+    """The service's coach-by-coach makeup, front-first. None with no formation."""
+    formation = raw.get("formation")
+    if not isinstance(formation, dict):
+        return None
+    coaches: list[Coach] = []
+    for raw_coach in formation.get("coaches") or []:
+        if not isinstance(raw_coach, dict):
+            continue
+        toilet = raw_coach.get("toilet")
+        toilet = toilet if isinstance(toilet, dict) else {}
+        coaches.append(
+            Coach(
+                number=raw_coach.get("number"),
+                first_class="first" in str(raw_coach.get("coachClass") or "").lower(),
+                accessible_toilet=toilet.get("Value") == "Accessible",
+                loading=raw_coach.get("loading") if raw_coach.get("loadingSpecified") else None,
+            )
+        )
+    if not coaches:
+        return None
+    if raw.get("isReverseFormation"):
+        # Darwin lists coaches in whatever order the unit is coupled; this is
+        # the only field that says which end is the front.
+        coaches.reverse()
+    known = [coach.loading for coach in coaches if coach.loading is not None]
+    average = round(sum(known) / len(known)) if known else None
+    return Formation(coaches=coaches, average_loading=average)
 
 
 def parse_board(payload: dict[str, Any], crs: str, mode: str) -> Board:
@@ -128,6 +219,10 @@ def parse_board(payload: dict[str, Any], crs: str, mode: str) -> Board:
             continue
         delay = _delay_minutes(scheduled, expected)
         status = _status(expected, bool(raw.get("isCancelled")), delay)
+        formation = _formation(raw)
+        length = raw.get("length")
+        if not length and formation is not None:
+            length = len(formation.coaches)
         services.append(
             Service(
                 id=str(raw.get("serviceID") or f"{crs}-{mode}-{index}"),
@@ -143,7 +238,9 @@ def parse_board(payload: dict[str, Any], crs: str, mode: str) -> Board:
                 cancel_reason=raw.get("cancelReason"),
                 delay_reason=raw.get("delayReason"),
                 calling_points=_calling_points(raw, mode),
-                length=raw.get("length"),
+                length=length,
+                position=_position(raw),
+                formation=formation,
             )
         )
 

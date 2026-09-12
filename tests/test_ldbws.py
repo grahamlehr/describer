@@ -1,7 +1,18 @@
 """Parsing recorded LDBWS responses into our own models."""
 
-from describer.rail.ldbws import _delay_minutes, _strip_html, parse_board
+from describer.rail.ldbws import (
+    _calling_points,
+    _delay_minutes,
+    _formation,
+    _position,
+    _strip_html,
+    parse_board,
+)
 from describer.rail.models import ServiceStatus
+
+
+def _service(payload: dict, service_id: str) -> dict:
+    return next(s for s in payload["trainServices"] if s["serviceID"] == service_id)
 
 
 def test_parses_departures(departures_payload):
@@ -124,3 +135,197 @@ def test_combined_board_arrivals_keep_delay(arrdep_payload):
     assert service.status is ServiceStatus.EXPECTED
     assert service.delay_minutes == 15
     assert service.status_text == "Exp 14:59"
+
+
+# -- position, from the real LBG capture --------------------------------------
+
+
+def test_position_between_reported_and_unreported_stops(lbg_arrdep_payload):
+    raw = _service(lbg_arrdep_payload, "8648567LNDNBDC_")
+
+    position = _position(raw)
+
+    assert position.state == "between"
+    assert position.last == "Oxted"
+    assert position.last_time == "19:54"
+    assert position.next == "East Croydon"
+    assert position.stops_away == 1
+
+
+def test_position_approaching_when_every_stop_is_reported(lbg_arrdep_payload):
+    raw = _service(lbg_arrdep_payload, "8661442LNDNBDE_")
+
+    position = _position(raw)
+
+    assert position.state == "approaching"
+    assert position.last == "Hither Green"
+    # "On time" in `at` becomes the point's own `st`.
+    assert position.last_time == "19:45"
+    assert position.next is None
+    assert position.stops_away == 0
+
+
+def test_position_none_when_service_originates_here(lbg_arrdep_payload):
+    raw = _service(lbg_arrdep_payload, "8651283LNDNBDC_")
+
+    assert "previousCallingPoints" not in raw
+    assert _position(raw) is None
+
+
+def test_position_none_when_service_cancelled():
+    raw = {
+        "isCancelled": True,
+        "previousCallingPoints": [
+            {"callingPoint": [{"locationName": "Oxted", "st": "19:20", "at": "19:54"}]}
+        ],
+    }
+
+    assert _position(raw) is None
+
+
+def test_position_not_started_when_nothing_reported():
+    raw = {
+        "origin": [{"locationName": "Brighton", "crs": "BTN"}],
+        "previousCallingPoints": [
+            {
+                "callingPoint": [
+                    {"locationName": "Preston Park", "st": "19:05", "at": "No report"},
+                    {"locationName": "Haywards Heath", "st": "19:12", "at": "No report"},
+                ]
+            }
+        ],
+    }
+
+    position = _position(raw)
+
+    assert position.state == "not_started"
+    assert position.next == "Brighton"
+    assert position.stops_away == 2
+
+
+def test_position_skips_cancelled_calling_points():
+    raw = {
+        "previousCallingPoints": [
+            {
+                "callingPoint": [
+                    {"locationName": "A", "st": "19:00", "at": "19:00", "isCancelled": False},
+                    {"locationName": "B", "st": "19:05", "at": "No report", "isCancelled": True},
+                    {"locationName": "C", "st": "19:10", "at": "No report", "isCancelled": False},
+                ]
+            }
+        ],
+    }
+
+    position = _position(raw)
+
+    assert position.state == "between"
+    assert position.last == "A"
+    assert position.next == "C"
+    assert position.stops_away == 1
+
+
+def test_calling_points_carry_actual_time(lbg_arrdep_payload):
+    raw = _service(lbg_arrdep_payload, "8648567LNDNBDC_")
+
+    points = _calling_points(raw, "arrivals")
+    oxted = next(point for point in points if point.name == "Oxted")
+
+    assert oxted.actual_time == "19:54"
+
+
+# -- formation, from the real LBG capture --------------------------------------
+
+
+def test_formation_parses_real_coaches(lbg_arrdep_payload):
+    raw = _service(lbg_arrdep_payload, "8661532LNDNBDE_")
+
+    formation = _formation(raw)
+
+    assert [coach.number for coach in formation.coaches] == [
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "B1",
+        "B2",
+        "B3",
+        "B4",
+    ]
+    assert formation.coaches[0].loading == 0
+    assert formation.coaches[2].accessible_toilet is True
+    assert formation.coaches[0].accessible_toilet is False
+    assert formation.average_loading == 24
+
+
+def test_formation_loading_unspecified_gives_none(lbg_arrdep_payload):
+    raw = _service(lbg_arrdep_payload, "8662760LNDNBDE_")
+
+    formation = _formation(raw)
+
+    assert all(coach.loading is None for coach in formation.coaches)
+    assert formation.average_loading is None
+
+
+def test_formation_none_when_absent(lbg_arrdep_payload):
+    raw = _service(lbg_arrdep_payload, "8666929LNDNBDE_")
+
+    assert "formation" not in raw
+    assert _formation(raw) is None
+
+
+def test_formation_marks_first_class():
+    raw = {
+        "formation": {
+            "coaches": [
+                {"number": "A", "coachClass": "First", "loadingSpecified": False},
+                {"number": "B", "coachClass": "Standard", "loadingSpecified": False},
+            ]
+        }
+    }
+
+    formation = _formation(raw)
+
+    assert formation.coaches[0].first_class is True
+    assert formation.coaches[1].first_class is False
+
+
+def test_formation_reverses_when_isReverseFormation():
+    raw = {
+        "isReverseFormation": True,
+        "formation": {
+            "coaches": [
+                {"number": "A1", "loadingSpecified": False},
+                {"number": "B1", "loadingSpecified": False},
+            ]
+        },
+    }
+
+    formation = _formation(raw)
+
+    assert [coach.number for coach in formation.coaches] == ["B1", "A1"]
+
+
+def test_length_backfilled_from_coaches_when_missing():
+    payload = {
+        "trainServices": [
+            {
+                "serviceID": "ggg777",
+                "std": "20:10",
+                "etd": "On time",
+                "origin": [{"locationName": "Somewhere"}],
+                "destination": [{"locationName": "Elsewhere"}],
+                "length": 0,
+                "formation": {
+                    "coaches": [
+                        {"number": "A", "loadingSpecified": False},
+                        {"number": "B", "loadingSpecified": False},
+                        {"number": "C", "loadingSpecified": False},
+                    ]
+                },
+            }
+        ]
+    }
+
+    service = parse_board(payload, "LBG", "departures").services[0]
+
+    assert service.length == 3

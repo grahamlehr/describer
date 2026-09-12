@@ -28,6 +28,12 @@ def arrdep_payload() -> dict:
 
 
 @pytest.fixture
+def lbg_arrdep_payload() -> dict:
+    """One real RDM capture at LBG, with formation and previous-point actuals."""
+    return load_fixture("lbg_arrdep_formation.json")
+
+
+@pytest.fixture
 def rtt_departures_payload() -> dict:
     return load_fixture("rtt_pad_departures.json")
 
