@@ -18,6 +18,7 @@ from describer.rail.rtt import (
     has_credentials,
     parse_board,
     parse_calling_points,
+    parse_journey,
 )
 
 
@@ -183,6 +184,24 @@ def test_calling_points_before_this_station(rtt_detail_payload, arrivals_payload
 
 def test_calling_points_of_an_unknown_station_are_empty(rtt_detail_payload):
     assert parse_calling_points(rtt_detail_payload, "OXF", "departures") == []
+
+
+@pytest.mark.parametrize(("crs", "mode"), [("PAD", "departures"), ("RDG", "arrivals")])
+def test_journey_is_both_halves_around_this_station(rtt_detail_payload, crs, mode):
+    journey = parse_journey(rtt_detail_payload, crs, mode)
+
+    here = [i for i, point in enumerate(journey) if point.here]
+    assert len(here) == 1
+    index = here[0]
+    assert journey[index].crs == crs
+    # Each half is exactly what the two boards show on either side of here.
+    assert journey[:index] == parse_calling_points(rtt_detail_payload, crs, "arrivals")
+    assert journey[index + 1 :] == parse_calling_points(rtt_detail_payload, crs, "departures")
+    assert "Didcot Parkway" not in [p.name for p in journey]  # a pass is not a stop
+
+
+def test_journey_of_an_unknown_station_is_empty(rtt_detail_payload):
+    assert parse_journey(rtt_detail_payload, "OXF", "departures") == []
 
 
 def test_empty_payload_yields_empty_board():

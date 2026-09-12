@@ -227,6 +227,33 @@ async def test_a_platform_filter_narrows_the_board(poller):
     assert [service.platform for service in board.services] == ["9", "3"]
 
 
+async def test_only_the_top_service_keeps_its_journey(poller):
+    """The top one is drawn; every other journey is dead weight on the wire."""
+    instance, fake = poller
+    assert sum(bool(service.journey) for service in fake.board.services) > 1
+    await instance._poll_slot(0, instance._store.get())
+
+    board = instance.boards()[0]
+
+    assert board.services[0].journey
+    assert not any(service.journey for service in board.services[1:])
+
+
+async def test_the_journey_goes_with_the_train_a_filter_puts_on_top(poller):
+    instance, fake = poller
+    await instance._poll_slot(0, instance._store.get())
+    instance._store.set(
+        Config(stations=[{"crs": "PAD", "platforms": ["3"]}], sources={"fallback": None}),
+        persist=False,
+    )
+
+    board = instance.boards()[0]
+
+    kept = next(s for s in fake.board.services if s.platform == "3")
+    assert board.services[0].id == kept.id
+    assert board.services[0].journey == kept.journey
+
+
 async def test_an_unconfirmed_platform_is_kept_when_asked_for(poller):
     instance, _ = poller
     await instance._poll_slot(0, instance._store.get())

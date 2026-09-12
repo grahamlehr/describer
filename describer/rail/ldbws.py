@@ -101,7 +101,15 @@ def _actual_time(point: dict[str, Any]) -> str | None:
 
 def _calling_points(service: dict[str, Any], mode: str) -> list[CallingPoint]:
     key = "subsequentCallingPoints" if mode == "departures" else "previousCallingPoints"
+    return _points(service, key)
+
+
+def _points(
+    service: dict[str, Any], key: str, *, first_group_only: bool = False
+) -> list[CallingPoint]:
     groups = service.get(key) or []
+    if first_group_only:
+        groups = groups[:1]
     points: list[CallingPoint] = []
     for group in groups:
         if not isinstance(group, dict):
@@ -122,6 +130,30 @@ def _calling_points(service: dict[str, Any], mode: str) -> list[CallingPoint]:
                 )
             )
     return points
+
+
+def _journey(
+    raw: dict[str, Any], crs: str, name: str, scheduled: str | None, expected: str | None
+) -> list[CallingPoint]:
+    """The whole run, origin to destination, with this station in its place.
+
+    The combined board carries both halves on every service, so this costs no
+    call. Where a train joins or divides, the first group on each side is the
+    portion this train runs as; any other group is another train's route.
+    """
+    before = _points(raw, "previousCallingPoints", first_group_only=True)
+    after = _points(raw, "subsequentCallingPoints", first_group_only=True)
+    if not before and not after:
+        return []
+    here = CallingPoint(
+        name=name,
+        crs=crs,
+        scheduled_time=scheduled,
+        expected_time=expected,
+        cancelled=bool(raw.get("isCancelled")),
+        here=True,
+    )
+    return [*before, here, *after]
 
 
 def _position(raw: dict[str, Any]) -> Position | None:
@@ -182,12 +214,18 @@ def _formation(raw: dict[str, Any]) -> Formation | None:
         if not isinstance(raw_coach, dict):
             continue
         toilet = raw_coach.get("toilet")
+        # Absent altogether on some services (GWR at PAD), not just "None".
         toilet = toilet if isinstance(toilet, dict) else {}
+        # "Mixed" is a composite coach, part first class. Neither it nor
+        # "First" has been seen in a capture: LBG, BFR and PAD all say
+        # "Standard" for every coach, even on trains that have first class.
+        coach_class = str(raw_coach.get("coachClass") or "").lower()
         coaches.append(
             Coach(
                 number=raw_coach.get("number"),
-                first_class="first" in str(raw_coach.get("coachClass") or "").lower(),
+                first_class="first" in coach_class or "mixed" in coach_class,
                 accessible_toilet=toilet.get("Value") == "Accessible",
+                toilet_in_service=toilet.get("status") != "NotInService",
                 loading=raw_coach.get("loading") if raw_coach.get("loadingSpecified") else None,
             )
         )
@@ -205,6 +243,8 @@ def _formation(raw: dict[str, Any]) -> Formation | None:
 def parse_board(payload: dict[str, Any], crs: str, mode: str) -> Board:
     """Turn one LDBWS response into a :class:`Board`."""
     time_key, est_key = ("std", "etd") if mode == "departures" else ("sta", "eta")
+    station_crs = str(payload.get("crs") or crs).upper()
+    station_name = str(payload.get("locationName") or crs)
     services: list[Service] = []
 
     for index, raw in enumerate(payload.get("trainServices") or []):
@@ -238,6 +278,7 @@ def parse_board(payload: dict[str, Any], crs: str, mode: str) -> Board:
                 cancel_reason=raw.get("cancelReason"),
                 delay_reason=raw.get("delayReason"),
                 calling_points=_calling_points(raw, mode),
+                journey=_journey(raw, station_crs, station_name, scheduled, expected),
                 length=length,
                 position=_position(raw),
                 formation=formation,
@@ -259,8 +300,8 @@ def parse_board(payload: dict[str, Any], crs: str, mode: str) -> Board:
             log.debug("Unparseable generatedAt for %s", crs)
 
     return Board(
-        crs=str(payload.get("crs") or crs).upper(),
-        name=str(payload.get("locationName") or crs),
+        crs=station_crs,
+        name=station_name,
         mode=mode,
         generated_at=generated_at,
         fetched_at=datetime.now().astimezone(),

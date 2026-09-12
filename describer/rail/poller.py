@@ -32,6 +32,15 @@ def _slot_key(index: int, crs: str, mode: str) -> str:
     return f"{index}:{crs}:{mode}"
 
 
+def _top_journey_only(board: Board) -> Board:
+    """Only the top service's journey is ever drawn; the rest is dead weight
+    on every SSE frame, twenty-odd stops a train."""
+    if not any(service.journey for service in board.services[1:]):
+        return board
+    rest = [service.model_copy(update={"journey": []}) for service in board.services[1:]]
+    return board.model_copy(update={"services": [board.services[0], *rest]})
+
+
 class Poller:
     def __init__(self, store: ConfigStore) -> None:
         self._store = store
@@ -148,6 +157,9 @@ class Poller:
                     ]
                 if updates:
                     board = board.model_copy(update=updates)
+                # After the filters, so the train that keeps its journey is the
+                # one actually on top of the board.
+                board = _top_journey_only(board)
             result.append(board)
         return result
 

@@ -252,47 +252,79 @@ def parse_calling_points(payload: dict[str, Any], crs: str, mode: str) -> list[C
     Departures list the stops after this station, arrivals the stops before
     it; both stay in chronological order, as LDBWS gives them.
     """
+    stops = _locations(payload)
+    here = _here_index(stops, crs)
+    if here is None:
+        return []
+    # On the way out a stop is timed by its arrival; on the way in, its departure.
+    if mode == "departures":
+        return _points(stops[here + 1 :], _ARRIVAL_FIRST)
+    return _points(stops[:here], _DEPARTURE_FIRST)
+
+
+def parse_journey(payload: dict[str, Any], crs: str, mode: str) -> list[CallingPoint]:
+    """The whole run from a ``/rtt/service`` response, with ``crs`` marked here.
+
+    Each half is timed as :func:`parse_calling_points` times it, and this
+    station by the board's own reading of it.
+    """
+    stops = _locations(payload)
+    here = _here_index(stops, crs)
+    if here is None:
+        return []
+    this = _point(stops[here], _DEPARTURE_FIRST if mode == "departures" else _ARRIVAL_FIRST)
+    if this is None:
+        return []
+    return [
+        *_points(stops[:here], _DEPARTURE_FIRST),
+        this.model_copy(update={"here": True}),
+        *_points(stops[here + 1 :], _ARRIVAL_FIRST),
+    ]
+
+
+_ARRIVAL_FIRST = ("arrival", "departure")
+_DEPARTURE_FIRST = ("departure", "arrival")
+
+
+def _locations(payload: dict[str, Any]) -> list[dict[str, Any]]:
     service = payload.get("service")
     service = service if isinstance(service, dict) else payload
-    stops = [loc for loc in (service.get("locations") or []) if isinstance(loc, dict)]
+    return [loc for loc in (service.get("locations") or []) if isinstance(loc, dict)]
 
+
+def _here_index(stops: list[dict[str, Any]], crs: str) -> int | None:
     def codes(stop: dict[str, Any]) -> set[str]:
         location = stop.get("location")
         location = location if isinstance(location, dict) else {}
         return {str(code).upper() for code in (location.get("shortCodes") or [])}
 
-    here = next((i for i, stop in enumerate(stops) if crs.upper() in codes(stop)), None)
-    if here is None:
-        return []
+    return next((i for i, stop in enumerate(stops) if crs.upper() in codes(stop)), None)
 
-    points: list[CallingPoint] = []
-    for stop in stops[here + 1 :] if mode == "departures" else stops[:here]:
-        temporal = stop.get("temporalData")
-        temporal = temporal if isinstance(temporal, dict) else {}
-        if str(temporal.get("displayAs") or "PASS") in _UNUSABLE_DISPLAY:
-            continue
-        # On the way out a stop is timed by its arrival; on the way in, its departure.
-        order = ("arrival", "departure") if mode == "departures" else ("departure", "arrival")
-        block = next(
-            (temporal[key] for key in order if isinstance(temporal.get(key), dict)),
-            {},
-        )
-        location = stop.get("location")
-        location = location if isinstance(location, dict) else {}
-        short_codes = location.get("shortCodes") or []
-        points.append(
-            CallingPoint(
-                name=str(location.get("description") or ""),
-                crs=str(short_codes[0]) if short_codes else None,
-                scheduled_time=_hhmm(
-                    block.get("scheduleAdvertised") or block.get("scheduleInternal")
-                ),
-                expected_time=_realtime(block),
-                cancelled=bool(block.get("isCancelled"))
-                or temporal.get("displayAs") == "CANCELLED",
-            )
-        )
-    return points
+
+def _points(stops: list[dict[str, Any]], order: tuple[str, str]) -> list[CallingPoint]:
+    return [point for point in (_point(stop, order) for stop in stops) if point is not None]
+
+
+def _point(stop: dict[str, Any], order: tuple[str, str]) -> CallingPoint | None:
+    """One stop, timed by the first of ``order`` it has. None for a pass."""
+    temporal = stop.get("temporalData")
+    temporal = temporal if isinstance(temporal, dict) else {}
+    if str(temporal.get("displayAs") or "PASS") in _UNUSABLE_DISPLAY:
+        return None
+    block = next(
+        (temporal[key] for key in order if isinstance(temporal.get(key), dict)),
+        {},
+    )
+    location = stop.get("location")
+    location = location if isinstance(location, dict) else {}
+    short_codes = location.get("shortCodes") or []
+    return CallingPoint(
+        name=str(location.get("description") or ""),
+        crs=str(short_codes[0]) if short_codes else None,
+        scheduled_time=_hhmm(block.get("scheduleAdvertised") or block.get("scheduleInternal")),
+        expected_time=_realtime(block),
+        cancelled=bool(block.get("isCancelled")) or temporal.get("displayAs") == "CANCELLED",
+    )
 
 
 class RttClient:
@@ -490,6 +522,7 @@ class RttClient:
                 log.debug("No calling points for %s: %s", identity, exc)
                 continue
             service.calling_points = parse_calling_points(detail, board.crs, mode)
+            service.journey = parse_journey(detail, board.crs, mode)
 
         self._prune_details(wanted)
         return board

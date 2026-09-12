@@ -329,3 +329,106 @@ def test_length_backfilled_from_coaches_when_missing():
     service = parse_board(payload, "LBG", "departures").services[0]
 
     assert service.length == 3
+
+
+def test_toilet_out_of_service_is_reported():
+    raw = {
+        "formation": {
+            "coaches": [
+                {"number": "A1", "toilet": {"status": "NotInService", "Value": "Accessible"}},
+                {"number": "A2", "toilet": {"status": "Unknown", "Value": "None"}},
+                {"number": "A3"},
+            ]
+        }
+    }
+
+    coaches = _formation(raw).coaches
+
+    assert coaches[0].accessible_toilet is True
+    assert coaches[0].toilet_in_service is False
+    # An unknown status, or no toilet block at all (GWR at PAD), is not a fault.
+    assert coaches[1].toilet_in_service is True
+    assert coaches[2].toilet_in_service is True
+    assert coaches[2].accessible_toilet is False
+
+
+def test_mixed_coach_counts_as_first_class():
+    raw = {"formation": {"coaches": [{"number": "1", "coachClass": "Mixed"}]}}
+
+    assert _formation(raw).coaches[0].first_class is True
+
+
+# -- the whole journey ---------------------------------------------------------
+
+
+def test_journey_runs_through_this_station(lbg_arrdep_payload):
+    departures = parse_board(lbg_arrdep_payload, "LBG", "departures")
+    arrivals = {s.id: s for s in parse_board(lbg_arrdep_payload, "LBG", "arrivals").services}
+    checked = 0
+
+    for service in departures.services:
+        if not service.journey:
+            continue
+        here = [i for i, point in enumerate(service.journey) if point.here]
+        assert len(here) == 1
+        index = here[0]
+        stop = service.journey[index]
+        assert (stop.name, stop.crs) == ("London Bridge", "LBG")
+        assert stop.scheduled_time == service.scheduled_time
+        # After here is exactly what "Calling at" shows; before is what the
+        # same train's arrival shows as "Called at".
+        assert service.journey[index + 1 :] == service.calling_points
+        if service.id in arrivals:
+            assert service.journey[:index] == arrivals[service.id].calling_points
+            checked += 1
+
+    assert checked  # the capture has trains that both arrive and depart here
+
+
+def test_journey_starts_here_for_a_train_that_originates_here(lbg_arrdep_payload):
+    board = parse_board(lbg_arrdep_payload, "LBG", "departures")
+    raw_by_id = {raw["serviceID"]: raw for raw in lbg_arrdep_payload["trainServices"]}
+
+    starters = [s for s in board.services if not raw_by_id[s.id].get("previousCallingPoints")]
+
+    assert starters
+    for service in starters:
+        assert service.journey[0].here is True
+        assert service.journey[1:] == service.calling_points
+
+
+def test_journey_takes_the_first_group_where_a_train_divides():
+    def group(*names):
+        return {
+            "callingPoint": [{"locationName": n, "st": "10:00", "et": "On time"} for n in names]
+        }
+
+    raw = {
+        "serviceID": "div1",
+        "std": "09:50",
+        "etd": "On time",
+        "origin": [{"locationName": "Brighton"}],
+        "destination": [{"locationName": "Bedford"}],
+        "previousCallingPoints": [group("Brighton", "Gatwick Airport")],
+        "subsequentCallingPoints": [group("Blackfriars", "Bedford"), group("Luton")],
+    }
+
+    service = parse_board(
+        {"trainServices": [raw], "locationName": "London Bridge"}, "LBG", "departures"
+    ).services[0]
+
+    assert [p.name for p in service.journey] == [
+        "Brighton",
+        "Gatwick Airport",
+        "London Bridge",
+        "Blackfriars",
+        "Bedford",
+    ]
+
+
+def test_journey_empty_with_neither_side():
+    raw = {"serviceID": "x", "std": "09:50", "etd": "On time"}
+
+    service = parse_board({"trainServices": [raw]}, "LBG", "departures").services[0]
+
+    assert service.journey == []

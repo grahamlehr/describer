@@ -29,6 +29,8 @@ class CallingPoint(BaseModel):
     #: Actual time the train left this stop, "HH:MM". None until it has.
     actual_time: str | None = None
     cancelled: bool = False
+    #: The station whose board this is. Only ever set inside ``Service.journey``.
+    here: bool = False
 
 
 class Position(BaseModel):
@@ -50,6 +52,9 @@ class Coach(BaseModel):
     number: str | None = None
     first_class: bool = False
     accessible_toilet: bool = False
+    #: False only when the feed says this coach's toilet is out of service;
+    #: an unknown status is not a broken toilet.
+    toilet_in_service: bool = True
     #: 0-100, None when the feed has no figure for this coach.
     loading: int | None = None
 
@@ -79,6 +84,10 @@ class Service(BaseModel):
     cancel_reason: str | None = None
     delay_reason: str | None = None
     calling_points: list[CallingPoint] = Field(default_factory=list)
+    #: The whole run, origin to destination, with this station marked ``here``.
+    #: Empty when the feed gave us only one side of it. The poller hands it out
+    #: on the top service alone, the only one a theme ever draws.
+    journey: list[CallingPoint] = Field(default_factory=list)
     length: int | None = None
     #: Where the train is now, from the stops it has already reported leaving.
     position: Position | None = None
