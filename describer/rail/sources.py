@@ -205,7 +205,7 @@ class SourceManager:
                 return recovered
 
         try:
-            return await self._fetch_from(self._active, crs, mode)
+            board = await self._fetch_from(self._active, crs, mode)
         except RailApiError as exc:
             if self._active != primary:
                 raise  # the fallback is all we have; let the board go stale
@@ -222,3 +222,11 @@ class SourceManager:
                 fallback,
             )
             return await self._fetch_from(self._active, crs, mode)
+        if self._active == primary:
+            # Consecutive means consecutive. RDM once answered NBC and refused
+            # SYD for hours; counting across the successes took both halves of
+            # the screen to RTT, and each recovery probe that happened to land
+            # on NBC took them back only for SYD to trip it again. One station
+            # the primary cannot serve now goes stale on its own instead.
+            self._failures = 0
+        return board

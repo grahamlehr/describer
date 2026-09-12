@@ -19,6 +19,8 @@ class FakeSource:
     def __init__(self, name: str) -> None:
         self.name = name
         self.fail = False
+        #: Stations this source refuses while answering every other one.
+        self.down: set[str] = set()
         self.calls = 0
         self.closed = False
         self.min_poll_interval = 0
@@ -26,7 +28,7 @@ class FakeSource:
 
     async def fetch_board(self, crs: str, mode: str = "departures") -> Board:
         self.calls += 1
-        if self.fail:
+        if self.fail or crs.upper() in self.down:
             raise RailApiError(f"HTTP 503 for {crs}")
         return Board(crs=crs.upper(), name=f"{crs} via {self.name}", mode=mode)
 
@@ -88,6 +90,21 @@ async def test_failures_are_counted_across_stations(manager):
     await instance.fetch_board("PAD", "departures")
 
     assert instance.active == "rtt"
+
+
+async def test_a_success_resets_the_count(manager):
+    """One station the primary cannot serve does not take the other off it."""
+    instance, rdm, rtt = manager
+    rdm.down = {"SYD"}
+
+    for _ in range(5):
+        with pytest.raises(RailApiError):
+            await instance.fetch_board("SYD", "departures")
+        board = await instance.fetch_board("NBC", "arrivals")
+        assert board.source == "rdm"
+
+    assert instance.active == "rdm"
+    assert rtt.calls == 0
 
 
 async def test_both_halves_agree_after_a_failover(manager):
