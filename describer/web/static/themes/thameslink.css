@@ -240,7 +240,14 @@ body {
   height: 0.09em;
   background: var(--late);
 }
-/* The train ends here: a filled dot, and the name in white like the row above. */
+/* An arrival has already made this stop. Dims the name and the line together,
+   since both are painted by this one element and its colour-inheriting
+   pseudo-elements. */
+.tl-stop.tl-passed { opacity: 0.55; }
+
+/* The train ends here: a filled dot, and the name in white like the row above.
+   On an arrival this is repurposed as "arriving next" — the first stop not
+   yet behind it, or the last one when every stop has been. */
 .tl-stop.tl-final { color: var(--fg); font-weight: 700; }
 .tl-stop.tl-final::before {
   /* Centred on the line: the line runs 0.28em to 0.37em, so its middle is at
@@ -252,6 +259,24 @@ body {
   border-radius: 50%;
   background: var(--late);
 }
+
+/* Where the train is now, and its formation — between the featured train and
+   its route. Deliberately not in --slot, for the same reason --reason-share
+   is not: the route holds the slack, so this line takes its height out of
+   the route (which turns one more page) rather than out of the board. */
+.service-detail {
+  flex: 0 0 auto;
+  font-size: calc(var(--row-font) * 0.62);
+  color: var(--accent);
+  padding: 0 0.5em;
+}
+/* This board counts down in --fg rather than green, so a coach is --fg
+   unless it is busy, when it takes the amber this board already warns in. */
+.coach { border: 1px solid color-mix(in srgb, var(--fg) 35%, transparent); }
+.coach::after { background: var(--fg); }
+.coach[data-load="busy"]::after { background: var(--late); }
+.coach[data-load="unknown"]::after { background: none; }
+.coach[data-first]::before { color: var(--accent); }
 
 /* The reason, under the route and above the bar: still part of the block the
    top of the screen gives to one train. Amber is what this board warns in,

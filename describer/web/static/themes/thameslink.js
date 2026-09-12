@@ -14,6 +14,9 @@ import { applyColours, clearColours } from './colours.js';
  *  colour to offer, and its blue bars and hairline are structural. */
 const ROLES = ['background', 'text', 'dim_text', 'accent', 'late', 'cancelled'];
 
+/** The line sits between the featured train and its route. */
+export const serviceDetail = true;
+
 /** How often the countdowns are recomputed, and the delay wording alternates. */
 const REFRESH_MS = 15000;
 /** How long one page of the route holds before the next. */
@@ -163,15 +166,28 @@ function minutesUntil(text) {
  * page against a line, so a list too long to fit is turned a page at a time
  * by sliding the whole column: the line then runs on across the page turn
  * exactly as it does on the real panels.
+ *
+ * On a departures board every stop is ahead of the train, so the dot sits on
+ * the last one drawn, as it always has. On an arrivals board the route is
+ * the stops *behind* the train, and `rawPoints` now carries an `actual_time`
+ * for the ones it has already left: those are dimmed with `.tl-passed`, and
+ * the dot moves to the first one it has not — or, once it has left them all,
+ * to the last, meaning "arriving next".
  */
-export function renderCallingPoints(list, points) {
+export function renderCallingPoints(list, points, rawPoints = []) {
   const key = points.join('\n');
   if (list.__key !== key) {
     list.__key = key;
     list.textContent = '';
+    const arrivals = list.closest('.board')?.dataset.mode === 'arrivals';
+    const firstUnreached = arrivals
+      ? rawPoints.findIndex((point) => !point.actual_time)
+      : -1;
+    const finalIndex = arrivals && firstUnreached !== -1 ? firstUnreached : points.length - 1;
     points.forEach((point, index) => {
       const stop = document.createElement('span');
-      stop.className = index === points.length - 1 ? 'tl-stop tl-final' : 'tl-stop';
+      stop.className = index === finalIndex ? 'tl-stop tl-final' : 'tl-stop';
+      if (arrivals && index < finalIndex) stop.classList.add('tl-passed');
       stop.textContent = point;
       list.append(stop);
     });
