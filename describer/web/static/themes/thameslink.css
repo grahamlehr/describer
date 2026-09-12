@@ -260,23 +260,117 @@ body {
   background: var(--late);
 }
 
-/* Where the train is now, and its formation — between the featured train and
-   its route. Deliberately not in --slot, for the same reason --reason-share
-   is not: the route holds the slack, so this line takes its height out of
-   the route (which turns one more page) rather than out of the board. */
+/* The full journey (thameslink.js, full_journey). This station is a ring on
+   the line rather than the filled dot the destination keeps, with its name
+   in white; z-index lifts the ring over the line, which ::after paints
+   after it. Centred on the line's 0.325em like the dot. */
+.tl-stop.tl-here { color: var(--fg); font-weight: 700; }
+.tl-stop.tl-here::before {
+  left: 0.105em;
+  top: calc(50% - 0.22em);
+  width: 0.44em;
+  height: 0.44em;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 0.09em var(--fg);
+  z-index: 1;
+}
+/* Where the train is now: a white arrowhead on the line, pointing on down the
+   route, at the top of the next stop it will reach. Inside that stop's own
+   box, because the stop clips (it ellipsises its name). */
+.tl-train {
+  position: absolute;
+  left: 0.075em;
+  top: 0.06em;
+  width: 0.5em;
+  height: 0.36em;
+  background: var(--fg);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  z-index: 1;
+}
+
+/* Where the train is now, then its formation, each on a line of its own and
+   both on the board's left edge with everything else under the train. It
+   was inset by half an em, which put the text off the line of the time and
+   "Calling at" above and below it. Deliberately not in --slot, for the same
+   reason --reason-share is not: the route holds the slack, so this block
+   takes its height out of the route (which turns one more page) rather than
+   out of the board. */
 .service-detail {
   flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.35em;
   font-size: calc(var(--row-font) * 0.62);
   color: var(--accent);
-  padding: 0 0.5em;
+  padding: 0.1em 0 0.35em;
 }
-/* This board counts down in --fg rather than green, so a coach is --fg
-   unless it is busy, when it takes the amber this board already warns in. */
-.coach { border: 1px solid color-mix(in srgb, var(--fg) 35%, transparent); }
-.coach::after { background: var(--fg); }
-.coach[data-load="busy"]::after { background: var(--late); }
-.coach[data-load="unknown"]::after { background: none; }
-.coach[data-first]::before { color: var(--accent); }
+.service-formation { display: block; }
+.tl-coaches { color: var(--accent); }
+
+/* One car per coach, sharing the width up to a size where a short train
+   stops growing. This board counts down in --fg rather than green, so a car
+   fills --fg unless it is busy, when it takes the amber this board already
+   warns in; with no figure it is an outline. The two ends of the train are
+   rounded like cabs, without claiming which end is the front. */
+.tl-cars { display: flex; align-items: flex-start; gap: 0.14em; }
+.tl-car {
+  display: flex;
+  flex: 0 1 2.6em;
+  flex-direction: column;
+  gap: 0.25em;
+  min-width: 0;
+}
+.tl-car[data-unit-start] { margin-left: 0.45em; }
+.tl-car-body {
+  position: relative;
+  height: 1.15em;
+  border: 1px solid color-mix(in srgb, var(--fg) 45%, transparent);
+  border-radius: 0.12em;
+  overflow: hidden;
+}
+.tl-car:first-child .tl-car-body { border-top-left-radius: 0.55em; }
+.tl-car:last-child .tl-car-body { border-top-right-radius: 0.55em; }
+.tl-car-body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--fg);
+  transform: scaleY(var(--load, 0));
+  transform-origin: bottom;
+}
+.tl-car-body[data-load="busy"]::after { background: var(--late); }
+.tl-car-body[data-load="unknown"]::after { display: none; }
+
+/* What is in each car, under it: "1" for first class, and for an accessible
+   toilet the wheelchair sign with "WC", faded and struck through when the
+   feed says it is out of use. The sign is a mask over currentColor, so it is
+   drawn from the palette and needs no font or file. */
+.tl-car-marks {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.3em;
+  font-size: 0.8em;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--fg);
+  white-space: nowrap;
+}
+.tl-car-marks:empty { display: none; }
+.tl-first { color: var(--accent); }
+.tl-wc { display: inline-flex; align-items: center; gap: 0.1em; }
+.tl-wc::before {
+  content: "";
+  width: 1.05em;
+  height: 1.05em;
+  background: currentColor;
+  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><circle cx='10' cy='3.2' r='2' fill='black' stroke='none'/><path d='M9.6 7v6.4h6.2l2.6 6'/><path d='M9.6 10h5'/><path d='M7 11.2a6 6 0 1 0 8.6 6.6'/></svg>") center / contain no-repeat;
+}
+.tl-wc::after { content: "WC"; font-size: 0.72em; }
+.tl-wc[data-out] { opacity: 0.4; }
+.tl-wc[data-out]::after { text-decoration: line-through; }
 
 /* The reason, under the route and above the bar: still part of the block the
    top of the screen gives to one train. Amber is what this board warns in,
@@ -286,7 +380,8 @@ body {
   font-size: calc(var(--row-font) * 0.62);
   font-weight: 700;
   color: var(--late);
-  padding: 0.1em 0.5em 0;
+  /* No side padding: the sentence starts on the board's edge, under the time. */
+  padding: 0.1em 0 0;
 }
 .service-reason[data-status="cancelled"] { color: var(--cancelled); }
 
@@ -363,9 +458,16 @@ body {
 .calling-points[data-status="cancelled"] .calling-points-label,
 .calling-points[data-status="cancelled"] .tl-pages,
 .calling-points[data-status="cancelled"] .tl-stop,
-.calling-points[data-status="cancelled"] .tl-stop.tl-final { color: var(--muted); }
+.calling-points[data-status="cancelled"] .tl-stop.tl-final,
+.calling-points[data-status="cancelled"] .tl-stop.tl-here { color: var(--muted); }
 .calling-points[data-status="cancelled"] .tl-stop::before,
-.calling-points[data-status="cancelled"] .tl-stop::after { background: var(--muted); }
+.calling-points[data-status="cancelled"] .tl-stop::after,
+.calling-points[data-status="cancelled"] .tl-train { background: var(--muted); }
+/* The ring keeps the ground inside it; only its edge greys. */
+.calling-points[data-status="cancelled"] .tl-stop.tl-here::before {
+  background: var(--bg);
+  box-shadow: inset 0 0 0 0.09em var(--muted);
+}
 
 .empty { color: var(--accent); font-size: 2.4vh; padding: 2vh 0; }
 .connection { background: var(--tl-bar); color: var(--fg); border-radius: 0; }

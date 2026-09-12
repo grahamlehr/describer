@@ -141,6 +141,9 @@ class ModernThemeConfig(BaseModel):
 
 class ThameslinkThemeConfig(BaseModel):
     colours: ThemeColoursConfig = ThemeColoursConfig()
+    #: Draw the top train's whole run, origin to destination, in place of
+    #: only the stops still to come.
+    full_journey: bool = False
 
 
 class CrtThemeConfig(BaseModel):

@@ -53,6 +53,7 @@ display:
       dot_colour: yellow    # yellow | white | green — the lit face of each disc
       click_sound: false    # rattle as the discs flip
     thameslink:
+      full_journey: false   # the route runs origin to destination instead of "Calling at"
       # No on_time here: this board counts down in the text colour.
       colours: {}
 

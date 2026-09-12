@@ -230,6 +230,7 @@ function buildCoachEl(coach) {
   span.style.setProperty('--load', load == null ? '0' : String(Math.min(Math.max(load, 0), 100) / 100));
   if (coach?.first_class) span.dataset.first = '';
   if (coach?.accessible_toilet) span.dataset.toilet = 'accessible';
+  if (coach?.accessible_toilet && coach.toilet_in_service === false) span.dataset.toiletOut = '';
   return span;
 }
 
@@ -442,7 +443,9 @@ function renderCallingPoints(boardEl, services, show) {
   const points = rawPoints.map((p) => p.name);
 
   // An arrival has already made its stops; a departure has them ahead of it.
-  const label = boardEl.dataset.mode === 'arrivals' ? 'Called at' : 'Calling at';
+  // A theme drawing something else in this block may name it its own way.
+  const label = theme?.callingPointsLabel?.(boardEl.dataset.mode, first)
+    ?? (boardEl.dataset.mode === 'arrivals' ? 'Called at' : 'Calling at');
   const labelEl = wrap.querySelector('.calling-points-label');
   if (labelEl.textContent !== label) labelEl.textContent = label;
 
@@ -464,11 +467,12 @@ function renderCallingPoints(boardEl, services, show) {
   wrap.hidden = false;
 
   // A theme may paint the stops its own way; splitflap builds them from flaps.
-  // The full point objects are the third argument; only thameslink uses them,
-  // to mark the ones an arrival has already passed.
+  // The full point objects are the third argument and the service the fourth;
+  // only thameslink uses them, to mark the stops an arrival has already passed
+  // and to draw the whole journey in place of the stops.
   if (theme?.renderCallingPoints) {
     callingPages.delete(list);
-    theme.renderCallingPoints(list, points, rawPoints);
+    theme.renderCallingPoints(list, points, rawPoints, first);
     return;
   }
 

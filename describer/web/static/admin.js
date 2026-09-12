@@ -224,6 +224,9 @@ const THEME_OPTIONS = {
     { key: 'dot_colour', label: 'Dot colour', type: 'select', options: [['yellow', 'Yellow'], ['white', 'White'], ['green', 'Green']] },
     { key: 'click_sound', label: 'Rattle as discs flip', type: 'check' },
   ],
+  thameslink: [
+    { key: 'full_journey', label: 'Show full journey', type: 'check' },
+  ],
 };
 
 /** Enough hues to tell a handful of profiles apart on the ribbon. */

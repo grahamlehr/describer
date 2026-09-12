@@ -42,6 +42,11 @@ let root = null;
 let api = null;
 /** Shared by every delayed service on screen, so they alternate together. */
 let delayPhase = false;
+/** display.themes.thameslink.full_journey: the route runs origin to destination. */
+let fullJourney = false;
+/** Coach loading bands, the same as board.js's QUIET_BELOW and BUSY_FROM. Change both. */
+const QUIET_BELOW = 35;
+const BUSY_FROM = 70;
 
 export function attach(boardsEl, options, themeApi) {
   root = boardsEl;
@@ -71,6 +76,7 @@ export function attach(boardsEl, options, themeApi) {
 
 export function configure(options = {}) {
   applyColours(options.colours, ROLES);
+  fullJourney = Boolean(options.full_journey);
 }
 
 export function detach() {
@@ -94,6 +100,8 @@ export function detach() {
     list.style.removeProperty('transform');
     list.parentElement?.style.removeProperty('height');
     delete list.__key;
+    delete list.__anchor;
+    delete list.__turned;
   }
   root = api = null;
 }
@@ -173,25 +181,37 @@ function minutesUntil(text) {
  * for the ones it has already left: those are dimmed with `.tl-passed`, and
  * the dot moves to the first one it has not — or, once it has left them all,
  * to the last, meaning "arriving next".
+ *
+ * With `full_journey` on, the route is the service's whole `journey` instead
+ * (see `journeyStops`), in either mode, and it opens on the page the train is
+ * on rather than at the origin.
  */
-export function renderCallingPoints(list, points, rawPoints = []) {
-  const key = points.join('\n');
+export function renderCallingPoints(list, points, rawPoints = [], service = null) {
+  const arrivals = list.closest('.board')?.dataset.mode === 'arrivals';
+  const journey = journeyFor(service);
+  const stops = journey ? journeyStops(journey) : routeStops(points, rawPoints, arrivals);
+  // The key carries the classes as well as the names: a stop being left
+  // changes nothing but a class, and it must still repaint.
+  const key = JSON.stringify(stops);
   if (list.__key !== key) {
     list.__key = key;
     list.textContent = '';
-    const arrivals = list.closest('.board')?.dataset.mode === 'arrivals';
-    const firstUnreached = arrivals
-      ? rawPoints.findIndex((point) => !point.actual_time)
-      : -1;
-    const finalIndex = arrivals && firstUnreached !== -1 ? firstUnreached : points.length - 1;
-    points.forEach((point, index) => {
-      const stop = document.createElement('span');
-      stop.className = index === finalIndex ? 'tl-stop tl-final' : 'tl-stop';
-      if (arrivals && index < finalIndex) stop.classList.add('tl-passed');
-      stop.textContent = point;
-      list.append(stop);
-    });
+    for (const stop of stops) {
+      const el = document.createElement('span');
+      el.className = ['tl-stop', ...stop.classes].join(' ');
+      el.textContent = stop.name;
+      if (stop.train) {
+        const marker = document.createElement('i');
+        marker.className = 'tl-train';
+        el.append(marker);
+      }
+      list.append(el);
+    }
+    const train = stops.findIndex((stop) => stop.train);
+    const here = stops.findIndex((stop) => stop.classes.includes('tl-here'));
+    list.__anchor = train !== -1 ? train : Math.max(0, here);
     list.__page = 0;
+    list.__turned = false;
   }
   callingLists.add(list);
   // Observing the block, not the track: the track's height is ours to set, and
@@ -199,6 +219,54 @@ export function renderCallingPoints(list, points, rawPoints = []) {
   if (list.parentElement) observer?.observe(list.parentElement.parentElement);
   measure(list);
   paintPage(list);
+}
+
+/** The top service's whole run, when it is wanted and the feed gave us one. */
+function journeyFor(service) {
+  return fullJourney && service?.journey?.length ? service.journey : null;
+}
+
+/** "Journey" names the block when it holds the whole run; null keeps the default. */
+export function callingPointsLabel(mode, service) {
+  return journeyFor(service) ? 'Journey' : null;
+}
+
+/** The stops still to come, or on an arrival the ones behind it. */
+function routeStops(points, rawPoints, arrivals) {
+  const firstUnreached = arrivals ? rawPoints.findIndex((point) => !point.actual_time) : -1;
+  const finalIndex = arrivals && firstUnreached !== -1 ? firstUnreached : points.length - 1;
+  return points.map((name, index) => ({
+    name,
+    classes: [
+      index === finalIndex && 'tl-final',
+      arrivals && index < finalIndex && 'tl-passed',
+    ].filter(Boolean),
+  }));
+}
+
+/**
+ * The whole run, origin to destination. Stops the train has left are dimmed,
+ * this station is ringed, the destination keeps the filled dot, and an
+ * arrowhead on the line sits just above the next stop the train will reach.
+ * Only the stops behind this station carry an actual time, which is exactly
+ * where the train can be; a train that has not left its origin gets no arrow.
+ */
+function journeyStops(journey) {
+  const here = journey.findIndex((point) => point.here);
+  let left = -1;
+  journey.forEach((point, index) => {
+    if (index < here && point.actual_time) left = index;
+  });
+  const last = journey.length - 1;
+  return journey.map((point, index) => ({
+    name: point.name,
+    classes: [
+      index <= left && 'tl-passed',
+      index === here && 'tl-here',
+      index === last && index !== here && 'tl-final',
+    ].filter(Boolean),
+    train: left !== -1 && index === left + 1,
+  }));
 }
 
 /**
@@ -238,6 +306,13 @@ function pageCount(list) {
 
 function paintPage(list) {
   const pages = pageCount(list);
+  // Until the first turn, open on the page the train is on (the first page,
+  // for anything but a full journey). Worked out again on every paint rather
+  // than once, because the room for the stops is still settling while the
+  // board loads, and with it how many stops make a page.
+  if (!list.__turned && list.__perPage) {
+    list.__page = Math.floor((list.__anchor || 0) / list.__perPage);
+  }
   const page = (list.__page || 0) % pages;
   const offset = list.__perPage ? page * list.__perPage * list.__stop : 0;
   // Sliding the column rather than replacing it keeps the route line running
@@ -273,9 +348,75 @@ function turnCallingPage() {
     // Measured every turn, not once: the room for the stops moves with the
     // board's height, the row count and the theme's font arriving late.
     measure(list);
-    if (pageCount(list) > 1) list.__page = (list.__page || 0) + 1;
+    if (pageCount(list) > 1) {
+      list.__page = (list.__page || 0) + 1;
+      list.__turned = true;
+    }
     paintPage(list);
   }
+}
+
+/* ----------------------------------------------------------- the formation */
+
+/**
+ * The coaches as the car-loading panels draw them: one car per coach sharing
+ * the width, rounded at the two ends of the train and gapped where one unit
+ * couples to the next (the letter in "A4", "B1" changes), each filled to how
+ * busy the feed says it is. Under each car, on a line of its own so a mark
+ * never sits on the fill: "1" for first class, and the wheelchair sign with
+ * "WC" for an accessible toilet, faded and struck through when the feed says
+ * it is out of use. Nothing else: standard toilets are noise at this size,
+ * and the feed says nothing about wheelchair spaces.
+ */
+export function renderFormation(el, formation, length) {
+  const coaches = formation?.coaches || [];
+  const key = JSON.stringify([coaches, length]);
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  el.textContent = '';
+  if (!coaches.length) {
+    // RTT knows how long a train is and nothing else about it: a row of empty
+    // boxes says less than the number does.
+    const count = document.createElement('span');
+    count.className = 'tl-coaches';
+    count.textContent = `${length} coaches`;
+    el.append(count);
+    return;
+  }
+  const cars = document.createElement('span');
+  cars.className = 'tl-cars';
+  let unit = null;
+  coaches.forEach((coach, index) => {
+    const car = document.createElement('span');
+    car.className = 'tl-car';
+    const coachUnit = String(coach.number || '').replace(/\d+$/, '');
+    if (index && coachUnit && coachUnit !== unit) car.dataset.unitStart = '';
+    unit = coachUnit;
+
+    const body = document.createElement('span');
+    body.className = 'tl-car-body';
+    const load = coach.loading;
+    body.dataset.load = load == null ? 'unknown' : load < QUIET_BELOW ? 'quiet' : load < BUSY_FROM ? 'moderate' : 'busy';
+    body.style.setProperty('--load', load == null ? '0' : String(Math.min(Math.max(load, 0), 100) / 100));
+
+    const marks = document.createElement('span');
+    marks.className = 'tl-car-marks';
+    if (coach.first_class) {
+      const first = document.createElement('span');
+      first.className = 'tl-first';
+      first.textContent = '1';
+      marks.append(first);
+    }
+    if (coach.accessible_toilet) {
+      const toilet = document.createElement('span');
+      toilet.className = 'tl-wc';
+      if (coach.toilet_in_service === false) toilet.dataset.out = '';
+      marks.append(toilet);
+    }
+    car.append(body, marks);
+    cars.append(car);
+  });
+  el.append(cars);
 }
 
 /* --------------------------------------------------------------- the clock */

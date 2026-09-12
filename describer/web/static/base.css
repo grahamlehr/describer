@@ -176,17 +176,21 @@ html, body {
 /* One box per coach. The fill is a ::after so a theme colours it without
    touching the box itself; static between polls, but the cheapest paint on
    offer when it does change. */
+/* No overflow: hidden here. It clipped the first-class flag, which sits
+   outside the box, so no first-class coach was ever marked; the fill never
+   leaves the box anyway, and follows a theme's rounded corners by inheriting
+   them. */
 .coach {
   position: relative;
   display: inline-block;
   width: 0.55em;
   height: 1em;
-  overflow: hidden;
 }
 .coach::after {
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   transform: scaleY(var(--load, 0));
   transform-origin: bottom;
 }

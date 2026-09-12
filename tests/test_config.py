@@ -189,6 +189,17 @@ def test_theme_colours_default_to_the_stylesheet():
     assert set(colours.model_dump().values()) == {None}
 
 
+def test_thameslink_full_journey_is_off_unless_asked_for():
+    assert Config(stations=[{"crs": "PAD"}]).display.themes.thameslink.full_journey is False
+
+    config = Config(
+        stations=[{"crs": "PAD"}],
+        display={"themes": {"thameslink": {"full_journey": True}}},
+    )
+
+    assert config.display.themes.thameslink.full_journey is True
+
+
 def test_theme_colours_round_trip_and_are_held_lower_case(tmp_path):
     path = tmp_path / "config.yaml"
     config = Config(
