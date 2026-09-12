@@ -25,6 +25,9 @@ const CALLING_SEPARATOR = ' \u2022 ';
  */
 const REASON_LEAD = /^this\s+(?:is|was)\s+/i;
 const REASON_JOINS = /^(?:due to|because of|owing to)\b/i;
+/** Coach loading bands. Judged by eye, not derived from anything Darwin sends. */
+const QUIET_BELOW = 35;
+const BUSY_FROM = 70;
 /** Pages of stops for each list that board.js paints itself; themes keep their own. */
 const callingPages = new WeakMap();
 /** Pages of the reason line, for the themes whose text is ordinary type. */
@@ -58,7 +61,7 @@ async function applyTheme(name, options) {
   themeLink.href = `/static/themes/${name}.css`;
 
   // Cells rendered by the previous theme must go back to plain text.
-  for (const cell of boardsEl.querySelectorAll('.cell')) {
+  for (const cell of boardsEl.querySelectorAll('.cell, .service-position')) {
     cell.textContent = cell.dataset.text || '';
     delete cell.dataset.rendered;
   }
@@ -71,6 +74,10 @@ async function applyTheme(name, options) {
   for (const reason of boardsEl.querySelectorAll('.service-reason')) {
     reason.textContent = '';
     delete reason.dataset.text;
+  }
+  for (const formation of boardsEl.querySelectorAll('.service-formation')) {
+    formation.textContent = '';
+    delete formation.dataset.key;
   }
 
   themeLoading = import(`/static/themes/${name}.js`)
@@ -174,6 +181,122 @@ function statusText(service) {
   }
 }
 
+/**
+ * Insert `el` right after the last visible one of `candidates`, or after the
+ * top row when none are. Keeps the position/formation line, the stops and
+ * the reason line in a fixed order under the top service without any one of
+ * them needing to know about the others.
+ */
+function placeAfter(rowsEl, el, ...candidates) {
+  let anchor = rowsEl.querySelector('.row');
+  for (const candidate of candidates) {
+    if (candidate && !candidate.hidden && candidate.parentElement === rowsEl) anchor = candidate;
+  }
+  if (anchor && el.previousElementSibling !== anchor) {
+    rowsEl.insertBefore(el, anchor.nextSibling);
+  }
+}
+
+/* ------------------------------------------------------------------ detail */
+
+/**
+ * "Where is it now", worked out by the parser from the stops it has already
+ * left. A theme with less room may word this its own way; null means "you
+ * decide". Not shown for a service with no position at all (RTT, or one
+ * that starts here or is cancelled).
+ */
+function positionText(service, mode) {
+  const custom = theme?.positionText?.(service, mode);
+  if (custom != null) return custom;
+  const position = service.position;
+  if (!position) return null;
+  if (position.state === 'not_started') {
+    return position.next ? `Not yet left ${position.next}` : null;
+  }
+  if (!position.last) return null;
+  const when = position.last_time ? ` ${position.last_time}` : '';
+  const tail = position.state === 'approaching'
+    ? 'next stop here'
+    : position.stops_away === 1 ? '1 stop away' : `${position.stops_away} stops away`;
+  return `Left ${position.last}${when} · ${tail}`;
+}
+
+/** One coach box: quiet/moderate/busy/unknown, first class, accessible toilet. */
+function buildCoachEl(coach) {
+  const span = document.createElement('span');
+  span.className = 'coach';
+  const load = coach ? coach.loading : null;
+  span.dataset.load = load == null ? 'unknown' : load < QUIET_BELOW ? 'quiet' : load < BUSY_FROM ? 'moderate' : 'busy';
+  span.style.setProperty('--load', load == null ? '0' : String(Math.min(Math.max(load, 0), 100) / 100));
+  if (coach?.first_class) span.dataset.first = '';
+  if (coach?.accessible_toilet) span.dataset.toilet = 'accessible';
+  return span;
+}
+
+/**
+ * One box per coach. `formation` gives loading, first class and toilets;
+ * with none, plain boxes are drawn from `length` alone (all RTT ever gives
+ * us). A theme may paint the strip its own way instead.
+ */
+function renderFormation(el, formation, length) {
+  if (theme?.renderFormation) {
+    theme.renderFormation(el, formation, length);
+    return;
+  }
+  const coaches = formation?.coaches || Array.from({ length: length || 0 }, () => null);
+  const key = JSON.stringify(coaches);
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  el.textContent = '';
+  for (const coach of coaches) el.append(buildCoachEl(coach));
+}
+
+/**
+ * Where the top service is, and how it is made up, on one line under its
+ * row. Hidden on a stale board — a position from the last good fetch is
+ * exactly the thing that must not be shown as live — when both toggles are
+ * off, or when there is nothing either would draw.
+ */
+function renderDetail(boardEl, services, board, display) {
+  const wrap = boardEl.querySelector('.service-detail');
+  const rowsEl = boardEl.querySelector('.rows');
+  const positionEl = wrap.querySelector('.service-position');
+  const formationEl = wrap.querySelector('.service-formation');
+
+  // Only a theme that has somewhere to put this line asks for it; every
+  // other theme is left exactly as it was.
+  if (!theme?.serviceDetail) {
+    wrap.hidden = true;
+    positionEl.hidden = true;
+    formationEl.hidden = true;
+    rowsEl.style.setProperty('--detail-share', '0');
+    return;
+  }
+
+  const top = services[0];
+  const live = top && !board.stale;
+
+  const text = live && display.show_position !== false ? positionText(top, board.mode) : null;
+  setText(positionEl, text || '');
+  positionEl.hidden = !text;
+
+  const hasFormation = Boolean(
+    live && display.show_formation !== false && (top.formation || top.length)
+  );
+  formationEl.hidden = !hasFormation;
+  if (hasFormation) {
+    renderFormation(formationEl, top.formation, top.length);
+  } else {
+    formationEl.textContent = '';
+    delete formationEl.dataset.key;
+  }
+
+  placeAfter(rowsEl, wrap);
+  const show = Boolean(text) || hasFormation;
+  rowsEl.style.setProperty('--detail-share', show ? '0.9' : '0');
+  wrap.hidden = !show;
+}
+
 /* ---------------------------------------------------------------- reasons */
 
 /** The reason that goes with the state the train is actually in, or none. */
@@ -220,18 +343,15 @@ function reasonText(service, mode) {
 function renderReason(boardEl, services, mode) {
   const wrap = boardEl.querySelector('.service-reason');
   const rowsEl = boardEl.querySelector('.rows');
+  const detailEl = boardEl.querySelector('.service-detail');
   const callingWrap = boardEl.querySelector('.calling-points');
   const top = services[0];
   const service = reasonFor(top) ? top : services.find((candidate) => reasonFor(candidate));
   const text = (service && reasonText(service, mode)) || '';
 
-  // Under the top service, and under its stops when it has them on screen.
-  const anchor = !callingWrap.hidden && callingWrap.parentElement === rowsEl
-    ? callingWrap
-    : rowsEl.querySelector('.row');
-  if (anchor && wrap.previousElementSibling !== anchor) {
-    rowsEl.insertBefore(wrap, anchor.nextSibling);
-  }
+  // Under the top service, after its position/formation line and its stops
+  // when either is showing.
+  placeAfter(rowsEl, wrap, detailEl, callingWrap);
 
   // A board with nothing wrong on it gives the height back to the services.
   rowsEl.style.setProperty('--reason-share', text ? '0.9' : '0');
@@ -316,19 +436,19 @@ function renderCallingPoints(boardEl, services, show) {
   const wrap = boardEl.querySelector('.calling-points');
   const list = wrap.querySelector('.calling-points-list');
   const rowsEl = boardEl.querySelector('.rows');
+  const detailEl = boardEl.querySelector('.service-detail');
   const first = services[0];
-  const points = show && first ? first.calling_points.map((p) => p.name) : [];
+  const rawPoints = show && first ? first.calling_points : [];
+  const points = rawPoints.map((p) => p.name);
 
   // An arrival has already made its stops; a departure has them ahead of it.
   const label = boardEl.dataset.mode === 'arrivals' ? 'Called at' : 'Calling at';
   const labelEl = wrap.querySelector('.calling-points-label');
   if (labelEl.textContent !== label) labelEl.textContent = label;
 
-  // These stops belong to the top service, so they read directly under its row.
-  const topRow = rowsEl.querySelector('.row');
-  if (topRow && wrap.previousElementSibling !== topRow) {
-    rowsEl.insertBefore(wrap, topRow.nextSibling);
-  }
+  // These stops belong to the top service, so they read directly under it —
+  // after its position/formation line when that is showing, else the row.
+  placeAfter(rowsEl, wrap, detailEl);
 
   // A hidden block claims no share of the height; the rows take it instead.
   // 0.9 of a row is one line of label and stops at 0.9 of the row's type with
@@ -344,9 +464,11 @@ function renderCallingPoints(boardEl, services, show) {
   wrap.hidden = false;
 
   // A theme may paint the stops its own way; splitflap builds them from flaps.
+  // The full point objects are the third argument; only thameslink uses them,
+  // to mark the ones an arrival has already passed.
   if (theme?.renderCallingPoints) {
     callingPages.delete(list);
-    theme.renderCallingPoints(list, points);
+    theme.renderCallingPoints(list, points, rawPoints);
     return;
   }
 
@@ -432,6 +554,7 @@ function renderBoard(boardEl, board, station, display) {
   stale.textContent = board.stale ? `Data stale${board.error ? ` — ${board.error}` : ''}` : '';
 
   const services = renderRows(boardEl, board, station);
+  renderDetail(boardEl, services, board, display);
   renderCallingPoints(boardEl, services, display.show_calling_points);
   renderReason(boardEl, services, board.mode);
 

@@ -7,6 +7,9 @@
 
 import { applyColours, clearColours } from './colours.js';
 
+/** There is room for the position/formation line, so board.js shows it here. */
+export const serviceDetail = true;
+
 export function attach(boardsEl, options) {
   configure(options);
 }

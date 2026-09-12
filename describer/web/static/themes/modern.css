@@ -63,5 +63,18 @@ body {
 .calling-points-label { color: var(--accent); }
 .calling-points-list { color: var(--fg); }
 
+/* Where the train is now, and its formation. Reads as part of the selected
+   row, so it sits in the same wash rather than getting a rule of its own. */
+.service-detail { color: var(--muted); }
+.coach {
+  border: 1px solid var(--muted);
+  border-radius: 0.15em;
+}
+.coach::after { background: color-mix(in srgb, var(--on-time) 70%, var(--bg)); }
+.coach[data-load="moderate"]::after { background: color-mix(in srgb, var(--late) 70%, var(--bg)); }
+.coach[data-load="busy"]::after { background: color-mix(in srgb, var(--cancelled) 70%, var(--bg)); }
+.coach[data-load="unknown"]::after { background: none; }
+.coach[data-first]::before { color: var(--muted); }
+
 .messages { color: var(--late); border-top: 1px solid var(--rule); }
 .empty { color: var(--muted); font-size: 2.4vh; padding: 2vh 0; }
