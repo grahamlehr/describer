@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# One-shot Pi setup: system packages, venv, Piper, cage, and the two services.
+# One-shot Pi setup: system packages, venv, Piper, cage, and the three services
+# (backend, kiosk, shutdown button).
 # Safe to re-run; every step is idempotent.
 set -euo pipefail
 
@@ -181,4 +182,6 @@ Next steps:
   3. Board:    http://$(hostname -I | awk '{print $1}'):8080/
      Settings: http://$(hostname -I | awk '{print $1}'):8080/admin
   Logs: journalctl --user -u describer -f   and   sudo journalctl -u kiosk -f
+  Shutdown button: six presses in 10 s on GPIO21 (pin 40 to GND, pin 39)
+                   sudo journalctl -u shutdown-button -n 5
 MSG

@@ -17,6 +17,14 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
 - Display: 16:9 monitor on HDMI. Target 1920x1080; layout must also look
   right at 1280x720. Landscape only.
 - Audio: HDMI audio by default; 3.5 mm jack must be selectable in config.
+- Shutdown button: a momentary switch from GPIO21 (pin 40) to GND (pin 39).
+  Six presses within 10 s runs `systemctl poweroff`, so the Pi can be turned
+  off without risking the SD card. `deploy/shutdown_button.py` is its own
+  system service on the system Python with the apt `python3-gpiozero` and
+  `python3-lgpio`, deliberately outside the app and its venv. Only one process
+  can own the pin, so any further gesture on that button goes in that script.
+  The press counting is the pure `Gesture` class, tested in
+  `test_shutdown_button.py`; `gpiozero` is imported only in `main()`.
 - Development happens on a Mac; deployment target is the Pi. Keep the app
   runnable on both (no Pi-only imports at module load time).
 
@@ -272,7 +280,12 @@ off the Pi**. Addendum 4 is the rule, not a suggestion.
 Then open `http://localhost:8080/` for the board, `/admin` for settings.
 
 Pi: run `deploy/install.sh` once, then `systemctl --user status describer`
-and `sudo systemctl status kiosk`.
+and `sudo systemctl status kiosk shutdown-button`.
+
+`install.sh` runs under `set -e`, so a helper function must not end on a
+`[ … ] && …` list: a false test becomes the function's status and ends the
+install. That is how pressing Enter to keep a credential used to abort it.
+Use an `if`.
 
 ## Out of scope for v1
 

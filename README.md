@@ -90,14 +90,15 @@ sudo journalctl -u shutdown-button -n 5   # "watching GPIO21 for 6 presses withi
 ```
 
 `install.sh` asks for both sets of credentials and writes them to
-`/etc/describer/describer.env` (mode 600). To change them later, edit that
+`/etc/describer/describer.env` (mode 600). On a re-run, pressing Enter at a
+prompt keeps the credential already there. To change them later, edit that
 file and:
 
 ```bash
 systemctl --user restart describer
 sudo systemctl restart kiosk
 systemctl --user status describer
-sudo systemctl status kiosk
+sudo systemctl status kiosk shutdown-button
 journalctl --user -u describer -f
 sudo journalctl -u kiosk -f
 ```
