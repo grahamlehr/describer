@@ -211,3 +211,10 @@ def test_a_colour_that_is_not_a_six_digit_hex_is_rejected(value):
             stations=[{"crs": "PAD"}],
             display={"themes": {"thameslink": {"colours": {"background": value}}}},
         )
+
+
+def test_position_and_formation_default_on():
+    display = Config(stations=[{"crs": "PAD"}]).display
+
+    assert display.show_position is True
+    assert display.show_formation is True

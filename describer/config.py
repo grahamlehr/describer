@@ -182,6 +182,11 @@ class DisplayConfig(BaseModel):
     clock: bool = True
     #: Expand the first row to scroll its calling points.
     show_calling_points: bool = True
+    #: Show where the top service is now, worked out from the stops behind it.
+    #: RDM only; an RTT board never carries the data to say.
+    show_position: bool = True
+    #: Show the top service's formation as one box per coach.
+    show_formation: bool = True
     #: HDMI output mode. ``auto`` leaves the monitor's preferred mode alone;
     #: a 4K panel makes the Pi 4 composite four times the pixels it needs, so
     #: forcing 1080p or 720p keeps the animations smooth. Applied live with
@@ -319,6 +324,8 @@ class DisplayOverride(BaseModel):
     theme: ThemeName | None = None
     clock: bool | None = None
     show_calling_points: bool | None = None
+    show_position: bool | None = None
+    show_formation: bool | None = None
     #: Theme options and palettes, merged key by key onto the base block. Held
     #: loosely because a theme's options are its own; the merged result is
     #: validated against ThemesConfig before the profile is accepted.

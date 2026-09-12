@@ -30,6 +30,10 @@ display:
   theme: modern             # modern | crt | splitflap | 1990s | nse | led-matrix | thameslink
   clock: true               # show the live clock in the board header
   show_calling_points: true # expand the first row to page through its calling points
+  # Where the top service is now, and its formation — modern and thameslink
+  # only, worked out from RDM's own data. Always absent on an RTT board.
+  show_position: true      # "Left Reading 14:56 · 2 stops away", under the top row
+  show_formation: true     # one box per coach, filled to how busy the feed says it is
   resolution: auto          # auto | 1080p | 720p — force the HDMI mode; a 4K panel makes the Pi crawl
   themes:
     # Palette overrides, in the vocabulary every theme shares: background,
@@ -125,7 +129,7 @@ profiles:
   #   stations:             # present = replaces the list above entirely
   #     - {crs: ABW, mode: departures, rows: 10, platforms: ["1"]}
   #     - {crs: LBG, mode: arrivals, rows: 10}
-  #   display:              # theme, clock, show_calling_points and theme options
+  #   display:              # theme, clock, show_calling_points, show_position, show_formation and theme options
   #     theme: thameslink
   #   announcements:        # any announcement option but the Piper paths
   #     lead_time: 180

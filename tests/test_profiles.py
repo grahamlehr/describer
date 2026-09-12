@@ -147,6 +147,19 @@ def test_a_theme_option_merges_key_by_key():
     assert resolved.display.themes.crt.scanlines is False
 
 
+def test_position_and_formation_toggles_apply():
+    profile = {
+        **MORNING,
+        "display": {"theme": "thameslink", "show_position": False, "show_formation": False},
+    }
+    config = config_with(profile)
+
+    resolved = resolve(config, MONDAY_0800)
+
+    assert resolved.display.show_position is False
+    assert resolved.display.show_formation is False
+
+
 def test_announcements_can_be_silenced_for_a_period():
     config = config_with(EVENING)
 
