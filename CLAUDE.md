@@ -663,8 +663,8 @@ and the render never disagree.
   trailing `via …` is dropped before any word is cut.
 - **Calling points page.** A mechanical board cannot scroll. The stops are
   packed into full-width pages that never split a station name, and turned
-  every 6 s. The row width is *measured* from a rendered flap rather than
-  assumed from the CSS, so it survives a font or size change.
+  every 6 s. The row width is worked out from the host's own type size and
+  the tile pitch (Addendum 14), so it survives a font or size change.
 
 ## nse specifics
 
@@ -915,8 +915,9 @@ dot, so what marks the line out there is where it is.
 ## Verifying this by hand
 
 - The animation needs `requestAnimationFrame`, which a hidden browser pane
-  does not run: the flaps freeze mid-alphabet. For a still, park them first:
-  `for (const f of document.querySelectorAll(".flap")) { f.textContent = f.dataset.target; f.__nextAt = Infinity; }`
+  does not run: the flaps freeze mid-alphabet (the watchdog still steps them,
+  four times a second). A headless Chrome driven over CDP does deliver frames
+  at 60 Hz and is how Addendum 14 was measured.
 - `setInterval` is throttled in a background tab, so the 15 s status cycle and
   the 6 s page turn only run while the pane is displayed.
 - Theme CSS was cached hard, which cost a deployment: the Pi drew a new theme
@@ -927,10 +928,10 @@ dot, so what marks the line out there is where it is.
   in a pane, re-fetch with `{cache: 'reload'}` or append a query string.
 - Truncation is easier measured than seen:
   `[...document.querySelectorAll(".cell")].filter(c => c.scrollWidth - c.clientWidth > 1)`.
-  That test reads a splitflap cell wrong: its text lives in flap children, so
-  the cell never overflows. Sum the flap widths and the gaps instead, or just
-  count them — a cell whose flap count is not the `--chars` for its field is
-  the bug below, not a long name.
+  That test reads a splitflap cell wrong: its flaps live on one canvas, so
+  the cell never overflows. Compare the canvas's `getBoundingClientRect()`
+  right edge with its cell's instead, and check `canvas.__chars` against the
+  `--chars` for its field — a mismatch is the bug below, not a long name.
 - A board with fixture data proves very little. The recorded fixtures hold
   short destinations; the names that break a layout are `London Charing Cross`,
   `Ashford International` and `Abbey Wood via Whitechapel`. Test with those.
@@ -951,7 +952,9 @@ abbreviation table never fired, because a name is never longer than itself.
 `append` now happens first; it still doubles as the ordering step, since
 appending a row that is already in `.rows` moves it. `setText` short-circuits
 on `dataset.rendered`, so a cell painted wrong once stays wrong — anything
-reading layout out of CSS has to run against a connected node.
+reading layout out of CSS has to run against a connected node. The canvas
+that replaced the flap children (Addendum 14) is sized from the same computed
+style, so the rule stands.
 
 ## Open items
 
@@ -1969,3 +1972,61 @@ hook. The autouse `no_update_checks` fixture in `conftest.py` pushes
 Automatic installs, release tags or channels, a changelog beyond commit
 subjects, updating the unit files, and restarting the kiosk (the page reloads
 itself instead).
+
+---
+
+# Addendum 14 — Splitflap flaps are blitted, not laid out
+
+On the Pi the flip was too slow to pass for a machine. Each flap was a
+`<span>` whose text changed every step, restarted through `element.animate`
+on transform and opacity, so every step made Chromium re-lay-out the cell,
+repaint the text run, promote the span to a compositor layer for 40 ms and
+demote it again. Measured over CDP in a headless Chrome on the dev Mac
+(1920×1080, dpr 1, main-thread time from the start of the frame's callbacks to
+the timer that runs after its rendering work):
+
+| | one board, 5 rows | two boards, 11 rows |
+|---|---|---|
+| DOM flaps | 4.5–5.3 ms a frame, frames dropped to 50–67 ms | not measured |
+| canvas tiles | 0.3–0.5 ms a frame, no frame over 2 ms | 0.8–1.0 ms a frame |
+
+A Pi 4B is eight to twelve times slower on one core than that Mac, so the old
+figure is 40–60 ms a frame for one board — 15 to 25 fps while anything was
+flipping, and worse with two boards. The new one is a few milliseconds.
+
+## What changed
+
+- **Every line of flaps is one `<canvas>`**, in the cell, the stops list or
+  the reason line, sized by `splitflap.css` from `--chars` at the pitch the
+  DOM flaps measured (0.86em tile, 0.08em gap, 1.32em tall). `TILE_EM` and
+  `GAP_EM` in the module are the same numbers; change both. `--chars` is the
+  stylesheet's for a board column and is set inline for a paged line, whose
+  width is now computed from the host's font size and the pitch rather than
+  measured off a rendered flap.
+- **Tiles come from a sprite sheet**: the whole drum drawn once per font,
+  size and colour, on its flap with the hinge line, and shared by every
+  canvas that matches. A step is then three blits at most. The colours of
+  the flap halves are `--flap-top`, `--flap-bottom` and `--flap-edge` in the
+  stylesheet, read when a sheet is drawn.
+- **The flip is three frames a step**, not a frame per refresh: the old top
+  flap foreshortened against the hinge, the new bottom flap landing under
+  it, then the tile at rest. At 25 steps a second a fourth frame is nothing
+  the eye can see and would cost a scaled blit per flap per refresh. Reduced
+  motion draws only the third.
+- The stepping is still clock-paced with the watchdog behind it, the stagger,
+  `MAX_STEPS`, the status alternation, the abbreviation table and the paging
+  are unchanged, and `flap_ms` and `click_sound` mean what they did.
+- A cell whose colour or face changes (a row turning cancelled) gets a fresh
+  sheet and a full repaint; so does every canvas when `document.fonts`
+  finishes loading or a `ResizeObserver` reports a new box, exactly as `nse`
+  handles its dots.
+
+## Verifying this by hand
+
+`canvas.__to`, `__from`, `__remaining` and `__phase` are the per-flap state;
+a flap at rest has `__remaining` of -1. Fixture names still prove little:
+`Abbey Wood via Whitechapel` becomes `ABBEY WOOD` by the via rule, and
+`London Charing Cross` becomes `LONDON CHARING X`. Checked at 1920×1080 and
+1280×720, one and two boards: no canvas extends past its cell, no page
+overflow, and a cancelled row's tiles come out in `--cancelled`. Not yet
+judged on the Pi itself.
