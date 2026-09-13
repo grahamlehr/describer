@@ -870,6 +870,109 @@ const ROLE_PROPERTY = {
   bar: '--tl-bar',
 };
 
+/** Curated starting palettes, offered as a one-click fill for the colour
+ *  fields below rather than a config concept of their own — picking one just
+ *  writes into the same per-role fields a hand-picked colour would, so it
+ *  costs nothing to fine-tune afterwards and nothing to leave alone. Each
+ *  carries every role so either theme can draw from the same list; a theme
+ *  only ever reads the roles in THEME_ROLES for itself. Curated from Figma's
+ *  "53 website color schemes" resource, remapped on to this vocabulary and
+ *  checked at 4.5:1 against its own background. */
+const PALETTES = [
+  { slug: 'ocean-ruby-radiance', name: 'Ocean ruby radiance', ground: 'dark',
+    colours: { background: '#00335f', text: '#f2f8fc', dim_text: '#b2dae4', accent: '#4fb4e0', on_time: '#2cb876', late: '#f87142', cancelled: '#f46c9f', bar: '#003e73' } },
+  { slug: 'royal-glimmer', name: 'Royal glimmer', ground: 'dark',
+    colours: { background: '#1c2b57', text: '#f5efe0', dim_text: '#9aa3c4', accent: '#c7984f', on_time: '#22aa8d', late: '#d9a959', cancelled: '#d17d99', bar: '#293c7c' } },
+  { slug: 'turquoise-amber-autumn', name: 'Turquoise amber autumn', ground: 'dark',
+    colours: { background: '#1e313f', text: '#eaf3f6', dim_text: '#a4ccd4', accent: '#34a4c2', on_time: '#7fb86a', late: '#f5703c', cancelled: '#e4835f', bar: '#304c64' } },
+  { slug: 'urban-nocturne', name: 'Urban nocturne', ground: 'dark',
+    colours: { background: '#141414', text: '#f2f2f2', dim_text: '#979797', accent: '#e2e800', on_time: '#e2e800', late: '#e2a300', cancelled: '#f0524a', bar: '#2a2a2a' } },
+  { slug: 'inked', name: 'Inked', ground: 'dark',
+    colours: { background: '#000000', text: '#dfdedc', dim_text: '#a6a7a2', accent: '#00acac', on_time: '#00acac', late: '#e0a526', cancelled: '#e0524a', bar: '#1b1b1b' } },
+  { slug: 'amethyst-dawn-haze', name: 'Amethyst dawn haze', ground: 'dark',
+    colours: { background: '#2a1650', text: '#ebe0fa', dim_text: '#c4aef4', accent: '#dcce40', on_time: '#4fb894', late: '#dcce40', cancelled: '#e06a8a', bar: '#472f5b' } },
+  { slug: 'terrazzo', name: 'Terrazzo', ground: 'dark',
+    colours: { background: '#26383a', text: '#f5eee4', dim_text: '#daccc4', accent: '#b8986c', on_time: '#62ab89', late: '#e08b24', cancelled: '#d78978', bar: '#374f4e' } },
+  { slug: 'wraith', name: 'Wraith', ground: 'dark',
+    colours: { background: '#1e1702', text: '#e5e3e4', dim_text: '#8c886b', accent: '#8c886b', on_time: '#1fa37e', late: '#c08a2e', cancelled: '#ca634d', bar: '#342005' } },
+  { slug: 'autumn-luxe', name: 'Autumn luxe', ground: 'dark',
+    colours: { background: '#241f1b', text: '#e2e1eb', dim_text: '#aaaaae', accent: '#bf8440', on_time: '#6fa98a', late: '#bf8440', cancelled: '#cc6d66', bar: '#322d27' } },
+  { slug: 'yacht-club', name: 'Yacht club', ground: 'dark',
+    colours: { background: '#17313d', text: '#f2f0ef', dim_text: '#bbbdbc', accent: '#c18a67', on_time: '#5fa98f', late: '#c98a4b', cancelled: '#cf836d', bar: '#245f73' } },
+  { slug: 'gossamer', name: 'Gossamer', ground: 'light',
+    colours: { background: '#fafafa', text: '#1c1e1f', dim_text: '#6b6d70', accent: '#0b7e7b', on_time: '#19843f', late: '#926a09', cancelled: '#d6301a', bar: '#ededed' } },
+  { slug: 'amethyst-mint-harmony', name: 'Amethyst mint harmony', ground: 'light',
+    colours: { background: '#fbf7fa', text: '#241a22', dim_text: '#796d76', accent: '#a6178e', on_time: '#1b8247', late: '#a06100', cancelled: '#d6303f', bar: '#f1e6ef' } },
+  { slug: 'celestial', name: 'Celestial', ground: 'light',
+    colours: { background: '#fafaf7', text: '#1a1a2e', dim_text: '#6b6858', accent: '#2323ff', on_time: '#188345', late: '#926a09', cancelled: '#d6303f', bar: '#fff7d6' } },
+  { slug: 'tropical-jade-sunrise', name: 'Tropical jade sunrise', ground: 'light',
+    colours: { background: '#f7faf3', text: '#123c3f', dim_text: '#677567', accent: '#097c87', on_time: '#398144', late: '#a2651d', cancelled: '#c44c26', bar: '#eaf6f2' } },
+  { slug: 'sage-peridot-morning', name: 'Sage peridot morning', ground: 'light',
+    colours: { background: '#f3fbf6', text: '#1e3620', dim_text: '#5c6b52', accent: '#5c7a2e', on_time: '#2e7d46', late: '#986618', cancelled: '#c4402e', bar: '#e6f5ea' } },
+];
+
+/** Five colour dots — background, accent, on_time, late, cancelled — enough
+ *  to recognise a palette without opening it. */
+function paletteSwatch(colours) {
+  return ['background', 'accent', 'on_time', 'late', 'cancelled']
+    .map((role) => `<span class="scheme-dot" style="background:${colours[role]}"></span>`)
+    .join('');
+}
+
+/** Writes every role a theme has on to its colour fields — the same fields a
+ *  hand-picked hex would fill, so nothing about a scheme survives past the
+ *  fields it set; picking a second scheme, or editing one field afterwards,
+ *  behaves exactly as if it had been entered by hand. */
+function applyPalette(theme, palette) {
+  for (const role of THEME_ROLES[theme]) {
+    const field = form.querySelector(`input[type="color"][data-colour="${theme}"][data-role="${role}"]`);
+    if (field) setColourField(field, palette.colours[role]);
+  }
+  markDirty();
+  syncColours();
+}
+
+/** Highlights the palette a theme's fields currently match exactly, if any —
+ *  there is nothing stored to say a scheme was ever picked, so this is
+ *  recomputed from the fields themselves on every sync. */
+function highlightPalette(theme, colours) {
+  const host = document.querySelector(`[data-schemes="${theme}"]`);
+  if (!host) return;
+  const roles = THEME_ROLES[theme];
+  for (const button of host.querySelectorAll('.scheme-btn')) {
+    const palette = PALETTES.find((p) => p.slug === button.dataset.scheme);
+    const matches = palette && roles.every(
+      (role) => (colours[role] || '').toLowerCase() === palette.colours[role].toLowerCase(),
+    );
+    button.classList.toggle('active', Boolean(matches));
+  }
+}
+
+function buildSchemePicker(theme) {
+  const host = document.querySelector(`[data-schemes="${theme}"]`);
+  if (!host) return;
+  for (const [ground, label] of [['dark', 'Dark grounds'], ['light', 'Light grounds']]) {
+    const group = document.createElement('div');
+    group.className = 'scheme-group';
+    const row = document.createElement('div');
+    row.className = 'scheme-row';
+    for (const palette of PALETTES.filter((p) => p.ground === ground)) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'scheme-btn';
+      button.dataset.scheme = palette.slug;
+      button.title = palette.name;
+      button.innerHTML = `<span class="scheme-swatch">${paletteSwatch(palette.colours)}</span>
+        <span class="scheme-label">${palette.name}</span>`;
+      button.addEventListener('click', () => applyPalette(theme, palette));
+      row.append(button);
+    }
+    group.innerHTML = `<span class="scheme-group-label">${label}</span>`;
+    group.append(row);
+    host.append(group);
+  }
+}
+
 /** Each theme's own colours, read from its stylesheet rather than copied
  *  here, so this page cannot drift from the board. */
 const defaults = {};
@@ -951,6 +1054,7 @@ function buildColourFields() {
     const host = document.querySelector(`[data-colours="${theme}"]`);
     if (!host) continue;
     for (const role of roles) host.append(colourRow(theme, role, ROLE_LABELS[role]));
+    buildSchemePicker(theme);
   }
 }
 
@@ -996,6 +1100,7 @@ function syncColours() {
     if (!host) continue;
     const colours = effectiveColours(theme);
     const ground = colours.background;
+    highlightPalette(theme, colours);
     let worst = null;
     for (const row of host.querySelectorAll('.colour')) {
       const role = row.dataset.role;

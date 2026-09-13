@@ -296,6 +296,44 @@ dd { margin: 0; line-height: 1.7; }
   .message { order: 2; flex-basis: 100%; max-width: none; }
 }
 
+/* ---------------------------------------------------------------- schemes */
+.schemes { margin-bottom: 1rem; }
+.scheme-group + .scheme-group { margin-top: 0.6rem; }
+.scheme-group-label {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+.scheme-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.scheme-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.55rem;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  color: inherit;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.scheme-btn:hover { border-color: var(--accent); }
+.scheme-btn.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.scheme-swatch { display: flex; flex-shrink: 0; }
+.scheme-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  margin-left: -0.22rem;
+  border: 1px solid rgba(0,0,0,0.35);
+}
+.scheme-dot:first-child { margin-left: 0; }
+.scheme-label { white-space: nowrap; }
+
 /* ---------------------------------------------------------------- colours */
 .colours {
   display: grid;
