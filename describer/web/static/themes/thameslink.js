@@ -362,11 +362,13 @@ function turnCallingPage() {
  * The coaches as the car-loading panels draw them: one car per coach sharing
  * the width, rounded at the two ends of the train and gapped where one unit
  * couples to the next (the letter in "A4", "B1" changes), each filled to how
- * busy the feed says it is. Under each car, on a line of its own so a mark
- * never sits on the fill: "1" for first class, and the wheelchair sign with
- * "WC" for an accessible toilet, faded and struck through when the feed says
- * it is out of use. Nothing else: standard toilets are noise at this size,
- * and the feed says nothing about wheelchair spaces.
+ * busy the feed says it is. The coaches arrive front-first — the parser
+ * reverses them when Darwin says the formation is — so the front is the left
+ * end, and an arrowhead there says so. Inside each car, over the fill: "1"
+ * for first class, and the wheelchair sign with "WC" for an accessible
+ * toilet, faded and struck through when the feed says it is out of use.
+ * Nothing else: standard toilets are noise at this size, and the feed says
+ * nothing about wheelchair spaces.
  */
 export function renderFormation(el, formation, length) {
   const coaches = formation?.coaches || [];
@@ -385,6 +387,9 @@ export function renderFormation(el, formation, length) {
   }
   const cars = document.createElement('span');
   cars.className = 'tl-cars';
+  const front = document.createElement('span');
+  front.className = 'tl-front';
+  cars.append(front);
   let unit = null;
   coaches.forEach((coach, index) => {
     const car = document.createElement('span');
@@ -392,12 +397,9 @@ export function renderFormation(el, formation, length) {
     const coachUnit = String(coach.number || '').replace(/\d+$/, '');
     if (index && coachUnit && coachUnit !== unit) car.dataset.unitStart = '';
     unit = coachUnit;
-
-    const body = document.createElement('span');
-    body.className = 'tl-car-body';
     const load = coach.loading;
-    body.dataset.load = load == null ? 'unknown' : load < QUIET_BELOW ? 'quiet' : load < BUSY_FROM ? 'moderate' : 'busy';
-    body.style.setProperty('--load', load == null ? '0' : String(Math.min(Math.max(load, 0), 100) / 100));
+    car.dataset.load = load == null ? 'unknown' : load < QUIET_BELOW ? 'quiet' : load < BUSY_FROM ? 'moderate' : 'busy';
+    car.style.setProperty('--load', load == null ? '0' : String(Math.min(Math.max(load, 0), 100) / 100));
 
     const marks = document.createElement('span');
     marks.className = 'tl-car-marks';
@@ -411,9 +413,15 @@ export function renderFormation(el, formation, length) {
       const toilet = document.createElement('span');
       toilet.className = 'tl-wc';
       if (coach.toilet_in_service === false) toilet.dataset.out = '';
+      const sign = document.createElement('span');
+      sign.className = 'tl-wc-sign';
+      const text = document.createElement('span');
+      text.className = 'tl-wc-text';
+      text.textContent = 'WC';
+      toilet.append(sign, text);
       marks.append(toilet);
     }
-    car.append(body, marks);
+    if (marks.childElementCount) car.append(marks);
     cars.append(car);
   });
   el.append(cars);

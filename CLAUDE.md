@@ -1551,12 +1551,20 @@ instead), which un-hides the flag in `modern` too.
 
 `thameslink` now paints its own through `renderFormation`: a line of its own
 under the position text, one car per coach sharing the width up to 2.6em,
-rounded at both ends without claiming which is the front, and a wider gap
-where the unit letter in the coach number changes (`A6` → `B1`). Under each
-car, never on the fill: "1" for first class, and the wheelchair sign with
-"WC" for an accessible toilet, faded and struck through when the feed says
-`NotInService`. The sign is an inline SVG used as a mask over
-`currentColor` — Pi OS Lite has no emoji font. A board with only a length
+rounded at both ends, and a wider gap where the unit letter in the coach
+number changes (`A6` → `B1`). The coaches arrive front-first (the parser
+reverses them on `isReverseFormation`), so the front is the left end, and a
+small arrowhead before the first car says so — which is only as true as
+that flag, still unverified against a reversed train. Inside each car, over
+the fill: "1" for first class, and the wheelchair sign with "WC" for an
+accessible toilet, faded and struck through when the feed says
+`NotInService`. A mark sits on a full car as often as an empty one, so each
+has a rim of the ground colour: the text by `-webkit-text-stroke` painted
+under its fill (`paint-order: stroke fill`), the sign by a second mask of
+the same drawing stroked wider, laid beneath it. The sign is an inline SVG
+used as a mask over a colour — Pi OS Lite has no emoji font. The marks
+were first drawn on a line under the cars; they moved inside at the user's
+request. A board with only a length
 (RTT) reads "10 coaches" rather than ten empty outlines. The loading bands
 are duplicated from `board.js`; change both.
 
