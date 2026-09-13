@@ -199,6 +199,9 @@ class DisplayConfig(BaseModel):
     show_position: bool = True
     #: Show the top service's formation as one box per coach.
     show_formation: bool = True
+    #: Show each calling point's expected arrival time alongside its name.
+    #: Off by default: a time on every stop leaves less room for stops per page.
+    show_calling_times: bool = False
     #: HDMI output mode. ``auto`` leaves the monitor's preferred mode alone;
     #: a 4K panel makes the Pi 4 composite four times the pixels it needs, so
     #: forcing 1080p or 720p keeps the animations smooth. Applied live with
@@ -338,6 +341,7 @@ class DisplayOverride(BaseModel):
     show_calling_points: bool | None = None
     show_position: bool | None = None
     show_formation: bool | None = None
+    show_calling_times: bool | None = None
     #: Theme options and palettes, merged key by key onto the base block. Held
     #: loosely because a theme's options are its own; the merged result is
     #: validated against ThemesConfig before the profile is accepted.

@@ -490,14 +490,35 @@ function paginateWords(span, text) {
   return pages;
 }
 
-function renderCallingPoints(boardEl, services, show) {
+/**
+ * The time to print beside a calling point, Darwin's own "next train" style,
+ * and whether it reads late. `actual_time` (already left) wins when there is
+ * one; otherwise an "HH:MM" `expected_time` is used as-is, "On time" and
+ * "Delayed" (or no estimate at all) fall back to the booked time, and a
+ * cancelled stop prints no time. RTT's `expected_time` is always "HH:MM" or
+ * null, so only the "HH:MM" and fallback branches ever fire for it.
+ */
+function stopTime(point) {
+  if (point.cancelled) return null;
+  if (point.actual_time) return { text: point.actual_time, late: false };
+  if (point.expected_time && /^\d{2}:\d{2}$/.test(point.expected_time)) {
+    return { text: point.expected_time, late: point.scheduled_time != null && point.expected_time > point.scheduled_time };
+  }
+  return point.scheduled_time ? { text: point.scheduled_time, late: false } : null;
+}
+
+function renderCallingPoints(boardEl, services, display) {
   const wrap = boardEl.querySelector('.calling-points');
   const list = wrap.querySelector('.calling-points-list');
   const rowsEl = boardEl.querySelector('.rows');
   const detailEl = boardEl.querySelector('.service-detail');
   const first = services[0];
-  const rawPoints = show && first ? first.calling_points : [];
-  const points = rawPoints.map((p) => p.name);
+  const rawPoints = display.show_calling_points && first ? first.calling_points : [];
+  const points = rawPoints.map((p) => {
+    if (!display.show_calling_times) return p.name;
+    const time = stopTime(p);
+    return time ? `${p.name} (${time.text})` : p.name;
+  });
 
   // An arrival has already made its stops; a departure has them ahead of it.
   // A theme drawing something else in this block may name it its own way.
@@ -529,7 +550,7 @@ function renderCallingPoints(boardEl, services, show) {
   // and to draw the whole journey in place of the stops.
   if (theme?.renderCallingPoints) {
     callingPages.delete(list);
-    theme.renderCallingPoints(list, points, rawPoints, first);
+    theme.renderCallingPoints(list, points, rawPoints, first, display.show_calling_times);
     return;
   }
 
@@ -616,7 +637,7 @@ function renderBoard(boardEl, board, station, display) {
 
   const services = renderRows(boardEl, board, station);
   renderDetail(boardEl, services, board, display);
-  renderCallingPoints(boardEl, services, display.show_calling_points);
+  renderCallingPoints(boardEl, services, display);
   renderReason(boardEl, services, board.mode);
 
   const messages = boardEl.querySelector('.messages');

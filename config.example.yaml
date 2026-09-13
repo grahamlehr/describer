@@ -34,6 +34,7 @@ display:
   # only, worked out from RDM's own data. Always absent on an RTT board.
   show_position: true      # "Left Reading 14:56 · 2 stops away", under the top row
   show_formation: true     # one box per coach, filled to how busy the feed says it is
+  show_calling_times: false # show each calling point's expected time; off by default, it costs stops per page
   resolution: auto          # auto | 1080p | 720p — force the HDMI mode; a 4K panel makes the Pi crawl
   themes:
     # Palette overrides, in the vocabulary every theme shares: background,

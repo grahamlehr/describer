@@ -202,13 +202,21 @@ function minutesUntil(text) {
  *
  * With `scroll_route` on, the column glides instead of turning (see
  * `paintScroll`): down at one speed, back to the top at another.
+ *
+ * `showTimes` is display.show_calling_times, board.js's own bare boolean,
+ * passed straight through rather than baked into `points` (which board.js
+ * would otherwise render as "Name (HH:MM)"): the route wants the time as its
+ * own right-aligned span, not folded into the name it ellipsises.
  */
-export function renderCallingPoints(list, points, rawPoints = [], service = null) {
+export function renderCallingPoints(list, points, rawPoints = [], service = null, showTimes = false) {
   const arrivals = list.closest('.board')?.dataset.mode === 'arrivals';
   const journey = journeyFor(service);
-  const stops = journey ? journeyStops(journey) : routeStops(points, rawPoints, arrivals);
-  // The key carries the classes as well as the names: a stop being left
-  // changes nothing but a class, and it must still repaint.
+  const stops = journey
+    ? journeyStops(journey, showTimes)
+    : routeStops(rawPoints, arrivals, showTimes);
+  // The key carries the classes and the time as well as the names: a stop
+  // being left, or its estimate changing, changes nothing but those, and it
+  // must still repaint.
   const key = JSON.stringify(stops);
   if (list.__key !== key) {
     list.__key = key;
@@ -216,7 +224,17 @@ export function renderCallingPoints(list, points, rawPoints = [], service = null
     for (const stop of stops) {
       const el = document.createElement('span');
       el.className = ['tl-stop', ...stop.classes].join(' ');
-      el.textContent = stop.name;
+      const name = document.createElement('span');
+      name.className = 'tl-stop-name';
+      name.textContent = stop.name;
+      el.append(name);
+      if (stop.time) {
+        const time = document.createElement('span');
+        time.className = 'tl-stop-time';
+        if (stop.time.late) time.classList.add('tl-stop-time-late');
+        time.textContent = stop.time.text;
+        el.append(time);
+      }
       if (stop.train) {
         const marker = document.createElement('i');
         marker.className = 'tl-train';
@@ -251,12 +269,28 @@ export function callingPointsLabel(mode, service) {
   return journeyFor(service) ? 'Journey' : null;
 }
 
+/**
+ * Mirrors board.js's own `stopTime`: the time to show beside a stop, and
+ * whether it reads late. Duplicated rather than imported, because a theme
+ * module cannot import board.js (board.js imports the theme, not the other
+ * way round).
+ */
+function stopTime(point) {
+  if (point.cancelled) return null;
+  if (point.actual_time) return { text: point.actual_time, late: false };
+  if (point.expected_time && /^\d{2}:\d{2}$/.test(point.expected_time)) {
+    return { text: point.expected_time, late: point.scheduled_time != null && point.expected_time > point.scheduled_time };
+  }
+  return point.scheduled_time ? { text: point.scheduled_time, late: false } : null;
+}
+
 /** The stops still to come, or on an arrival the ones behind it. */
-function routeStops(points, rawPoints, arrivals) {
+function routeStops(rawPoints, arrivals, showTimes) {
   const firstUnreached = arrivals ? rawPoints.findIndex((point) => !point.actual_time) : -1;
-  const finalIndex = arrivals && firstUnreached !== -1 ? firstUnreached : points.length - 1;
-  return points.map((name, index) => ({
-    name,
+  const finalIndex = arrivals && firstUnreached !== -1 ? firstUnreached : rawPoints.length - 1;
+  return rawPoints.map((point, index) => ({
+    name: point.name,
+    time: showTimes ? stopTime(point) : null,
     classes: [
       index === finalIndex && 'tl-final',
       arrivals && index < finalIndex && 'tl-passed',
@@ -271,7 +305,7 @@ function routeStops(points, rawPoints, arrivals) {
  * Only the stops behind this station carry an actual time, which is exactly
  * where the train can be; a train that has not left its origin gets no arrow.
  */
-function journeyStops(journey) {
+function journeyStops(journey, showTimes) {
   const here = journey.findIndex((point) => point.here);
   let left = -1;
   journey.forEach((point, index) => {
@@ -280,6 +314,7 @@ function journeyStops(journey) {
   const last = journey.length - 1;
   return journey.map((point, index) => ({
     name: point.name,
+    time: showTimes ? stopTime(point) : null,
     classes: [
       index <= left && 'tl-passed',
       index === here && 'tl-here',

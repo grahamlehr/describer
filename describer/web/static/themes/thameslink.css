@@ -212,14 +212,28 @@ body {
    long as the stops on screen and continues across a page turn. */
 .tl-stop {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
   padding: 0.08em 0 0.08em 1.1em;
   color: var(--late);
   line-height: 1.32;
+}
+.tl-stop-name {
+  flex: 1 1 auto;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* display.show_calling_times: the expected time, right-aligned against the
+   name, in --fg so it does not read as though the stop itself is late. */
+.tl-stop-time {
+  flex: 0 0 auto;
+  color: var(--fg);
+  font-size: 0.85em;
+}
+.tl-stop-time.tl-stop-time-late { color: var(--late); }
 .tl-stop::after {
   content: "";
   position: absolute;
@@ -399,6 +413,7 @@ body {
 .calling-points[data-status="cancelled"] .tl-stop,
 .calling-points[data-status="cancelled"] .tl-stop.tl-final,
 .calling-points[data-status="cancelled"] .tl-stop.tl-here { color: var(--muted); }
+.calling-points[data-status="cancelled"] .tl-stop-time { color: var(--muted); }
 .calling-points[data-status="cancelled"] .tl-stop::before,
 .calling-points[data-status="cancelled"] .tl-stop::after,
 .calling-points[data-status="cancelled"] .tl-train { background: var(--muted); }

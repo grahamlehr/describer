@@ -127,6 +127,16 @@ def test_config_round_trips_through_the_api(client, tmp_path):
     assert client.get("/api/state").json()["display"]["theme"] == "crt"
 
 
+def test_state_carries_show_calling_times(client):
+    assert client.get("/api/state").json()["display"]["show_calling_times"] is False
+
+    config = client.get("/api/config").json()
+    config["display"]["show_calling_times"] = True
+    client.put("/api/config", json=config)
+
+    assert client.get("/api/state").json()["display"]["show_calling_times"] is True
+
+
 def test_invalid_config_is_rejected_with_field_errors(client):
     config = client.get("/api/config").json()
     config["sources"]["poll_interval"] = 3

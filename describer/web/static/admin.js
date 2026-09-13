@@ -577,6 +577,8 @@ function renderProfileEditor() {
             ${(display.show_position ?? config.display.show_position) ? 'checked' : ''}> Show position</label>
           <label class="check"><input type="checkbox" data-profile="formation"
             ${(display.show_formation ?? config.display.show_formation) ? 'checked' : ''}> Show formation</label>
+          <label class="check"><input type="checkbox" data-profile="calling-times"
+            ${(display.show_calling_times ?? config.display.show_calling_times) ? 'checked' : ''}> Show calling point times</label>
         </div>
         ${specs.length ? `<div class="grid">${specs.map((spec) => optionField(spec, options[spec.key])).join('')}</div>` : ''}
         <p class="hint">Colours belong to the theme itself and are edited on the
@@ -660,6 +662,7 @@ function commitProfileEditor() {
       show_calling_points: field('calling').checked,
       show_position: field('position').checked,
       show_formation: field('formation').checked,
+      show_calling_times: field('calling-times').checked,
     };
     if (Object.keys(options).length) entry.display.themes = { [theme]: options };
   } else {
@@ -739,6 +742,7 @@ function newProfile() {
       show_calling_points: config.display.show_calling_points,
       show_position: config.display.show_position,
       show_formation: config.display.show_formation,
+      show_calling_times: config.display.show_calling_times,
     },
     announcements: null,
   };

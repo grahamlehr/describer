@@ -256,3 +256,14 @@ def test_position_and_formation_default_on():
 
     assert display.show_position is True
     assert display.show_formation is True
+
+
+def test_calling_times_default_off():
+    assert Config(stations=[{"crs": "PAD"}]).display.show_calling_times is False
+
+
+def test_a_file_without_show_calling_times_loads_unchanged(tmp_path):
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.dump({"stations": [{"crs": "PAD"}]}))
+
+    assert load_config(path).display.show_calling_times is False

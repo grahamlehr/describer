@@ -160,6 +160,16 @@ def test_position_and_formation_toggles_apply():
     assert resolved.display.show_formation is False
 
 
+def test_calling_times_can_be_turned_on_for_a_profile():
+    profile = {**MORNING, "display": {"theme": "thameslink", "show_calling_times": True}}
+    config = config_with(profile, display={"show_calling_times": False})
+
+    resolved = resolve(config, MONDAY_0800)
+
+    assert resolved.display.show_calling_times is True
+    assert config.display.show_calling_times is False
+
+
 def test_announcements_can_be_silenced_for_a_period():
     config = config_with(EVENING)
 
