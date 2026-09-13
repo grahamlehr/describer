@@ -60,6 +60,9 @@ class Poller:
         self._display_mode: str | None = None
         self.last_error: str | None = None
         self.last_fetch: datetime | None = None
+        #: The release this process runs, sent with every frame so the board
+        #: can tell it has come back up on a newer one.
+        self.version: str | None = None
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -108,6 +111,18 @@ class Poller:
 
     def unsubscribe(self, queue: asyncio.Queue[dict]) -> None:
         self._subscribers.discard(queue)
+
+    def close_streams(self) -> None:
+        """End every open stream; each browser reconnects on its own.
+
+        An SSE stream never finishes by itself, so a shutdown waits on it until
+        systemd gives up and kills us. Before a restart, tell each to stop.
+        """
+        for queue in list(self._subscribers):
+            with contextlib.suppress(asyncio.QueueEmpty):
+                while queue.full():
+                    queue.get_nowait()
+            queue.put_nowait(None)  # type: ignore[arg-type]
 
     def _publish(self, state: dict) -> None:
         for queue in list(self._subscribers):
@@ -173,6 +188,7 @@ class Poller:
         config = self._store.active()
         return {
             "type": "state",
+            "version": self.version,
             "server_time": datetime.now().astimezone().isoformat(),
             "display_on": self._display_on,
             "active_profile": self._profile,

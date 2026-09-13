@@ -404,6 +404,25 @@
       the evening board at eleven in the morning. Both are held in memory and
       never written to the config file.</p>
     <dl id="status-list"><dd>Loading&hellip;</dd></dl>
+
+    <div class="subpanel" id="updates">
+      <h3>Updates</h3>
+      <p class="hint">Checked against GitHub and never installed without a click
+        here. An update is tried out before the board restarts into it, and put
+        back if it will not start.</p>
+      <dl id="update-list"><dd>Loading&hellip;</dd></dl>
+      <div class="inline-actions">
+        <button type="button" class="ghost" id="check-updates">Check now</button>
+        <button type="button" id="apply-update" hidden>Update now</button>
+      </div>
+      <p class="hint" id="update-message" role="status"></p>
+      <div class="grid checks">
+        <label class="check"><input type="checkbox" name="updates.enabled"> Check for updates in the background</label>
+        <label>Check every <span class="unit">seconds</span>
+          <input type="number" name="updates.check_interval" min="600" max="604800" step="600" required>
+        </label>
+      </div>
+    </div>
   </section>
 
 </form>

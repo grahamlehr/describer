@@ -674,6 +674,9 @@ function tickClock() {
 
 /* -------------------------------------------------------------------- SSE */
 
+/** The release this page was loaded from, as the first state frame named it. */
+let runningVersion = null;
+
 function connect() {
   const source = new EventSource('/api/stream');
 
@@ -687,6 +690,14 @@ function connect() {
       console.error('Bad state frame', err);
       return;
     }
+    // An update from /admin restarts the backend, and the stream reconnects to
+    // a newer release than the files this page is running. The kiosk is never
+    // refreshed by hand, so reload here; no-cache makes it fetch the new ones.
+    if (state.version && runningVersion && state.version !== runningVersion) {
+      location.reload();
+      return;
+    }
+    runningVersion = state.version ?? runningVersion;
     clockOffsetMs = new Date(state.server_time).getTime() - Date.now();
     render();
   });

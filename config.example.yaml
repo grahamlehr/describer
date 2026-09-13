@@ -114,6 +114,14 @@ schedule:
   per_weekday: {}
   power_method: wlr-randr   # wlr-randr (under cage) | vcgencmd | none
 
+# Checking GitHub for a newer release. /admin lists what is waiting and installs
+# it only when asked; nothing updates on its own.
+updates:
+  enabled: true             # false stops the background check (Check now still works)
+  check_interval: 21600     # seconds between checks, each one git fetch (min 600)
+  remote: origin            # the git remote to compare against
+  branch: main              # the branch the checkout must be on to update
+
 # Time-of-day profiles: a different board at a different hour. Each entry is a
 # window of the week carrying only the keys it wants to change; anything left
 # out keeps the value above. The first entry matching the moment wins, and what

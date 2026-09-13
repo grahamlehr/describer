@@ -192,6 +192,50 @@ def test_unknown_forced_source_is_rejected(client):
     assert client.post("/api/source/force", json={"source": "nre"}).status_code == 422
 
 
+def test_state_names_the_running_release(client):
+    """The board reloads when the stream comes back on a different one."""
+    state = client.get("/api/state").json()
+    updates = client.get("/api/updates").json()
+
+    assert state["version"] == updates["running"]
+    assert state["version"]  # the tests run from a git checkout
+
+
+def test_update_status_is_reported_without_fetching(client):
+    updates = client.get("/api/updates").json()
+
+    assert updates["enabled"] is True
+    assert updates["tracking"] == "origin/main"
+    assert updates["checked_at"] is None  # no check has run: nothing reached GitHub
+    assert updates["phase"] == "idle"
+    assert client.get("/api/status").json()["updates"]["running"] == updates["running"]
+
+
+def test_update_settings_round_trip(client, tmp_path):
+    config = client.get("/api/config").json()
+    config["updates"]["check_interval"] = 3600
+
+    assert client.put("/api/config", json=config).status_code == 200
+    assert "check_interval: 3600" in (tmp_path / "config.yaml").read_text()
+
+
+def test_closing_the_streams_ends_them():
+    """Before a restart, so the shutdown does not wait on a browser."""
+    from describer.config import ConfigStore
+    from describer.rail.poller import Poller
+
+    config = Config(stations=[{"crs": "PAD"}])
+    poller = Poller(ConfigStore(config, None))
+    queue = poller.subscribe()
+    for _ in range(4):
+        poller._publish({"type": "state"})
+
+    poller.close_streams()
+
+    frames = [queue.get_nowait() for _ in range(queue.qsize())]
+    assert frames[-1] is None
+
+
 @pytest.fixture
 def env_file(monkeypatch, tmp_path):
     """Keys written from /admin land here, and the environment restores itself."""

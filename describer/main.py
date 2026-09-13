@@ -27,10 +27,14 @@ from .profiles import next_change
 from .rail.models import Board
 from .rail.poller import Poller
 from .schedule import is_display_on
+from .updater import UpdateError, Updater
 
 log = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "web" / "static"
+
+#: The checkout the app runs from, and the one an update moves forward.
+REPO_DIR = Path(__file__).resolve().parents[1]
 
 #: Ask the browser to check with us before it reuses anything it has.
 #:
@@ -102,12 +106,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.announcer = announcer
     app.state.poller = poller
 
+    updater = Updater(REPO_DIR, config.updates, config_path=path)
+    # Open SSE streams never end on their own and would hold the restart up
+    # until systemd lost patience; closing them lets it go at once.
+    updater.before_restart = poller.close_streams
+    app.state.updater = updater
+
+    await updater.start()
+    poller.version = updater.running
     await announcer.start()
     await poller.start()
-    log.info("Describer ready; config at %s", path)
+    log.info("Describer %s ready; config at %s", updater.running or "(unversioned)", path)
     try:
         yield
     finally:
+        await updater.stop()
         await poller.stop()
         await announcer.stop()
 
@@ -159,6 +172,7 @@ async def api_put_config(request: Request, payload: dict) -> dict:
     store.set(config)
     # Applied live: no restart for theme, stations, sources or announcements.
     request.app.state.engine.update_config(store.active().announcements)
+    request.app.state.updater.update_config(config.updates)
     request.app.state.poller.config_changed()
     return config.model_dump(mode="json")
 
@@ -173,6 +187,7 @@ async def api_status(request: Request) -> dict:
     upcoming = next_change(config, forced=store.forced_profile)
     return {
         "config_path": str(store.path),
+        "updates": request.app.state.updater.status(),
         "active_profile": profile.name if profile else None,
         "forced_profile": store.forced_profile,
         "next_profile": upcoming[1] if upcoming else None,
@@ -256,6 +271,29 @@ async def api_set_credentials(request: Request, payload: CredentialsUpdate) -> d
     return credentials.status()
 
 
+@app.get("/api/updates")
+async def api_updates(request: Request) -> dict:
+    return request.app.state.updater.status()
+
+
+@app.post("/api/updates/check")
+async def api_check_updates(request: Request) -> dict:
+    """One git fetch, now, rather than at the next interval."""
+    try:
+        return await request.app.state.updater.check()
+    except UpdateError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/updates/apply")
+async def api_apply_update(request: Request) -> dict:
+    """Install what is waiting and restart into it. Never done without this call."""
+    try:
+        return await request.app.state.updater.update()
+    except UpdateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @app.post("/api/announce/test")
 async def api_test_announcement(request: Request, payload: TestAnnouncement) -> dict:
     announcer: AnnouncementScheduler = request.app.state.announcer
@@ -281,6 +319,8 @@ async def api_stream(request: Request) -> StreamingResponse:
                 except TimeoutError:
                     yield ": keepalive\n\n"
                     continue
+                if state is None:
+                    return  # Poller.close_streams: we are about to restart
                 yield _sse(state)
         finally:
             poller.unsubscribe(queue)

@@ -117,11 +117,29 @@ and a day's allowance went with it. If credentials appear to be missing,
 systemctl --user show describer -p Environment | tr ' ' '\n' | grep -c '^RDM_API_KEY=.\+'
 ```
 
+Keys can also be set or cleared from **/admin → Data sources → Credentials**,
+which writes them to `/etc/describer/describer.env` and puts them to work
+without a restart. It is write-only: a saved key is never shown again.
+
 Note that the unit file is *copied* into `~/.config/systemd/user/`, so a
 `git pull` does not update it. Changing it means re-running `install.sh`, or
 re-copying it and running `systemctl --user daemon-reload`.
 
 ### Updating a Pi
+
+The board checks GitHub every six hours (`updates:` in the config). When a
+newer release is waiting, **/admin → Status → Updates** lists it, and **Update
+and restart** installs it: it fast-forwards the checkout, installs
+requirements if they changed, checks the new code starts with your config,
+and restarts the backend. The board reloads itself when it comes back. If the
+new code will not start, the checkout is put back and nothing restarts.
+
+It will not update a checkout with local changes to tracked files, one on
+another branch, or one with commits of its own. When a release changes
+`deploy/`, re-run `deploy/install.sh` afterwards; the unit files are copied,
+not pulled.
+
+By hand:
 
 ```bash
 cd ~/describer && git pull

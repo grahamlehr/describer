@@ -328,6 +328,20 @@ class ScheduleConfig(BaseModel):
         return self
 
 
+class UpdatesConfig(BaseModel):
+    """Checking GitHub for a newer release. Installing one is always a click in /admin.
+
+    Not overridable by a profile: it is plumbing, like ``sources``.
+    """
+
+    enabled: bool = True
+    #: Seconds between checks; each is one ``git fetch``.
+    check_interval: int = Field(default=21600, ge=600, le=604800)
+    #: Both are passed to git, so neither may start with a dash.
+    remote: str = Field(default="origin", pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    branch: str = Field(default="main", pattern=r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+
+
 class DisplayOverride(BaseModel):
     """The display keys a profile may set; anything unset keeps the base value.
 
@@ -461,6 +475,7 @@ class Config(BaseModel):
     announcements: AnnouncementsConfig = AnnouncementsConfig()
     schedule: ScheduleConfig = ScheduleConfig()
     profiles: ProfilesConfig = ProfilesConfig()
+    updates: UpdatesConfig = UpdatesConfig()
 
     @model_validator(mode="before")
     @classmethod

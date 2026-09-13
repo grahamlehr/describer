@@ -61,6 +61,14 @@ def clean_credentials(monkeypatch) -> None:
         monkeypatch.delenv(name, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def no_update_checks(monkeypatch) -> None:
+    """The app's first update check is a git fetch from GitHub; tests never get there."""
+    from describer import updater
+
+    monkeypatch.setattr(updater, "STARTUP_DELAY", 10**9)
+
+
 @pytest.fixture
 def rtt_credentials(monkeypatch, clean_credentials) -> None:
     """A source with no credentials is treated as permanently down."""

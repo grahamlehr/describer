@@ -1528,6 +1528,108 @@ for (const [source, label] of [['rdm', 'the Rail Data Marketplace key'], ['rtt',
   });
 }
 
+/* --------------------------------------------------------------- updates */
+
+// Offered, never automatic. The backend fetches from GitHub on its own
+// timer; installing is only ever this button. Commit subjects come from the
+// repository, so they are escaped like anything else typed by someone.
+const updateList = document.getElementById('update-list');
+const updateMessage = document.getElementById('update-message');
+const applyUpdateButton = document.getElementById('apply-update');
+const checkUpdatesButton = document.getElementById('check-updates');
+const statusTab = document.querySelector('[data-tab="status"]');
+/** The release this page was loaded from; a different one means reload. */
+let adminVersion = null;
+let restartWatch = null;
+
+function showUpdates(u) {
+  if (adminVersion && u.running && u.running !== adminVersion) {
+    location.reload();
+    return;
+  }
+  adminVersion ??= u.running;
+
+  const shown = u.available
+    .map((c) => `<code>${escapeHtml(c.sha)}</code> ${escapeHtml(c.subject)}`)
+    .join('<br>');
+  const more = u.count > u.available.length ? `<br>&hellip;and ${u.count - u.available.length} more` : '';
+  let state;
+  if (u.phase === 'restarting') state = pill('warn', 'installed, restarting');
+  else if (u.count) state = pill('warn', `${u.count} update${u.count === 1 ? '' : 's'} available`);
+  else if (u.checked_at) state = ok('up to date');
+  else state = pill('', u.enabled ? 'not checked yet' : 'background checks off');
+  const checked = u.checked_at ? ` checked ${formatTime(u.checked_at)}` : '';
+  const done = u.last_update && !u.count
+    ? `<dt>Last update</dt><dd><code>${escapeHtml(u.last_update.from || '?')}</code> &rarr;
+        <code>${escapeHtml(u.last_update.to)}</code> at ${formatTime(u.last_update.at)}
+        ${u.last_update.restarting ? '' : pill('warn', 'restart the server to run it')}
+        ${u.last_update.deploy_changed ? pill('warn', 're-run deploy/install.sh') : ''}</dd>`
+    : '';
+
+  updateList.innerHTML = `
+    <dt>Running</dt><dd><code>${escapeHtml(u.running || 'unknown')}</code> ${escapeHtml(u.running_subject || '')}</dd>
+    <dt>${escapeHtml(u.tracking)}</dt><dd>${state}${checked}</dd>
+    ${u.count ? `<dt>Waiting</dt><dd>${shown}${more}</dd>` : ''}
+    ${u.blocked ? `<dt>Cannot update</dt><dd>${bad(escapeHtml(u.blocked))}</dd>` : ''}
+    ${u.count && u.deploy_changed ? `<dt>Also needed</dt><dd>${pill('warn', 'deploy/ changed')}
+        re-run <code>deploy/install.sh</code> on the Pi afterwards; the unit files are copied, not pulled</dd>` : ''}
+    ${u.count && u.requirements_changed ? '<dt>Packages</dt><dd>requirements.txt changed; the update installs them</dd>' : ''}
+    ${u.last_error ? `<dt>Last error</dt><dd>${bad(escapeHtml(u.last_error))}</dd>` : ''}
+    ${done}`;
+
+  applyUpdateButton.hidden = !(u.count && !u.blocked);
+  applyUpdateButton.textContent = u.can_restart ? 'Update and restart' : 'Update';
+  applyUpdateButton.disabled = u.phase !== 'idle';
+  checkUpdatesButton.disabled = u.phase !== 'idle' || !u.running;
+  statusTab.textContent = u.count && !u.blocked ? 'Status •' : 'Status';
+}
+
+async function loadUpdates() {
+  try {
+    showUpdates(await (await fetch('/api/updates')).json());
+  } catch {
+    // Down, or restarting; the next poll will tell.
+  }
+}
+
+async function postUpdates(url) {
+  const response = await fetch(url, { method: 'POST' });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    updateMessage.textContent = body.detail || response.statusText;
+    loadUpdates();
+    return null;
+  }
+  showUpdates(body);
+  return body;
+}
+
+checkUpdatesButton.addEventListener('click', async () => {
+  checkUpdatesButton.disabled = true;
+  updateMessage.textContent = 'Checking…';
+  const body = await postUpdates('/api/updates/check');
+  if (body) updateMessage.textContent = body.count ? '' : 'Nothing new.';
+});
+
+applyUpdateButton.addEventListener('click', async () => {
+  if (dirty && !confirm('You have unsaved changes, and the page reloads after an update. Carry on?')) return;
+  if (!confirm('Install the waiting updates and restart the board?')) return;
+  applyUpdateButton.disabled = true;
+  checkUpdatesButton.disabled = true;
+  updateMessage.textContent = 'Installing… this can take a minute if packages changed.';
+  const body = await postUpdates('/api/updates/apply');
+  if (!body) return;
+  if (!body.can_restart) {
+    updateMessage.textContent = 'Installed. Restart the server to run it.';
+    return;
+  }
+  // The backend goes away and comes back as the new release; showUpdates
+  // reloads the page the moment it answers with a different version.
+  updateMessage.textContent = 'Installed. Restarting…';
+  clearInterval(restartWatch);
+  restartWatch = setInterval(loadUpdates, 2000);
+});
+
 document.addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === 's') {
     event.preventDefault();
@@ -1543,4 +1645,6 @@ showTab(document.querySelector(`[data-panel="${location.hash.slice(1)}"]`) ? loc
 loadConfig();
 loadStatus();
 loadCredentials();
+loadUpdates();
 setInterval(loadStatus, 15000);
+setInterval(loadUpdates, 15000);
