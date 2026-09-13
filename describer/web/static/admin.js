@@ -1442,6 +1442,92 @@ document.getElementById('test-announce').addEventListener('click', async () => {
   showMessage(response.ok ? 'Announcement played.' : `Failed: ${body.detail || response.statusText}`, response.ok);
 });
 
+/* ----------------------------------------------------------- credentials */
+
+// Write-only. The page is told whether a key is set and when it changed from
+// here, never what it is, and the boxes are emptied the moment a save lands.
+// The fields carry no name, so readForm and the main Save never see them.
+const credentialFields = {
+  rdm: document.getElementById('cred-rdm'),
+  rtt: document.getElementById('cred-rtt'),
+};
+const credentialMessage = document.getElementById('credentials-message');
+
+function showCredentials(report) {
+  document.getElementById('credentials-path').textContent = report.path;
+  for (const [source, key] of Object.entries(report.keys)) {
+    const when = key.changed_at
+      ? ` · changed ${new Date(key.changed_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`
+      : '';
+    document.getElementById(`cred-${source}-state`).innerHTML = key.set ? ok(`set${when}`) : bad('missing');
+    document.getElementById(`clear-${source}`).disabled = !key.set;
+  }
+  // Addendum 4: a dev machine never holds an RTT token.
+  const rtt = credentialFields.rtt;
+  rtt.disabled = !report.rtt_allowed;
+  rtt.placeholder = report.rtt_allowed ? 'Unchanged' : 'Not on a dev machine';
+}
+
+async function loadCredentials() {
+  try {
+    showCredentials(await (await fetch('/api/credentials')).json());
+  } catch {
+    // The status block already says when the backend is unreachable.
+  }
+}
+
+async function sendCredentials(body, done) {
+  const response = await fetch('/api/credentials', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const report = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    credentialMessage.textContent = `Not saved: ${report.detail || response.statusText}`;
+    return;
+  }
+  for (const field of Object.values(credentialFields)) field.value = '';
+  showCredentials(report);
+  credentialMessage.textContent = done;
+  loadStatus();
+}
+
+function saveCredentials() {
+  const body = {};
+  for (const [source, field] of Object.entries(credentialFields)) {
+    if (!field.disabled && field.value.trim()) body[source] = field.value;
+  }
+  if (!Object.keys(body).length) {
+    credentialMessage.textContent = 'Type a key first; an empty box keeps the key it has.';
+    return;
+  }
+  sendCredentials(body, 'Saved. The board is re-polling with the new keys.');
+}
+
+for (const field of Object.values(credentialFields)) {
+  // Typing a key changes nothing the main Save writes, so it must not mark
+  // the page unsaved; and Enter here means these keys, never the form.
+  for (const type of ['input', 'change']) {
+    field.addEventListener(type, (event) => event.stopPropagation());
+  }
+  field.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      saveCredentials();
+    }
+  });
+}
+
+document.getElementById('save-credentials').addEventListener('click', saveCredentials);
+
+for (const [source, label] of [['rdm', 'the Rail Data Marketplace key'], ['rtt', 'the Realtime Trains token']]) {
+  document.getElementById(`clear-${source}`).addEventListener('click', () => {
+    if (!confirm(`Remove ${label}? The board stops using it at once.`)) return;
+    sendCredentials({ clear: [source] }, 'Cleared.');
+  });
+}
+
 document.addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === 's') {
     event.preventDefault();
@@ -1456,4 +1542,5 @@ window.addEventListener('beforeunload', (event) => {
 showTab(document.querySelector(`[data-panel="${location.hash.slice(1)}"]`) ? location.hash.slice(1) : 'stations');
 loadConfig();
 loadStatus();
+loadCredentials();
 setInterval(loadStatus, 15000);

@@ -19,6 +19,7 @@ from pydantic import BaseModel, ValidationError
 from starlette.responses import Response
 from starlette.types import Scope
 
+from . import credentials
 from .announce.scheduler import AnnouncementScheduler
 from .announce.tts import TtsEngine, TtsError
 from .config import Config, ConfigStore, config_path, load_config
@@ -67,6 +68,14 @@ class ForceProfile(BaseModel):
     """Admin override for the live profile. Memory only; never written to YAML."""
 
     profile: str | None = None
+
+
+class CredentialsUpdate(BaseModel):
+    """Keys from /admin. A blank or missing key is left as it is."""
+
+    rdm: str | None = None
+    rtt: str | None = None
+    clear: list[Literal["rdm", "rtt"]] = []
 
 
 @asynccontextmanager
@@ -212,6 +221,39 @@ async def api_force_profile(request: Request, payload: ForceProfile) -> dict:
         raise HTTPException(status_code=404, detail=f"No profile named {name!r}")
     request.app.state.poller.force_profile(name)
     return {"forced_profile": store.forced_profile}
+
+
+@app.get("/api/credentials")
+async def api_get_credentials() -> dict:
+    """Whether each key is set and when it changed. Never a value."""
+    return credentials.status()
+
+
+@app.post("/api/credentials")
+async def api_set_credentials(request: Request, payload: CredentialsUpdate) -> dict:
+    """Write-only: set or clear keys, then put them to work without a restart."""
+    updates = {
+        source: value
+        for source, value in (("rdm", payload.rdm), ("rtt", payload.rtt))
+        if value is not None and value.strip()
+    }
+    clear = set(payload.clear)
+    if not updates and not clear:
+        raise HTTPException(status_code=422, detail="Nothing to change")
+    if set(updates) & clear:
+        raise HTTPException(status_code=422, detail="A key cannot be set and cleared at once")
+    try:
+        credentials.write(updates, clear)
+    except credentials.CredentialError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OSError as exc:
+        # The message names the file, never its contents.
+        raise HTTPException(status_code=500, detail=f"Could not write the keys: {exc}") from exc
+
+    poller: Poller = request.app.state.poller
+    poller.sources.credentials_changed()
+    poller.config_changed()
+    return credentials.status()
 
 
 @app.post("/api/announce/test")

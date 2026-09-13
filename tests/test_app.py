@@ -192,6 +192,59 @@ def test_unknown_forced_source_is_rejected(client):
     assert client.post("/api/source/force", json={"source": "nre"}).status_code == 422
 
 
+@pytest.fixture
+def env_file(monkeypatch, tmp_path):
+    """Keys written from /admin land here, and the environment restores itself."""
+    path = tmp_path / "describer.env"
+    monkeypatch.setenv("DESCRIBER_ENV_FILE", str(path))
+    monkeypatch.setenv("DESCRIBER_ALLOW_RTT_TOKEN", "1")
+    monkeypatch.setenv("RTT_TOKEN", "placeholder")
+    monkeypatch.delenv("RTT_TOKEN")
+    return path
+
+
+def test_credentials_are_write_only(client, env_file):
+    written = client.post("/api/credentials", json={"rtt": "sekrit-token"})
+
+    assert written.status_code == 200
+    assert "RTT_TOKEN='sekrit-token'" in env_file.read_text()
+    for response in (written, client.get("/api/credentials"), client.get("/api/status")):
+        assert "sekrit" not in response.text
+    assert written.json()["keys"]["rtt"]["set"] is True
+    assert client.get("/api/status").json()["credentials"] == {"rdm": True, "rtt": True}
+
+
+def test_credentials_never_reach_the_config_file(client, env_file, tmp_path):
+    client.post("/api/credentials", json={"rdm": "sekrit-key"})
+
+    assert "sekrit" not in (tmp_path / "config.yaml").read_text()
+    assert "sekrit" not in client.get("/api/config").text
+
+
+def test_a_blank_credential_request_changes_nothing(client, env_file):
+    response = client.post("/api/credentials", json={"rdm": "  "})
+
+    assert response.status_code == 422
+    assert not env_file.exists()
+
+
+def test_a_credential_that_cannot_be_written_is_refused(client, env_file):
+    response = client.post("/api/credentials", json={"rdm": "it's"})
+
+    assert response.status_code == 422
+    assert "single quote" in response.json()["detail"]
+
+
+def test_a_cleared_primary_key_leaves_the_board_on_no_source(client, env_file):
+    response = client.post("/api/credentials", json={"clear": ["rdm"]})
+
+    assert response.status_code == 200
+    assert response.json()["keys"]["rdm"]["set"] is False
+    status = client.get("/api/status").json()
+    assert status["credentials"]["rdm"] is False
+    assert status["primary_healthy"] is False
+
+
 PROFILE = {
     "name": "Evening",
     "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],

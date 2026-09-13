@@ -150,6 +150,27 @@ class SourceManager:
             if not self._usable(config.primary) and self._usable(config.fallback):
                 self._active = config.fallback  # type: ignore[assignment]
 
+    def credentials_changed(self) -> None:
+        """Adopt keys changed from /admin: forget old verdicts and old clients.
+
+        The clients are dropped rather than kept, because RttClient remembers
+        the access token it bought with the old refresh token, and whether the
+        token it holds is a refresh token at all. A new key must start clean.
+        """
+        for name in list(self._clients):
+            self._close_later(self._clients.pop(name))
+            self._signatures.pop(name, None)
+        self._failures = 0
+        self._next_probe = None
+        self._healthy = dict.fromkeys(CREDENTIAL_CHECKS, True)
+        self._reported.clear()
+        self._check_credentials()
+        primary, fallback = self._config.primary, self._config.fallback
+        if self._usable(primary):
+            self._active = primary
+        elif self._usable(fallback):
+            self._active = fallback  # type: ignore[assignment]
+
     async def aclose(self) -> None:
         for client in self._clients.values():
             await client.aclose()

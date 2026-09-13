@@ -260,10 +260,30 @@
       </div>
     </details>
 
-    <p class="hint">Credentials never live in this file. The Rail Data Marketplace
-      key comes from <code>RDM_API_KEY</code>; Realtime Trains uses a bearer token in
-      <code>RTT_TOKEN</code>, requested from
-      <a href="https://api-portal.rtt.io">api-portal.rtt.io</a>.</p>
+    <!-- No name on these fields: readForm must never sweep a key into the
+         config, and the main Save never sends one. They have their own button. -->
+    <div class="subpanel" id="credentials">
+      <h3>Credentials</h3>
+      <p class="hint">Write-only: a key saved here is never shown again. Keys go to
+        <code id="credentials-path">the env file</code>, never to the config file,
+        and take effect straight away. Leave a box empty to keep the key it has.
+        A Realtime Trains token comes from
+        <a href="https://api-portal.rtt.io">api-portal.rtt.io</a>.</p>
+      <div class="grid">
+        <label>Rail Data Marketplace key <span class="unit" id="cred-rdm-state"></span>
+          <input type="password" id="cred-rdm" autocomplete="new-password" spellcheck="false" placeholder="Unchanged">
+        </label>
+        <label>Realtime Trains token <span class="unit" id="cred-rtt-state"></span>
+          <input type="password" id="cred-rtt" autocomplete="new-password" spellcheck="false" placeholder="Unchanged">
+        </label>
+      </div>
+      <div class="inline-actions">
+        <button type="button" id="save-credentials">Save keys</button>
+        <button type="button" class="danger" id="clear-rdm">Clear RDM key</button>
+        <button type="button" class="danger" id="clear-rtt">Clear RTT token</button>
+      </div>
+      <p class="hint" id="credentials-message" role="status"></p>
+    </div>
   </section>
 
   <!-- ------------------------------------------------------- announcements -->
