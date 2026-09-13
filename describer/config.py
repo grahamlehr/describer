@@ -144,6 +144,12 @@ class ThameslinkThemeConfig(BaseModel):
     #: Draw the top train's whole run, origin to destination, in place of
     #: only the stops still to come.
     full_journey: bool = False
+    #: Scroll the route down and back up instead of turning it a page at a time.
+    scroll_route: bool = False
+    #: Stops a second on the way down the route, while it is being read.
+    scroll_speed: float = Field(default=0.5, ge=0.1, le=5)
+    #: Stops a second on the way back up to the top.
+    return_speed: float = Field(default=4.0, ge=0.5, le=40)
 
 
 class CrtThemeConfig(BaseModel):

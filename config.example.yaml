@@ -54,6 +54,9 @@ display:
       click_sound: false    # rattle as the discs flip
     thameslink:
       full_journey: false   # the route runs origin to destination instead of "Calling at"
+      scroll_route: false   # scroll the route down and back instead of paging it
+      scroll_speed: 0.5     # stops per second scrolling down (0.1–5)
+      return_speed: 4.0     # stops per second scrolling back to the top (0.5–40)
       # No on_time here: this board counts down in the text colour.
       colours: {}
 

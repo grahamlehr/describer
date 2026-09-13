@@ -90,9 +90,20 @@
         <div class="grid">
           <label class="check"><input type="checkbox" name="display.themes.thameslink.full_journey">
             Show full journey</label>
+          <label class="check"><input type="checkbox" name="display.themes.thameslink.scroll_route">
+            Scroll the route instead of paging</label>
+          <label>Scroll speed <span class="unit">stops per second</span>
+            <input type="number" name="display.themes.thameslink.scroll_speed" min="0.1" max="5" step="0.1">
+          </label>
+          <label>Return speed <span class="unit">stops per second</span>
+            <input type="number" name="display.themes.thameslink.return_speed" min="0.5" max="40" step="0.5">
+          </label>
         </div>
         <p class="hint">The full journey runs from the train's origin to its destination
           in place of <em>Calling at</em>, marking this station and where the train is now.</p>
+        <p class="hint">Scrolling, the route glides down at the scroll speed, rests at the
+          last stop, returns to the top at the return speed and rests again. The speeds do
+          nothing while it pages.</p>
         <p class="hint">This board counts down in the text colour and has no separate
           on-time colour; its blue bars are structural and stay in the stylesheet.</p>
         <div class="colours" data-colours="thameslink"></div>

@@ -226,6 +226,9 @@ const THEME_OPTIONS = {
   ],
   thameslink: [
     { key: 'full_journey', label: 'Show full journey', type: 'check' },
+    { key: 'scroll_route', label: 'Scroll the route instead of paging', type: 'check' },
+    { key: 'scroll_speed', label: 'Scroll speed', unit: 'stops per second', type: 'number', min: 0.1, max: 5, step: 0.1 },
+    { key: 'return_speed', label: 'Return speed', unit: 'stops per second', type: 'number', min: 0.5, max: 40, step: 0.5 },
   ],
 };
 
@@ -320,7 +323,7 @@ function optionField(spec, value) {
     return `<label>${spec.label}<select ${attrs}>${options}</select></label>`;
   }
   return `<label>${spec.label} <span class="unit">${spec.unit || ''}</span>
-    <input type="number" ${attrs} min="${spec.min}" max="${spec.max}" step="1" value="${value ?? ''}"></label>`;
+    <input type="number" ${attrs} min="${spec.min}" max="${spec.max}" step="${spec.step || 1}" value="${value ?? ''}"></label>`;
 }
 
 function renderProfileEditor() {

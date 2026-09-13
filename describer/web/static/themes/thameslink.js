@@ -4,8 +4,9 @@
  * The top service is given a block of its own with its route drawn under it,
  * and everything else becomes a "Later trains" list under a blue bar. Three
  * things need JavaScript: the ordinal labels ("1st train", "3rd"), the route
- * list, which pages down the page rather than along a line, and the countdown
- * in the status column, which has to be recomputed as the clock moves.
+ * list, which pages (or, with `scroll_route`, scrolls) down the page rather
+ * than along a line, and the countdown in the status column, which has to be
+ * recomputed as the clock moves.
  */
 
 import { applyColours, clearColours } from './colours.js';
@@ -21,6 +22,8 @@ export const serviceDetail = true;
 const REFRESH_MS = 15000;
 /** How long one page of the route holds before the next. */
 const PAGE_MS = 5000;
+/** Scrolling, how long the route rests at the top and at the foot. */
+const SCROLL_HOLD_MS = 3000;
 /** How often the clock panel reads back the clock board.js is writing. */
 const CLOCK_MS = 500;
 /** Beyond this a countdown says less than the time itself does. */
@@ -44,6 +47,11 @@ let api = null;
 let delayPhase = false;
 /** display.themes.thameslink.full_journey: the route runs origin to destination. */
 let fullJourney = false;
+/** display.themes.thameslink.scroll_route, and its two speeds in stops a second:
+ *  down the route while it is read, and back up to the top. */
+let scrollRoute = false;
+let scrollSpeed = 0.5;
+let returnSpeed = 4;
 /** Coach loading bands, the same as board.js's QUIET_BELOW and BUSY_FROM. Change both. */
 const QUIET_BELOW = 35;
 const BUSY_FROM = 70;
@@ -66,7 +74,7 @@ export function attach(boardsEl, options, themeApi) {
       const list = entry.target.querySelector('.calling-points-list');
       if (!list || !list.__key) continue;
       measure(list);
-      paintPage(list);
+      paint(list);
     }
   });
   // board.js writes .clock itself every quarter second and would overwrite any
@@ -77,6 +85,14 @@ export function attach(boardsEl, options, themeApi) {
 export function configure(options = {}) {
   applyColours(options.colours, ROLES);
   fullJourney = Boolean(options.full_journey);
+  const scroll = [Boolean(options.scroll_route), Number(options.scroll_speed) || 0.5, Number(options.return_speed) || 4];
+  // board.js calls this on every pass, so only a real change restarts a route.
+  if (scroll.join() === [scrollRoute, scrollSpeed, returnSpeed].join()) return;
+  [scrollRoute, scrollSpeed, returnSpeed] = scroll;
+  for (const list of callingLists) {
+    stopScroll(list);
+    paint(list);
+  }
 }
 
 export function detach() {
@@ -97,6 +113,7 @@ export function detach() {
     rows.style.removeProperty('--missing');
   }
   for (const list of document.querySelectorAll('.calling-points-list')) {
+    stopScroll(list);
     list.style.removeProperty('transform');
     list.parentElement?.style.removeProperty('height');
     delete list.__key;
@@ -185,6 +202,9 @@ function minutesUntil(text) {
  * With `full_journey` on, the route is the service's whole `journey` instead
  * (see `journeyStops`), in either mode, and it opens on the page the train is
  * on rather than at the origin.
+ *
+ * With `scroll_route` on, the column glides instead of turning (see
+ * `paintScroll`): down at one speed, back to the top at another.
  */
 export function renderCallingPoints(list, points, rawPoints = [], service = null) {
   const arrivals = list.closest('.board')?.dataset.mode === 'arrivals';
@@ -212,13 +232,16 @@ export function renderCallingPoints(list, points, rawPoints = [], service = null
     list.__anchor = train !== -1 ? train : Math.max(0, here);
     list.__page = 0;
     list.__turned = false;
+    // A new route scrolls from where the train is, not from where the last
+    // one had got to.
+    stopScroll(list);
   }
   callingLists.add(list);
   // Observing the block, not the track: the track's height is ours to set, and
   // the block's is what the board actually handed the route.
   if (list.parentElement) observer?.observe(list.parentElement.parentElement);
   measure(list);
-  paintPage(list);
+  paint(list);
 }
 
 /** The top service's whole run, when it is wanted and the feed gave us one. */
@@ -304,6 +327,15 @@ function pageCount(list) {
   return Math.max(1, Math.ceil(list.children.length / list.__perPage));
 }
 
+function paint(list) {
+  if (scrollRoute) {
+    paintScroll(list);
+    return;
+  }
+  stopScroll(list);
+  paintPage(list);
+}
+
 function paintPage(list) {
   const pages = pageCount(list);
   // Until the first turn, open on the page the train is on (the first page,
@@ -342,18 +374,116 @@ function paintPageLabel(list, page, pages) {
 function turnCallingPage() {
   for (const list of callingLists) {
     if (!list.isConnected) {
+      stopScroll(list);
       callingLists.delete(list);
       continue;
     }
     // Measured every turn, not once: the room for the stops moves with the
     // board's height, the row count and the theme's font arriving late.
     measure(list);
-    if (pageCount(list) > 1) {
+    if (!scrollRoute && pageCount(list) > 1) {
       list.__page = (list.__page || 0) + 1;
       list.__turned = true;
     }
-    paintPage(list);
+    paint(list);
   }
+}
+
+/* ------------------------------------------------- scrolling instead of paging */
+
+/**
+ * The column glides down to its last stop at `scrollSpeed`, rests, glides back
+ * to the top at `returnSpeed`, rests, and goes again. Each leg is one CSS
+ * transition on the transform, so the compositor runs it and the Pi's main
+ * thread only wakes at the ends; a timer per list says when a leg is over.
+ *
+ * `list.__scroll` holds the leg in progress (`phase`: top, down, bottom, up)
+ * and the geometry it was planned against. This is called on every render and
+ * every re-measure, so it leaves a leg alone unless the room or the stop height
+ * has moved, and then carries on in the same direction from wherever the
+ * column has got to rather than jumping back to the top.
+ */
+function paintScroll(list) {
+  paintPageLabel(list, 0, 1);
+  const stop = list.__stop || 0;
+  const max = list.__perPage ? Math.max(0, (list.children.length - list.__perPage) * stop) : 0;
+  if (!max) {
+    stopScroll(list);
+    list.style.transform = 'none';
+    return;
+  }
+  let state = list.__scroll;
+  if (state && Math.abs(state.max - max) < 0.5 && Math.abs(state.stop - stop) < 0.05) return;
+  const resuming = Boolean(state);
+  if (!state) state = list.__scroll = { phase: 'top', timer: null };
+  state.max = max;
+  state.stop = stop;
+  if (!resuming) {
+    // Open where the train is, with the stop it last left above it, as paging
+    // opens on the train's page; after the first descent, from the top.
+    const start = list.__turned ? 0 : Math.max(0, (list.__anchor || 0) - 1) * stop;
+    rest(list, Math.min(start, max), 'top');
+  } else if (state.phase === 'down') {
+    descend(list);
+  } else if (state.phase === 'up') {
+    ascend(list);
+  } else {
+    rest(list, state.phase === 'bottom' ? max : Math.min(currentOffset(list), max), state.phase);
+  }
+}
+
+function rest(list, offset, phase) {
+  const state = list.__scroll;
+  glide(list, offset, 0);
+  state.phase = phase;
+  state.timer = setTimeout(() => (phase === 'top' ? descend(list) : ascend(list)), SCROLL_HOLD_MS);
+}
+
+function descend(list) {
+  const state = list.__scroll;
+  const seconds = Math.max(0, state.max - currentOffset(list)) / state.stop / scrollSpeed;
+  list.__turned = true;
+  glide(list, state.max, seconds, 'linear');
+  state.phase = 'down';
+  state.timer = setTimeout(() => rest(list, state.max, 'bottom'), seconds * 1000);
+}
+
+function ascend(list) {
+  const state = list.__scroll;
+  const seconds = Math.max(0, currentOffset(list)) / state.stop / returnSpeed;
+  glide(list, 0, seconds, 'ease-in-out');
+  state.phase = 'up';
+  state.timer = setTimeout(() => rest(list, 0, 'top'), seconds * 1000);
+}
+
+/** Move the column to `offset` over `seconds`, from wherever it is right now. */
+function glide(list, offset, seconds, easing = 'linear') {
+  clearTimeout(list.__scroll?.timer);
+  // Pin it where a leg in flight has got to, so a change of course starts
+  // from there rather than from that leg's destination. Read it before
+  // touching the transition: a style read with `transition: none` already set
+  // cancels the leg, and what comes back is where it was going.
+  const from = currentOffset(list);
+  list.style.transition = 'none';
+  list.style.transform = `translateY(${-from}px)`;
+  if (seconds > 0) {
+    void list.offsetHeight;
+    list.style.transition = `transform ${seconds}s ${easing}`;
+  }
+  list.style.transform = `translateY(${-offset}px)`;
+}
+
+/** How far the column is scrolled now, a transition in flight included. */
+function currentOffset(list) {
+  const transform = getComputedStyle(list).transform;
+  return transform && transform !== 'none' ? -new DOMMatrixReadOnly(transform).m42 : 0;
+}
+
+function stopScroll(list) {
+  if (!list.__scroll) return;
+  clearTimeout(list.__scroll.timer);
+  list.style.removeProperty('transition');
+  delete list.__scroll;
 }
 
 /* ----------------------------------------------------------- the formation */

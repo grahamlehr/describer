@@ -200,6 +200,33 @@ def test_thameslink_full_journey_is_off_unless_asked_for():
     assert config.display.themes.thameslink.full_journey is True
 
 
+def test_thameslink_route_pages_unless_asked_to_scroll():
+    thameslink = Config(stations=[{"crs": "PAD"}]).display.themes.thameslink
+    assert thameslink.scroll_route is False
+    assert (thameslink.scroll_speed, thameslink.return_speed) == (0.5, 4.0)
+
+    config = Config(
+        stations=[{"crs": "PAD"}],
+        display={
+            "themes": {
+                "thameslink": {"scroll_route": True, "scroll_speed": 1.5, "return_speed": 10}
+            }
+        },
+    )
+
+    assert config.display.themes.thameslink.scroll_route is True
+    assert config.display.themes.thameslink.scroll_speed == 1.5
+    assert config.display.themes.thameslink.return_speed == 10
+
+
+@pytest.mark.parametrize(
+    "field, value", [("scroll_speed", 0), ("scroll_speed", 6), ("return_speed", 0.1)]
+)
+def test_thameslink_scroll_speeds_are_bounded(field, value):
+    with pytest.raises(ValidationError):
+        Config(stations=[{"crs": "PAD"}], display={"themes": {"thameslink": {field: value}}})
+
+
 def test_theme_colours_round_trip_and_are_held_lower_case(tmp_path):
     path = tmp_path / "config.yaml"
     config = Config(
