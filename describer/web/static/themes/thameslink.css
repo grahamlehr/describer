@@ -306,91 +306,10 @@ body {
   color: var(--accent);
   padding: 0.1em 0 0.35em;
 }
-.service-formation { display: block; }
-.tl-coaches { color: var(--accent); }
-
-/* One car per coach, sharing the width up to a size where a short train
-   stops growing. This board counts down in --fg rather than green, so a car
-   fills --fg unless it is busy, when it takes the amber this board already
-   warns in; with no figure it is an outline. The coaches arrive front-first,
-   so the front is the left end, and the arrowhead before it says so. */
-.tl-cars { display: flex; align-items: center; gap: 0.14em; }
-.tl-front {
-  flex: 0 0 auto;
-  width: 0.42em;
-  height: 0.7em;
-  margin-right: 0.12em;
-  background: var(--accent);
-  clip-path: polygon(100% 0, 0 50%, 100% 100%);
-}
-.tl-car {
-  position: relative;
-  display: flex;
-  flex: 0 1 2.6em;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  height: 1.45em;
-  border: 1px solid color-mix(in srgb, var(--fg) 45%, transparent);
-  border-radius: 0.12em;
-  overflow: hidden;
-}
-.tl-car[data-unit-start] { margin-left: 0.45em; }
-/* The cab ends. The front car is the one after the arrowhead. */
-.tl-front + .tl-car { border-top-left-radius: 0.6em; }
-.tl-car:last-child { border-top-right-radius: 0.6em; }
-.tl-car::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--fg);
-  transform: scaleY(var(--load, 0));
-  transform-origin: bottom;
-}
-.tl-car[data-load="busy"]::after { background: var(--late); }
-.tl-car[data-load="unknown"]::after { display: none; }
-
-/* What is in each car, inside it and over the fill: "1" for first class,
-   and for an accessible toilet the wheelchair sign with "WC", faded and
-   struck through when the feed says it is out of use. Each is drawn with a
-   rim of the ground colour round it, so it reads on a full car and an empty
-   one alike: the text by a stroke painted under its fill, the sign by the
-   same drawing stroked wider and laid beneath it. The sign is a mask over a
-   colour, so it needs no font (Pi OS Lite has no emoji) and no file. */
-.tl-car-marks {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.25em;
-  font-size: 0.8em;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--fg);
-  white-space: nowrap;
-  paint-order: stroke fill;
-  -webkit-text-stroke: 0.22em var(--bg);
-}
-.tl-first { color: var(--accent); }
-.tl-wc { display: inline-flex; align-items: center; gap: 0.04em; }
-.tl-wc-sign { position: relative; width: 1.2em; height: 1.2em; }
-.tl-wc-sign::before,
-.tl-wc-sign::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-.tl-wc-sign::before {
-  background: var(--bg);
-  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-3 -3 30 30' fill='none' stroke='black' stroke-width='6.6' stroke-linecap='round' stroke-linejoin='round'><circle cx='10' cy='3.2' r='4.1' fill='black' stroke='none'/><path d='M9.6 7v6.4h6.2l2.6 6'/><path d='M9.6 10h5'/><path d='M7 11.2a6 6 0 1 0 8.6 6.6'/></svg>") center / contain no-repeat;
-}
-.tl-wc-sign::after {
-  background: currentColor;
-  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-3 -3 30 30' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><circle cx='10' cy='3.2' r='2' fill='black' stroke='none'/><path d='M9.6 7v6.4h6.2l2.6 6'/><path d='M9.6 10h5'/><path d='M7 11.2a6 6 0 1 0 8.6 6.6'/></svg>") center / contain no-repeat;
-}
-.tl-wc-text { font-size: 0.68em; }
-.tl-wc[data-out] { opacity: 0.4; }
-.tl-wc[data-out] .tl-wc-text { text-decoration: line-through; }
+/* The coaches are built by board.js and shaped in base.css, whose colours
+   are this board's own: a car fills --fg, because this board counts down in
+   --fg rather than green, and a busy one takes the amber it already warns in.
+   With no figure a car is an outline. */
 
 /* The reason, under the route and above the bar: still part of the block the
    top of the screen gives to one train. Amber is what this board warns in,

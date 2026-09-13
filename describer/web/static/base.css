@@ -137,20 +137,20 @@ html, body {
 .calling-points-track { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
 .calling-points-list { display: inline-block; }
 
-/* Where the train is now, and its formation — lives inside .rows, directly
-   under the top service (before its stops), in the themes that opt in.
-   Sized like the stops: board.js sets --detail-share to 0.9 or 0. Position
-   text shrinks and ellipsises on the left; the formation never gives way
-   and sits on the right. */
+/* Where the train is now, then its formation, each on a line of its own —
+   inside .rows, directly under the top service (before its stops), in the
+   themes that opt in. board.js gives it 0.9 of a slot for each line it
+   shows, as the stops get for their one, and the lines are centred in that
+   share. The formation cannot share a line with the text: its marks sit
+   inside the cars, and cars that small cannot hold them. */
 .service-detail {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6em;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.25em;
   flex: 0 0 calc(var(--slot) * var(--detail-share));
   font-size: calc(var(--row-font) * 0.8);
   line-height: 1.2;
-  padding-top: max(0px, calc((var(--slot) * var(--detail-share) - 1.2em) / 2));
   overflow: hidden;
   min-height: 0;
 }
@@ -158,54 +158,99 @@ html, body {
    any theme sets one (Addendum 3's trap). */
 .service-detail[hidden] { display: none; }
 .service-position {
-  flex: 1 1 auto;
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .service-position[hidden] { display: none; }
-.service-formation {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: flex-end;
-  gap: 0.15em;
-}
+.service-formation { display: block; }
 .service-formation[hidden] { display: none; }
 
-/* One box per coach. The fill is a ::after so a theme colours it without
-   touching the box itself; static between polls, but the cheapest paint on
-   offer when it does change. */
-/* No overflow: hidden here. It clipped the first-class flag, which sits
-   outside the box, so no first-class coach was ever marked; the fill never
-   leaves the box anyway, and follows a theme's rounded corners by inheriting
-   them. */
-.coach {
-  position: relative;
-  display: inline-block;
-  width: 0.55em;
-  height: 1em;
+/* The formation, built by board.js. One car per coach sharing the width up
+   to a size where a short train stops growing, a gap where one unit couples
+   to the next, the cab ends rounded, and each car filled from the bottom to
+   how busy the feed says it is: a transform on a ::after, static between
+   polls and the cheapest paint on offer when it does change. The coaches
+   arrive front-first, so the front is the left end and the arrowhead before
+   it says so. The colours here are thameslink's — a car in the text colour,
+   a busy one in the late colour — and modern gives its own. */
+.cars { display: flex; align-items: center; gap: 0.14em; }
+.car-front {
+  flex: 0 0 auto;
+  width: 0.42em;
+  height: 0.7em;
+  margin-right: 0.12em;
+  background: var(--accent);
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
 }
-.coach::after {
+.car {
+  position: relative;
+  display: flex;
+  flex: 0 1 2.6em;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 1.45em;
+  border: 1px solid color-mix(in srgb, var(--fg) 45%, transparent);
+  border-radius: 0.12em;
+  overflow: hidden;
+}
+.car[data-unit-start] { margin-left: 0.45em; }
+/* The cab ends. The front car is the one after the arrowhead. */
+.car-front + .car { border-top-left-radius: 0.6em; }
+.car:last-child { border-top-right-radius: 0.6em; }
+.car::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  background: var(--fg);
   transform: scaleY(var(--load, 0));
   transform-origin: bottom;
 }
-/* A small flag above the box rather than a mark inside it, so it never has
-   to fight the fill for the same pixels. */
-.coach[data-first]::before {
-  content: "1";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  text-align: center;
-  font-size: 0.7em;
-  line-height: 1.4;
+.car[data-load="busy"]::after { background: var(--late); }
+.car[data-load="unknown"]::after { display: none; }
+
+/* What is in each car, inside it and over the fill: "1" for first class,
+   and for an accessible toilet the wheelchair sign with "WC", faded and
+   struck through when the feed says it is out of use. Each is drawn with a
+   rim of the ground colour round it, so it reads on a full car and an empty
+   one alike: the text by a stroke painted under its fill, the sign by the
+   same drawing stroked wider and laid beneath it. The sign is a mask over a
+   colour, so it needs no font (Pi OS Lite has no emoji) and no file. */
+.car-marks {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+  font-size: 0.8em;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--fg);
+  white-space: nowrap;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 0.22em var(--bg);
 }
+.car-first { color: var(--accent); }
+.car-wc { display: inline-flex; align-items: center; gap: 0.04em; }
+.car-wc-sign { position: relative; width: 1.2em; height: 1.2em; }
+.car-wc-sign::before,
+.car-wc-sign::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.car-wc-sign::before {
+  background: var(--bg);
+  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-3 -3 30 30' fill='none' stroke='black' stroke-width='6.6' stroke-linecap='round' stroke-linejoin='round'><circle cx='10' cy='3.2' r='4.1' fill='black' stroke='none'/><path d='M9.6 7v6.4h6.2l2.6 6'/><path d='M9.6 10h5'/><path d='M7 11.2a6 6 0 1 0 8.6 6.6'/></svg>") center / contain no-repeat;
+}
+.car-wc-sign::after {
+  background: currentColor;
+  mask: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-3 -3 30 30' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><circle cx='10' cy='3.2' r='2' fill='black' stroke='none'/><path d='M9.6 7v6.4h6.2l2.6 6'/><path d='M9.6 10h5'/><path d='M7 11.2a6 6 0 1 0 8.6 6.6'/></svg>") center / contain no-repeat;
+}
+.car-wc-text { font-size: 0.68em; }
+.car-wc[data-out] { opacity: 0.4; }
+.car-wc[data-out] .car-wc-text { text-decoration: line-through; }
 
 /* Why a train is late or cancelled, on its own line under the stops of the
    service it belongs to. The wording comes from board.js; a theme with a

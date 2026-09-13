@@ -52,10 +52,6 @@ let fullJourney = false;
 let scrollRoute = false;
 let scrollSpeed = 0.5;
 let returnSpeed = 4;
-/** Coach loading bands, the same as board.js's QUIET_BELOW and BUSY_FROM. Change both. */
-const QUIET_BELOW = 35;
-const BUSY_FROM = 70;
-
 export function attach(boardsEl, options, themeApi) {
   root = boardsEl;
   api = themeApi;
@@ -484,77 +480,6 @@ function stopScroll(list) {
   clearTimeout(list.__scroll.timer);
   list.style.removeProperty('transition');
   delete list.__scroll;
-}
-
-/* ----------------------------------------------------------- the formation */
-
-/**
- * The coaches as the car-loading panels draw them: one car per coach sharing
- * the width, rounded at the two ends of the train and gapped where one unit
- * couples to the next (the letter in "A4", "B1" changes), each filled to how
- * busy the feed says it is. The coaches arrive front-first — the parser
- * reverses them when Darwin says the formation is — so the front is the left
- * end, and an arrowhead there says so. Inside each car, over the fill: "1"
- * for first class, and the wheelchair sign with "WC" for an accessible
- * toilet, faded and struck through when the feed says it is out of use.
- * Nothing else: standard toilets are noise at this size, and the feed says
- * nothing about wheelchair spaces.
- */
-export function renderFormation(el, formation, length) {
-  const coaches = formation?.coaches || [];
-  const key = JSON.stringify([coaches, length]);
-  if (el.dataset.key === key) return;
-  el.dataset.key = key;
-  el.textContent = '';
-  if (!coaches.length) {
-    // RTT knows how long a train is and nothing else about it: a row of empty
-    // boxes says less than the number does.
-    const count = document.createElement('span');
-    count.className = 'tl-coaches';
-    count.textContent = `${length} coaches`;
-    el.append(count);
-    return;
-  }
-  const cars = document.createElement('span');
-  cars.className = 'tl-cars';
-  const front = document.createElement('span');
-  front.className = 'tl-front';
-  cars.append(front);
-  let unit = null;
-  coaches.forEach((coach, index) => {
-    const car = document.createElement('span');
-    car.className = 'tl-car';
-    const coachUnit = String(coach.number || '').replace(/\d+$/, '');
-    if (index && coachUnit && coachUnit !== unit) car.dataset.unitStart = '';
-    unit = coachUnit;
-    const load = coach.loading;
-    car.dataset.load = load == null ? 'unknown' : load < QUIET_BELOW ? 'quiet' : load < BUSY_FROM ? 'moderate' : 'busy';
-    car.style.setProperty('--load', load == null ? '0' : String(Math.min(Math.max(load, 0), 100) / 100));
-
-    const marks = document.createElement('span');
-    marks.className = 'tl-car-marks';
-    if (coach.first_class) {
-      const first = document.createElement('span');
-      first.className = 'tl-first';
-      first.textContent = '1';
-      marks.append(first);
-    }
-    if (coach.accessible_toilet) {
-      const toilet = document.createElement('span');
-      toilet.className = 'tl-wc';
-      if (coach.toilet_in_service === false) toilet.dataset.out = '';
-      const sign = document.createElement('span');
-      sign.className = 'tl-wc-sign';
-      const text = document.createElement('span');
-      text.className = 'tl-wc-text';
-      text.textContent = 'WC';
-      toilet.append(sign, text);
-      marks.append(toilet);
-    }
-    if (marks.childElementCount) car.append(marks);
-    cars.append(car);
-  });
-  el.append(cars);
 }
 
 /* --------------------------------------------------------------- the clock */

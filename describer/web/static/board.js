@@ -221,35 +221,89 @@ function positionText(service, mode) {
   return `Left ${position.last}${when} · ${tail}`;
 }
 
-/** One coach box: quiet/moderate/busy/unknown, first class, accessible toilet. */
-function buildCoachEl(coach) {
-  const span = document.createElement('span');
-  span.className = 'coach';
-  const load = coach ? coach.loading : null;
-  span.dataset.load = load == null ? 'unknown' : load < QUIET_BELOW ? 'quiet' : load < BUSY_FROM ? 'moderate' : 'busy';
-  span.style.setProperty('--load', load == null ? '0' : String(Math.min(Math.max(load, 0), 100) / 100));
-  if (coach?.first_class) span.dataset.first = '';
-  if (coach?.accessible_toilet) span.dataset.toilet = 'accessible';
-  if (coach?.accessible_toilet && coach.toilet_in_service === false) span.dataset.toiletOut = '';
-  return span;
+/** A loading figure as the band a car is coloured by. */
+function loadBand(load) {
+  if (load == null) return 'unknown';
+  return load < QUIET_BELOW ? 'quiet' : load < BUSY_FROM ? 'moderate' : 'busy';
+}
+
+/** One car: how busy it is, and inside it "1" and the accessible-toilet sign. */
+function buildCarEl(coach, unitStart) {
+  const car = document.createElement('span');
+  car.className = 'car';
+  if (unitStart) car.dataset.unitStart = '';
+  const load = coach.loading;
+  car.dataset.load = loadBand(load);
+  car.style.setProperty('--load', load == null ? '0' : String(Math.min(Math.max(load, 0), 100) / 100));
+
+  const marks = document.createElement('span');
+  marks.className = 'car-marks';
+  if (coach.first_class) {
+    const first = document.createElement('span');
+    first.className = 'car-first';
+    first.textContent = '1';
+    marks.append(first);
+  }
+  if (coach.accessible_toilet) {
+    const toilet = document.createElement('span');
+    toilet.className = 'car-wc';
+    if (coach.toilet_in_service === false) toilet.dataset.out = '';
+    const sign = document.createElement('span');
+    sign.className = 'car-wc-sign';
+    const text = document.createElement('span');
+    text.className = 'car-wc-text';
+    text.textContent = 'WC';
+    toilet.append(sign, text);
+    marks.append(toilet);
+  }
+  if (marks.childElementCount) car.append(marks);
+  return car;
 }
 
 /**
- * One box per coach. `formation` gives loading, first class and toilets;
- * with none, plain boxes are drawn from `length` alone (all RTT ever gives
- * us). A theme may paint the strip its own way instead.
+ * The coaches as the car-loading panels draw them: one car per coach sharing
+ * the width, rounded at the two ends of the train and gapped where one unit
+ * couples to the next (the letter in "A4", "B1" changes), each filled to how
+ * busy the feed says it is. The coaches arrive front-first — the parser
+ * reverses them when Darwin says the formation is — so the front is the left
+ * end, and an arrowhead there says so. Inside each car, over the fill: "1"
+ * for first class, and the wheelchair sign with "WC" for an accessible
+ * toilet, faded and struck through when the feed says it is out of use.
+ * Nothing else: standard toilets are noise at this size, and the feed says
+ * nothing about wheelchair spaces. A theme may paint the strip its own way
+ * instead; none does.
  */
 function renderFormation(el, formation, length) {
   if (theme?.renderFormation) {
     theme.renderFormation(el, formation, length);
     return;
   }
-  const coaches = formation?.coaches || Array.from({ length: length || 0 }, () => null);
-  const key = JSON.stringify(coaches);
+  const coaches = formation?.coaches || [];
+  const key = JSON.stringify([coaches, length]);
   if (el.dataset.key === key) return;
   el.dataset.key = key;
   el.textContent = '';
-  for (const coach of coaches) el.append(buildCoachEl(coach));
+  if (!coaches.length) {
+    // RTT knows how long a train is and nothing else about it: a row of empty
+    // boxes says less than the number does.
+    const count = document.createElement('span');
+    count.className = 'car-count';
+    count.textContent = `${length} ${length === 1 ? 'coach' : 'coaches'}`;
+    el.append(count);
+    return;
+  }
+  const cars = document.createElement('span');
+  cars.className = 'cars';
+  const front = document.createElement('span');
+  front.className = 'car-front';
+  cars.append(front);
+  let unit = null;
+  coaches.forEach((coach, index) => {
+    const coachUnit = String(coach.number || '').replace(/\d+$/, '');
+    cars.append(buildCarEl(coach, index > 0 && coachUnit !== '' && coachUnit !== unit));
+    unit = coachUnit;
+  });
+  el.append(cars);
 }
 
 /**
@@ -293,9 +347,12 @@ function renderDetail(boardEl, services, board, display) {
   }
 
   placeAfter(rowsEl, wrap);
-  const show = Boolean(text) || hasFormation;
-  rowsEl.style.setProperty('--detail-share', show ? '0.9' : '0');
-  wrap.hidden = !show;
+  // Where it is and how it is made up are a line each, and each line takes
+  // the share the stops' one line does. Only a theme that counts
+  // --detail-share in its --slot (modern) feels it.
+  const lines = Number(Boolean(text)) + Number(hasFormation);
+  rowsEl.style.setProperty('--detail-share', String(0.9 * lines));
+  wrap.hidden = !lines;
 }
 
 /* ---------------------------------------------------------------- reasons */

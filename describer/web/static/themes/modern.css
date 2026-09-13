@@ -66,15 +66,13 @@ body {
 /* Where the train is now, and its formation. Reads as part of the selected
    row, so it sits in the same wash rather than getting a rule of its own. */
 .service-detail { color: var(--muted); }
-.coach {
-  border: 1px solid var(--muted);
-  border-radius: 0.15em;
-}
-.coach::after { background: color-mix(in srgb, var(--on-time) 70%, var(--bg)); }
-.coach[data-load="moderate"]::after { background: color-mix(in srgb, var(--late) 70%, var(--bg)); }
-.coach[data-load="busy"]::after { background: color-mix(in srgb, var(--cancelled) 70%, var(--bg)); }
-.coach[data-load="unknown"]::after { background: none; }
-.coach[data-first]::before { color: var(--muted); }
+/* The cars are shaped in base.css. This board has a colour for every state,
+   so a car fills green, amber or red by how busy it is, each softened into
+   the ground so the white marks inside still stand out. */
+.car { border-color: var(--muted); }
+.car::after { background: color-mix(in srgb, var(--on-time) 70%, var(--bg)); }
+.car[data-load="moderate"]::after { background: color-mix(in srgb, var(--late) 70%, var(--bg)); }
+.car[data-load="busy"]::after { background: color-mix(in srgb, var(--cancelled) 70%, var(--bg)); }
 
 .messages { color: var(--late); border-top: 1px solid var(--rule); }
 .empty { color: var(--muted); font-size: 2.4vh; padding: 2vh 0; }

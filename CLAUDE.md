@@ -635,7 +635,7 @@ those.
 | `statusText(service)` | per status cell | return `null` to accept the default wording |
 | `serviceDetail` | read once | `true` shows the position/formation line; absent (or `false`) keeps it hidden, share 0, on every other theme |
 | `positionText(service, mode)` | per detail line | return `null` to accept the default wording |
-| `renderFormation(el, formation, length)` | per detail line | replaces the default one-box-per-coach strip |
+| `renderFormation(el, formation, length)` | per detail line | replaces the default car strip (Addendum 8); no theme uses it now |
 | `renderCallingPoints(list, points, rawPoints, service)` | per board | replaces the default paging; `rawPoints` is the service's full `CallingPoint` list and `service` the top service itself (for its `journey`), both ignored by every theme but thameslink |
 | `callingPointsLabel(mode, service)` | per board | return `null` to accept "Calling at" / "Called at" |
 | `reasonText(service, mode)` | per reason line | return `null` to accept the default wording |
@@ -1564,7 +1564,20 @@ under its fill (`paint-order: stroke fill`), the sign by a second mask of
 the same drawing stroked wider, laid beneath it. The sign is an inline SVG
 used as a mask over a colour — Pi OS Lite has no emoji font. The marks
 were first drawn on a line under the cars; they moved inside at the user's
-request. A board with only a length
+request.
+
+**`modern` draws the same formation.** The drawing lives in `board.js`'s
+default `renderFormation` and in `base.css` (`.cars`, `.car-front`, `.car`,
+`.car-marks`, `.car-first`, `.car-wc*`, `.car-count`), whose colours are
+`thameslink`'s; `modern.css` overrides only the colours, filling a car green,
+amber or red by load band as its old boxes did. No theme overrides
+`renderFormation` any more, and the loading bands have one home again
+(`QUIET_BELOW` / `BUSY_FROM` in `board.js`). In `modern` the formation takes
+a line of its own under the position text, because cars small enough to
+share that line cannot hold their marks: `.service-detail` is a column in
+`base.css`, and `board.js` sets `--detail-share` to 0.9 per line shown — 1.8
+with both, 0.9 with one, 0 with neither. That share is only felt by `modern`,
+whose `--slot` counts it; `thameslink` keeps the block out of its slot. A board with only a length
 (RTT) reads "10 coaches" rather than ten empty outlines. The loading bands
 are duplicated from `board.js`; change both.
 
