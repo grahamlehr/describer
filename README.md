@@ -153,6 +153,23 @@ Every option is documented in `config.example.yaml`. The admin page at
 announcement changes live — no restart. What the file says and what is on the
 screen can differ: see [Profiles](#profiles).
 
+Each station card in `/admin` has a **Station** box: start typing a name or a
+code ("sydenham", "lon bri", "kings x", "CLJ") and it suggests stations,
+filling in the CRS code when you pick one. A code typed straight into the CRS
+field still works, and one the list does not know is flagged rather than
+refused. The list is `describer/web/static/stations.json` — every National
+Rail station with a CRS code, about 2,600 of them, taken from NaPTAN. It is
+committed and searched in the page, so the lookup costs no API calls and
+works with no internet; nothing fetches it from anywhere at runtime. When
+stations open or close, rebuild it by hand and commit the result:
+
+```bash
+python -m describer.stationlist
+```
+
+The station list contains public sector information licensed under the
+[Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
+
 Credentials are never stored in `config.yaml`. They come from the
 environment (or `.env`): `RDM_API_KEY` for the Rail Data Marketplace, and
 `RTT_TOKEN` for Realtime Trains. Neither is ever written to the logs.

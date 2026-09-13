@@ -176,6 +176,29 @@ button.danger:hover { border-color: var(--bad); }
 .station-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .station .grid { grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); }
 
+/* The station lookup: a list of suggestions dropped under the box, over
+   whatever is below it in the card. */
+.station-lookup { position: relative; grid-column: 1 / -1; }
+.suggestions {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 20;
+  margin: 0.2rem 0 0; padding: 0.25rem; list-style: none;
+  background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r);
+  box-shadow: 0 0.6rem 1.4rem rgba(0, 0, 0, 0.45);
+  max-height: 17rem; overflow-y: auto;
+}
+.suggestions li {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 0.8rem;
+  padding: 0.35rem 0.5rem; border-radius: calc(var(--r) - 0.1rem);
+  font-size: 0.85rem; color: var(--fg); cursor: pointer;
+}
+.suggestions li[aria-selected="true"], .suggestions li:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.suggestions .code { color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
+.suggestions .none { color: var(--muted); cursor: default; }
+.suggestions .none:hover { background: none; }
+.crs-note { color: var(--warn); }
+
 /* ---------------------------------------------------------------- weekdays */
 /* ---------------------------------------------------------------- profiles */
 /* A list of profiles and one editor for the selected one. Rendering an editor

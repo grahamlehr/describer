@@ -390,9 +390,18 @@
       <button type="button" class="danger" data-remove>Remove</button>
     </div>
     <div class="grid">
+      <div class="wide station-lookup">
+        <label>Station
+          <input type="text" data-station="lookup" role="combobox" aria-autocomplete="list"
+                 aria-expanded="false" autocomplete="off" spellcheck="false"
+                 placeholder="Start typing a station name or code">
+        </label>
+        <ul class="suggestions" role="listbox" hidden></ul>
+      </div>
       <label>CRS code
         <input type="text" data-station="crs" maxlength="3" pattern="[A-Za-z]{3}"
                placeholder="PAD" autocomplete="off" required>
+        <small class="hint crs-note" hidden></small>
       </label>
       <label>Mode
         <select data-station="mode">
