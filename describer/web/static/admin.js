@@ -906,13 +906,36 @@ function colourRow(theme, role, label) {
   row.innerHTML = `
     <input type="color" name="display.themes.${theme}.colours.${role}"
            data-colour="${theme}" data-role="${role}" aria-label="${label}">
+    <input type="text" class="hex-input" data-hex="${theme}" data-role="${role}"
+           aria-label="${label} hex code" placeholder="#000000" maxlength="7"
+           spellcheck="false" autocomplete="off">
     <span class="colour-name">${label}</span>
     <span class="ratio" data-ratio></span>
     <button type="button" class="linky" data-reset>Default</button>`;
+  const swatch = row.querySelector('input[type="color"]');
+  const hex = row.querySelector('[data-hex]');
+  // Live-updates the swatch as soon as the typed text parses; an incomplete
+  // value (still typing the sixth digit) is left alone rather than rejected.
+  hex.addEventListener('input', () => {
+    const parsed = normaliseHex(hex.value.startsWith('#') ? hex.value : `#${hex.value}`);
+    hex.classList.toggle('invalid', !parsed);
+    if (!parsed) return;
+    swatch.value = parsed;
+    swatch.dataset.unset = '0';
+    markDirty();
+    syncColours();
+  });
+  // The swatch is the source of truth, so losing focus always resyncs the
+  // text to it — this is what clears a half-typed or invalid value.
+  hex.addEventListener('change', () => {
+    hex.value = swatch.value;
+    hex.classList.remove('invalid');
+  });
   row.querySelector('[data-reset]').addEventListener('click', () => {
-    const field = row.querySelector('input');
-    field.dataset.unset = '1';
-    field.value = defaults[theme]?.[role] || FALLBACK_COLOUR;
+    swatch.dataset.unset = '1';
+    swatch.value = defaults[theme]?.[role] || FALLBACK_COLOUR;
+    hex.value = swatch.value;
+    hex.classList.remove('invalid');
     markDirty();
     syncColours();
   });
@@ -934,6 +957,8 @@ function setColourField(field, value) {
   const hex = normaliseHex(value);
   field.dataset.unset = hex ? '0' : '1';
   field.value = hex || defaults[field.dataset.colour]?.[field.dataset.role] || FALLBACK_COLOUR;
+  const hexField = field.closest('.colour')?.querySelector('[data-hex]');
+  if (hexField) hexField.value = field.value;
 }
 
 /** What the board would actually paint: the override, or the theme's own. */
@@ -1188,6 +1213,8 @@ form.addEventListener('input', markDirty);
 form.addEventListener('input', (event) => {
   if (event.target.type !== 'color') return;
   event.target.dataset.unset = '0';
+  const hexField = event.target.closest('.colour')?.querySelector('[data-hex]');
+  if (hexField) hexField.value = event.target.value;
   syncColours();
 });
 form.addEventListener('change', (event) => {

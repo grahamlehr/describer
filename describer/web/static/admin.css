@@ -305,7 +305,7 @@ dd { margin: 0; line-height: 1.7; }
 }
 .colour {
   display: grid;
-  grid-template-columns: 2rem 1fr auto auto;
+  grid-template-columns: 2rem 4.6rem 1fr auto auto;
   align-items: center;
   gap: 0.55rem;
   padding: 0.25rem 0;
@@ -319,6 +319,19 @@ dd { margin: 0; line-height: 1.7; }
   background: none;
   cursor: pointer;
 }
+.hex-input {
+  width: 4.6rem;
+  height: 1.6rem;
+  padding: 0 0.35rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.2rem;
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.hex-input.invalid { border-color: var(--warn); }
 .colour-name { font-size: 0.88rem; }
 /* Dimmed while the theme's own colour is in force, so what has been changed
    from the stylesheet is visible at a glance. */
