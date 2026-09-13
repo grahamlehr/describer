@@ -17,6 +17,7 @@ export const ROLES = {
   on_time: '--on-time',
   late: '--late',
   cancelled: '--cancelled',
+  bar: '--tl-bar',
 };
 
 /** Every role. A theme without one of them passes its own shorter list. */

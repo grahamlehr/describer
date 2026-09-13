@@ -57,7 +57,9 @@ display:
       scroll_route: false   # scroll the route down and back instead of paging it
       scroll_speed: 0.5     # stops per second scrolling down (0.1–5)
       return_speed: 4.0     # stops per second scrolling back to the top (0.5–40)
-      # No on_time here: this board counts down in the text colour.
+      # No on_time here: this board counts down in the text colour. It has
+      # one extra role the others don't: bar, the "Later trains" header
+      # background (otherwise --tl-bar in the stylesheet).
       colours: {}
 
 # Two independent upstreams. The primary is used while it works; after

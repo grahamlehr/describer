@@ -118,7 +118,9 @@ class ThemeColoursConfig(BaseModel):
     the CSS stays the source of truth and a redesign still reaches a board
     that never touched the picker. A theme uses the roles it has: thameslink
     has no on-time colour, because it counts down in white, and ignores
-    ``on_time`` if one is written here by hand.
+    ``on_time`` if one is written here by hand. ``bar`` is the reverse case:
+    it means only the background of thameslink's "Later trains" header, and
+    every other theme ignores it.
     """
 
     background: Colour | None = None
@@ -128,6 +130,7 @@ class ThemeColoursConfig(BaseModel):
     on_time: Colour | None = None
     late: Colour | None = None
     cancelled: Colour | None = None
+    bar: Colour | None = None
 
     @field_validator("*")
     @classmethod

@@ -836,22 +836,25 @@ function renderForceProfileOptions() {
 
 /* -------------------------------------------------------------- colours */
 
-/** The shared palette vocabulary, in the order the admin page shows it. */
-const COLOUR_ROLES = [
-  ['background', 'Background'],
-  ['text', 'Text'],
-  ['dim_text', 'Dim text'],
-  ['accent', 'Accent'],
-  ['on_time', 'On time'],
-  ['late', 'Late'],
-  ['cancelled', 'Cancelled'],
-];
+/** Every colour role's label, keyed by role name. */
+const ROLE_LABELS = {
+  background: 'Background',
+  text: 'Text',
+  dim_text: 'Dim text',
+  accent: 'Accent',
+  on_time: 'On time',
+  late: 'Late',
+  cancelled: 'Cancelled',
+  bar: 'Later trains bar',
+};
 
-/** Which roles each theme actually has. thameslink counts down in the text
- *  colour, so it has no on-time colour to offer. */
+/** Which roles each theme shows, and in what order. thameslink counts down
+ *  in the text colour, so it has no on-time colour to offer; its later-trains
+ *  header bar is structure everywhere else in the app (Addendum 5), but it
+ *  gets its own control here since nothing else about it is themeable. */
 const THEME_ROLES = {
-  modern: COLOUR_ROLES.map(([role]) => role),
-  thameslink: COLOUR_ROLES.map(([role]) => role).filter((role) => role !== 'on_time'),
+  modern: ['background', 'text', 'dim_text', 'accent', 'on_time', 'late', 'cancelled'],
+  thameslink: ['background', 'text', 'dim_text', 'accent', 'late', 'cancelled', 'bar'],
 };
 
 /** Role → the custom property the stylesheets name it by. Kept in step with
@@ -864,6 +867,7 @@ const ROLE_PROPERTY = {
   on_time: '--on-time',
   late: '--late',
   cancelled: '--cancelled',
+  bar: '--tl-bar',
 };
 
 /** Each theme's own colours, read from its stylesheet rather than copied
@@ -946,9 +950,7 @@ function buildColourFields() {
   for (const [theme, roles] of Object.entries(THEME_ROLES)) {
     const host = document.querySelector(`[data-colours="${theme}"]`);
     if (!host) continue;
-    for (const [role, label] of COLOUR_ROLES) {
-      if (roles.includes(role)) host.append(colourRow(theme, role, label));
-    }
+    for (const role of roles) host.append(colourRow(theme, role, ROLE_LABELS[role]));
   }
 }
 
@@ -999,12 +1001,15 @@ function syncColours() {
       const role = row.dataset.role;
       const cell = row.querySelector('[data-ratio]');
       const colour = colours[role];
-      if (role === 'background' || !ground || !colour) {
+      // The later-trains bar is a ground of its own: it is the text colour
+      // painted on it that has to read, not the board's background.
+      const against = role === 'bar' ? colours.text : ground;
+      if (role === 'background' || !against || !colour) {
         cell.textContent = '';
         cell.removeAttribute('data-low');
         continue;
       }
-      const ratio = contrast(colour, ground);
+      const ratio = contrast(colour, against);
       cell.textContent = `${ratio.toFixed(1)}:1`;
       cell.toggleAttribute('data-low', ratio < MIN_CONTRAST);
       if (ratio < MIN_CONTRAST && (worst === null || ratio < worst)) worst = ratio;
@@ -1024,9 +1029,13 @@ function renderPreview(theme, colours, worst) {
     ['14:41', 'Abbey Wood via Whitechapel', '1', 'Exp 14:52', c('late')],
     ['14:56', 'Ashford International', '—', 'Cancelled', c('cancelled')],
   ];
+  const bar = colours.bar
+    ? `<div class="preview-bar" style="background:${c('bar')};color:${c('text')}">Later trains</div>`
+    : '';
   host.innerHTML = `
     <div class="preview-board" style="background:${c('background')};color:${c('text')}">
       <div class="preview-head" style="color:${c('accent')}">New Beckenham · Departures</div>
+      ${bar}
       ${rows.map(([time, dest, plat, status, colour]) => `
         <div class="preview-row">
           <span>${time}</span><span class="preview-dest">${dest}</span>

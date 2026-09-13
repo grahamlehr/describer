@@ -12,8 +12,9 @@
 import { applyColours, clearColours } from './colours.js';
 
 /** The roles this board has. It counts down in --fg, so it has no on-time
- *  colour to offer, and its blue bars and hairline are structural. */
-const ROLES = ['background', 'text', 'dim_text', 'accent', 'late', 'cancelled'];
+ *  colour to offer; its hairline stays structural, but the "Later trains"
+ *  header bar (--tl-bar) is configurable as `bar`. */
+const ROLES = ['background', 'text', 'dim_text', 'accent', 'late', 'cancelled', 'bar'];
 
 /** The line sits between the featured train and its route. */
 export const serviceDetail = true;

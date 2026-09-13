@@ -369,4 +369,12 @@ button.linky:hover { color: var(--accent); }
   font-variant-numeric: tabular-nums;
 }
 .preview-dest { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-bar {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.2rem 0.4rem;
+  margin: 0.3rem 0 0.2rem;
+  border-radius: 0.15rem;
+}
 .warn-line { color: var(--warn); font-size: 0.78rem; margin: 0.5rem 0 0; }
