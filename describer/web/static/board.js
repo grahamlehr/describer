@@ -657,7 +657,54 @@ async function render() {
   state.boards.forEach((board, index) => {
     renderBoard(boardEls[index], board, state.stations[index], state.display);
   });
+  syncRowShares(boardEls);
   theme?.afterRender?.(boardsEl);
+}
+
+/**
+ * A split screen's two boards must end up with the same row height, or the
+ * highlighted "next train" row comes out a different size on each half
+ * depending only on which of the two happens to have a formation, a delay
+ * reason, or more calling points than the other. Give every board the
+ * largest share any of them needs for each of the three optional lines, and
+ * take the corresponding block out of `hidden` wherever that pushed its
+ * share up, so the extra room actually reserves blank space rather than
+ * shrinking every row to make space for nothing. `.calling-points-label`
+ * would otherwise show "Calling at" on its own with no stops after it, so it
+ * is blanked along with the rest; reset first, so a board that later gets
+ * real stops of its own is never left with a stray label hidden.
+ */
+const SHARED_ROW_LINES = [
+  { prop: '--detail-share', block: '.service-detail' },
+  { prop: '--reason-share', block: '.service-reason' },
+  { prop: '--calling-share', block: '.calling-points', alsoHide: ['.calling-points-label'] },
+];
+
+function syncRowShares(boardEls) {
+  if (boardEls.length < 2) return;
+  const rowsEls = boardEls.map((el) => el.querySelector('.rows'));
+  for (const { prop, block, alsoHide } of SHARED_ROW_LINES) {
+    for (const sel of alsoHide || []) {
+      for (const boardEl of boardEls) {
+        const el = boardEl.querySelector(sel);
+        if (el) el.hidden = false;
+      }
+    }
+    const shares = rowsEls.map((el) => Number(getComputedStyle(el).getPropertyValue(prop)) || 0);
+    const max = Math.max(...shares);
+    if (max <= 0) continue;
+    rowsEls.forEach((rowsEl, i) => {
+      rowsEl.style.setProperty(prop, String(max));
+      if (shares[i] >= max) return;
+      const boardEl = boardEls[i];
+      const blockEl = boardEl.querySelector(block);
+      if (blockEl) blockEl.hidden = false;
+      for (const sel of alsoHide || []) {
+        const el = boardEl.querySelector(sel);
+        if (el) el.hidden = true;
+      }
+    });
+  }
 }
 
 /* ------------------------------------------------------------------ clock */

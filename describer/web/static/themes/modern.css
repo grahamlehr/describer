@@ -26,14 +26,40 @@ body {
 .clock { color: var(--fg); font-weight: 500; }
 
 .stale { color: var(--late); }
-.source { color: var(--muted); }
+
+/* Which feed is live matters far less than anything above it, so it sits at
+   the foot of the board rather than crowding the header next to the clock,
+   at half the size base.css gives it. It is a grid item of .board-header,
+   not of .board, so getting it to the opposite end of the board needs taking
+   it out of flow rather than reassigning its grid-row. */
+.board { position: relative; }
+.source {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  font-size: 0.8vh;
+  color: var(--muted);
+}
 
 .row {
-  padding: 0.35vh 0;
+  /* A little breathing room on every row, so the highlighted row's text does
+     not end up flush against the edge it bleeds to below; kept the same for
+     every row so a row does not jump sideways the moment it is selected. */
+  padding: 0.35vh 0.5vw;
   border-bottom: 1px solid var(--rule);
   transition: background-color 200ms ease;
 }
-.row.selected { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.row.selected {
+  /* Bleed the highlight to the board's own edge — the full width of this
+     half of the screen — rather than stopping at the board's padding, and
+     add that padding back so the text lands exactly where every other row's
+     does. */
+  margin: 0 calc(var(--board-pad-x) * -1);
+  padding-left: calc(var(--board-pad-x) + 0.5vw);
+  padding-right: calc(var(--board-pad-x) + 0.5vw);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
 .cell.time { font-variant-numeric: tabular-nums; color: var(--fg); }
 .cell.platform { color: var(--muted); font-variant-numeric: tabular-nums; }
 .cell.operator { color: var(--muted); }

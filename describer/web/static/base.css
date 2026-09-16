@@ -30,7 +30,11 @@ html, body {
      time, and auto-placement would then slide the rows out of the 1fr track. */
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-width: 0;
-  padding: 1.2vh 1.4vw;
+  /* Named so a theme that bleeds an element to the board's own edge (modern's
+     highlighted row) can match this padding exactly rather than repeating it. */
+  --board-pad-x: 1.4vw;
+  --board-pad-y: 1.2vh;
+  padding: var(--board-pad-y) var(--board-pad-x);
   overflow: hidden;
 }
 

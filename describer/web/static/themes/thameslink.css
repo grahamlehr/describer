@@ -30,14 +30,24 @@ body {
 .board {
   grid-template-columns: 1fr auto;
   grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-  padding: 1.4vh 1.6vw;
+  --board-pad-x: 1.6vw;
+  --board-pad-y: 1.4vh;
+  padding: var(--board-pad-y) var(--board-pad-x);
 }
 .board-header { display: contents; }
 /* The station and the mode are two cells of one grid row with no gap between
    them, so a border under each reads as one hairline across the board. Both
    stretch to the row, which is what keeps the two ends of it level despite
-   the difference in type size. */
-.station-name, .board-mode { border-bottom: 1px solid var(--tl-rule); padding-bottom: 0.7vh; }
+   the difference in type size — but a stretched block lays its text out from
+   the top, which at two different font sizes reads as two names on two
+   different lines. Each is a flex box bottom-aligning its own text instead,
+   so both sit on the padding above the same hairline regardless of size. */
+.station-name, .board-mode {
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--tl-rule);
+  padding-bottom: 0.7vh;
+}
 .station-name {
   grid-row: 1;
   grid-column: 1;
