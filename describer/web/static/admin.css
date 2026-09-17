@@ -79,7 +79,7 @@ small.hint { display: block; margin: 0.25rem 0 0; font-size: 0.76rem; }
 .grid.checks { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
 label { display: block; font-size: 0.78rem; color: var(--muted); }
 label > input, label > select { margin-top: 0.25rem; }
-label.wide { grid-column: 1 / -1; }
+label.wide, .wide { grid-column: 1 / -1; }
 label.check, label.inline {
   display: flex; flex-direction: row; align-items: center; gap: 0.5rem;
   color: var(--fg); font-size: 0.85rem;

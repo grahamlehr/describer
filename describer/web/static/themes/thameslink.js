@@ -18,6 +18,8 @@ const ROLES = ['background', 'text', 'dim_text', 'accent', 'late', 'cancelled', 
 
 /** The line sits between the featured train and its route. */
 export const serviceDetail = true;
+/** Above the clock panel, at the foot; see thameslink.css's .weather. */
+export const weather = true;
 
 /** How often the countdowns are recomputed, and the delay wording alternates. */
 const REFRESH_MS = 15000;

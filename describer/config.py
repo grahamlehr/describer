@@ -58,11 +58,23 @@ class StationConfig(BaseModel):
     #: caught from where the board is read, so printing it only pushes the
     #: trains that can be caught off the bottom. 0 shows everything.
     walk_time: int = Field(default=0, ge=0, le=120)
+    #: Overrides the coordinates NaPTAN gives this CRS's forecast location.
+    #: Both or neither; roughly the UK's box, for a code Darwin knows and
+    #: NaPTAN does not (SPX). No coordinates at all means no forecast for
+    #: this board, logged once at INFO rather than treated as an error.
+    latitude: float | None = Field(default=None, ge=49, le=61)
+    longitude: float | None = Field(default=None, ge=-9, le=2)
 
     @field_validator("crs")
     @classmethod
     def _upper(cls, v: str) -> str:
         return v.upper()
+
+    @model_validator(mode="after")
+    def _coords_both_or_neither(self) -> StationConfig:
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be set together")
+        return self
 
     @field_validator("platforms", mode="before")
     @classmethod
@@ -202,6 +214,10 @@ class DisplayConfig(BaseModel):
     #: Show each calling point's expected arrival time alongside its name.
     #: Off by default: a time on every stop leaves less room for stops per page.
     show_calling_times: bool = False
+    #: Show a 24-hour forecast strip. Only modern and thameslink draw it; every
+    #: other theme hides it whatever this says. Off by default: nothing is
+    #: fetched from Open-Meteo while it, or the display schedule, is off.
+    show_weather: bool = False
     #: HDMI output mode. ``auto`` leaves the monitor's preferred mode alone;
     #: a 4K panel makes the Pi 4 composite four times the pixels it needs, so
     #: forcing 1080p or 720p keeps the animations smooth. Applied live with
@@ -342,6 +358,23 @@ class UpdatesConfig(BaseModel):
     branch: str = Field(default="main", pattern=r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 
 
+class WeatherConfig(BaseModel):
+    """24-hour forecasts from Open-Meteo: no key, no account, so unlike
+    ``sources`` this carries no credential plumbing at all — but it is
+    plumbing all the same, and not overridable by a profile. The on/off
+    switch is ``display.show_weather``, which is.
+    """
+
+    #: Seconds between forecast fetches for a location that is still wanted.
+    refresh_interval: int = Field(default=1800, ge=900, le=86400)
+    #: A forecast older than this is dropped rather than shown: weather that
+    #: old is wrong, and unlike a board it is decoration, not information.
+    stale_after: int = Field(default=10800, ge=1800, le=86400)
+    #: HTTP timeout in seconds for a single request.
+    timeout: float = Field(default=10.0, ge=1.0, le=60.0)
+    base_url: str = "https://api.open-meteo.com/v1/forecast"
+
+
 class DisplayOverride(BaseModel):
     """The display keys a profile may set; anything unset keeps the base value.
 
@@ -356,6 +389,7 @@ class DisplayOverride(BaseModel):
     show_position: bool | None = None
     show_formation: bool | None = None
     show_calling_times: bool | None = None
+    show_weather: bool | None = None
     #: Theme options and palettes, merged key by key onto the base block. Held
     #: loosely because a theme's options are its own; the merged result is
     #: validated against ThemesConfig before the profile is accepted.
@@ -476,6 +510,7 @@ class Config(BaseModel):
     schedule: ScheduleConfig = ScheduleConfig()
     profiles: ProfilesConfig = ProfilesConfig()
     updates: UpdatesConfig = UpdatesConfig()
+    weather: WeatherConfig = WeatherConfig()
 
     @model_validator(mode="before")
     @classmethod

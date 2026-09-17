@@ -25,6 +25,12 @@ stations:
     # the trains you could catch off the bottom. On an arrivals board it hides
     # trains arriving too soon to meet. 0 (the default) shows every train.
     walk_time: 0            # e.g. 10 for a ten-minute walk
+    # Forecast location for display.show_weather. Left null (the default), it
+    # comes from NaPTAN's own coordinates for the CRS above; set both to
+    # override for a code Darwin knows and NaPTAN does not (SPX), or to point
+    # the forecast somewhere else. Both or neither.
+    latitude: null
+    longitude: null
 
 display:
   theme: modern             # modern | crt | splitflap | 1990s | nse | led-matrix | thameslink
@@ -35,6 +41,9 @@ display:
   show_position: true      # "Left Reading 14:56 · 2 stops away", under the top row
   show_formation: true     # one box per coach, filled to how busy the feed says it is
   show_calling_times: false # show each calling point's expected time; off by default, it costs stops per page
+  # A 24-hour forecast strip, from Open-Meteo (no key needed). Only modern and
+  # thameslink draw it; every other theme ignores this and shows nothing.
+  show_weather: false
   resolution: auto          # auto | 1080p | 720p — force the HDMI mode; a 4K panel makes the Pi crawl
   themes:
     # Palette overrides, in the vocabulary every theme shares: background,
@@ -121,6 +130,15 @@ updates:
   check_interval: 21600     # seconds between checks, each one git fetch (min 600)
   remote: origin            # the git remote to compare against
   branch: main              # the branch the checkout must be on to update
+
+# 24-hour forecasts from Open-Meteo (open, no key or account needed). The
+# on/off switch is display.show_weather above, which a profile can override;
+# this block is plumbing, like sources, and is not.
+weather:
+  refresh_interval: 1800    # seconds between forecast fetches for a wanted location (min 900)
+  stale_after: 10800        # a forecast older than this is dropped rather than shown
+  timeout: 10.0             # seconds per request
+  base_url: https://api.open-meteo.com/v1/forecast
 
 # Time-of-day profiles: a different board at a different hour. Each entry is a
 # window of the week carrying only the keys it wants to change; anything left

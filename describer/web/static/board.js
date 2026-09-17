@@ -12,9 +12,15 @@ const connectionEl = document.getElementById('connection');
 const themeLink = document.getElementById('theme-css');
 const boardTemplate = document.getElementById('board-template');
 const rowTemplate = document.getElementById('row-template');
+const weatherHourTemplate = document.getElementById('weather-hour-template');
 
 const MODE_LABELS = { departures: 'Departures', arrivals: 'Arrivals' };
 const SOURCE_LABELS = { rdm: 'Darwin', rtt: 'RTT' };
+/** Steps through the 24-hour forecast; 8 gives one every three hours. */
+const WEATHER_STEP = 3;
+const WEATHER_COLUMNS = 24 / WEATHER_STEP;
+/** A rain chance below this is not worth a reader's attention. */
+const WEATHER_PRECIP_THRESHOLD = 20;
 /** How long one page of calling points holds before the next. */
 const CALLING_PAGE_MS = 5000;
 const CALLING_SEPARATOR = ' \u2022 ';
@@ -619,7 +625,96 @@ function turnOne(el, store) {
 }
 setInterval(turnPages, CALLING_PAGE_MS);
 
-function renderBoard(boardEl, board, station, display) {
+/* ----------------------------------------------------------------- weather */
+
+/** The condition/day-night attributes a `.wx-icon` mask is selected by. */
+function fillWeatherIcon(icon, hour) {
+  icon.dataset.condition = hour?.condition || 'unknown';
+  icon.dataset.day = hour && hour.is_day === false ? '0' : '1';
+}
+
+function buildWeatherNow(current) {
+  const now = document.createElement('div');
+  now.className = 'wx-now';
+  const icon = document.createElement('span');
+  icon.className = 'wx-icon';
+  fillWeatherIcon(icon, current);
+  const temp = document.createElement('span');
+  temp.className = 'wx-temp';
+  temp.textContent = current ? `${Math.round(current.temperature)}°` : '';
+  temp.toggleAttribute('data-freezing', Boolean(current) && current.temperature <= 0);
+  now.append(icon, temp);
+  return now;
+}
+
+/** Eight cells at three-hour steps: 24 columns do not fit half a 1280 screen
+ *  at a readable size, and a reader wants "roughly when", not the hour. */
+function buildWeatherHours(hours) {
+  const list = document.createElement('div');
+  list.className = 'wx-hours';
+  for (let i = 0; i < WEATHER_COLUMNS; i += 1) {
+    const hour = hours[i * WEATHER_STEP] || null;
+    const cell = weatherHourTemplate.content.firstElementChild.cloneNode(true);
+    cell.querySelector('.wx-time').textContent = hour ? hour.time : '';
+    fillWeatherIcon(cell.querySelector('.wx-icon'), hour);
+    cell.querySelector('.wx-temp').textContent = hour ? `${Math.round(hour.temperature)}°` : '';
+    const precip = cell.querySelector('.wx-precip');
+    const chance = hour?.precip_chance;
+    precip.textContent = chance != null && chance >= WEATHER_PRECIP_THRESHOLD ? `${chance}%` : '';
+    list.append(cell);
+  }
+  return list;
+}
+
+/**
+ * A 24-hour forecast strip at the foot of the board, for whichever theme
+ * opts in (`export const weather = true`, exactly as `serviceDetail` does).
+ * Every other theme gets it hidden unconditionally, before a forecast is
+ * even asked for — the backend does not know which themes draw this any
+ * more than it knows which draw the position line.
+ *
+ * When the option is on globally but this board has nothing yet (no
+ * coordinates for the station, or nothing fresh enough), the strip still
+ * renders its full shape with every cell blank, so a split screen's two
+ * halves claim the same height and thameslink's clock panel holds the same
+ * line on both — there being nothing here that belongs to one service, there
+ * is nothing to place, only a size to keep equal everywhere it is shown.
+ */
+function renderWeather(boardEl, forecast, display) {
+  const wrap = boardEl.querySelector('.weather');
+  const rowsEl = boardEl.querySelector('.rows');
+
+  if (!theme?.weather || !display.show_weather) {
+    wrap.hidden = true;
+    wrap.textContent = '';
+    delete wrap.dataset.key;
+    rowsEl.style.setProperty('--weather-share', '0');
+    return;
+  }
+
+  if (theme.renderWeather) {
+    wrap.hidden = false;
+    rowsEl.style.setProperty('--weather-share', '1.6');
+    theme.renderWeather(wrap, forecast || null);
+    return;
+  }
+
+  const key = JSON.stringify(forecast || null);
+  if (wrap.dataset.key !== key) {
+    wrap.dataset.key = key;
+    wrap.textContent = '';
+    wrap.append(buildWeatherNow(forecast?.current), buildWeatherHours(forecast?.hours || []));
+  }
+  wrap.hidden = false;
+  // ~1.6 slots: a label line's worth of air plus a value line, judged by eye
+  // against the strip's own vh-based type (Addendum 15) — the strip lives
+  // outside .rows's container-size scope, so this only nudges the other
+  // rows' type down a little to leave room, rather than fixing the strip's
+  // own height, which is set in base.css.
+  rowsEl.style.setProperty('--weather-share', '1.6');
+}
+
+function renderBoard(boardEl, board, station, display, forecast) {
   boardEl.dataset.mode = board.mode;
   boardEl.querySelector('.station-name').textContent = board.name;
   boardEl.querySelector('.board-mode').textContent = MODE_LABELS[board.mode] || board.mode;
@@ -639,6 +734,7 @@ function renderBoard(boardEl, board, station, display) {
   renderDetail(boardEl, services, board, display);
   renderCallingPoints(boardEl, services, display);
   renderReason(boardEl, services, board.mode);
+  renderWeather(boardEl, forecast, display);
 
   const messages = boardEl.querySelector('.messages');
   messages.hidden = board.messages.length === 0;
@@ -655,7 +751,7 @@ async function render() {
 
   const boardEls = ensureBoards(state.boards.length);
   state.boards.forEach((board, index) => {
-    renderBoard(boardEls[index], board, state.stations[index], state.display);
+    renderBoard(boardEls[index], board, state.stations[index], state.display, state.weather?.[index]);
   });
   syncRowShares(boardEls);
   theme?.afterRender?.(boardsEl);

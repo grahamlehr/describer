@@ -102,3 +102,11 @@ body {
 
 .messages { color: var(--late); border-top: 1px solid var(--rule); }
 .empty { color: var(--muted); font-size: 2.4vh; padding: 2vh 0; }
+
+/* The forecast strip: a hairline mixed like every other rule on this board,
+   icons in the accent colour, and a temperature at or below freezing gets
+   the same accent rather than a plain white — the one place this theme lets
+   a number itself carry colour. */
+.weather { border-top: 1px solid var(--rule); color: var(--fg); }
+.weather .wx-icon { color: var(--accent); }
+.weather .wx-now .wx-temp[data-freezing] { color: var(--accent); }

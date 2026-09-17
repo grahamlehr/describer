@@ -149,6 +149,8 @@
       <label class="check"><input type="checkbox" name="display.show_position"> Show position</label>
       <label class="check"><input type="checkbox" name="display.show_formation"> Show formation</label>
       <label class="check"><input type="checkbox" name="display.show_calling_times"> Show calling point times</label>
+      <label class="check"><input type="checkbox" name="display.show_weather"> Show weather forecast
+        <small class="hint">Only modern and thameslink draw this; every other theme ignores it.</small></label>
       <label>Resolution
         <select name="display.resolution">
           <option value="auto">Auto (monitor's preferred)</option>
@@ -259,6 +261,26 @@
         </label>
       </div>
     </details>
+
+    <h3>Weather</h3>
+    <p class="hint">Forecasts from <a href="https://open-meteo.com/">Open-Meteo</a>,
+      no key needed. The on/off switch is <em>Show weather forecast</em> on the
+      Display tab; this is where the fetch itself is tuned.</p>
+    <div class="grid">
+      <label>Refresh interval <span class="unit">seconds</span>
+        <input type="number" name="weather.refresh_interval" min="900" max="86400" step="60" required>
+      </label>
+      <label>Stale after <span class="unit">seconds</span>
+        <input type="number" name="weather.stale_after" min="1800" max="86400" step="60" required>
+      </label>
+      <label>Timeout <span class="unit">seconds</span>
+        <input type="number" name="weather.timeout" min="1" max="60" step="0.5" required>
+      </label>
+      <label class="wide">Base URL
+        <input type="url" name="weather.base_url" required>
+      </label>
+    </div>
+    <dl id="weather-status"></dl>
 
     <!-- No name on these fields: readForm must never sweep a key into the
          config, and the main Save never sends one. They have their own button. -->
@@ -473,6 +495,18 @@
           reached from here. <code>0</code> shows every train.</small>
       </label>
       <label class="check wide"><input type="checkbox" data-station="announce"> Announcements for this station</label>
+      <details class="advanced wide">
+        <summary>Forecast location</summary>
+        <div class="grid">
+          <label>Latitude
+            <input type="number" data-station="latitude" min="49" max="61" step="0.0001" placeholder="(from the station list)">
+          </label>
+          <label>Longitude
+            <input type="number" data-station="longitude" min="-9" max="2" step="0.0001" placeholder="(from the station list)">
+          </label>
+        </div>
+        <small class="hint" data-station="coords-note"></small>
+      </details>
     </div>
   </div>
 </template>

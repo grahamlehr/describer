@@ -28,6 +28,7 @@ from .rail.models import Board
 from .rail.poller import Poller
 from .schedule import is_display_on
 from .updater import UpdateError, Updater
+from .weather import WeatherService
 
 log = logging.getLogger(__name__)
 
@@ -93,6 +94,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = TtsEngine(config.announcements)
     announcer = AnnouncementScheduler(engine)
     poller = Poller(store)
+    weather = WeatherService(config.weather, store.active)
+    weather.on_change = poller.publish_now
+    poller.set_weather(weather.forecasts_for_state)
 
     async def follow_config(_boards: list[Board], active: Config) -> None:
         """Keep Piper on the config actually in force, profile included."""
@@ -105,6 +109,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.engine = engine
     app.state.announcer = announcer
     app.state.poller = poller
+    app.state.weather = weather
 
     updater = Updater(REPO_DIR, config.updates, config_path=path)
     # Open SSE streams never end on their own and would hold the restart up
@@ -116,6 +121,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     poller.version = updater.running
     await announcer.start()
     await poller.start()
+    await weather.start()
     log.info("Describer %s ready; config at %s", updater.running or "(unversioned)", path)
     try:
         yield
@@ -123,6 +129,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await updater.stop()
         await poller.stop()
         await announcer.stop()
+        await weather.stop()
 
 
 class RevalidatedStaticFiles(StaticFiles):
@@ -173,6 +180,8 @@ async def api_put_config(request: Request, payload: dict) -> dict:
     # Applied live: no restart for theme, stations, sources or announcements.
     request.app.state.engine.update_config(store.active().announcements)
     request.app.state.updater.update_config(config.updates)
+    request.app.state.weather.update_config(config.weather)
+    request.app.state.weather.config_changed()
     request.app.state.poller.config_changed()
     return config.model_dump(mode="json")
 
@@ -197,6 +206,7 @@ async def api_status(request: Request) -> dict:
         "last_error": poller.last_error,
         "display_on": is_display_on(config.schedule),
         "display_mode": poller.display_mode,
+        "weather": request.app.state.weather.status(),
         "tts": request.app.state.engine.availability(),
         "last_announcement": announcer.last_spoken,
         "last_announcement_at": (
