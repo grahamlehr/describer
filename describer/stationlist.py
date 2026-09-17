@@ -16,6 +16,7 @@ column, while the XML carries it on each stop point's ``AnnotatedRailRef``.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import logging
 import re
@@ -43,15 +44,21 @@ _CRS = re.compile(r"[A-Z]{3}")
 _SUFFIX = re.compile(r"\s+(?:Rail(?:way)?\s+)?Station$", re.IGNORECASE)
 
 
-def parse_naptan(source: str | Path | BinaryIO) -> list[tuple[str, str]]:
-    """``(crs, name)`` for every active stop point carrying a CRS, by name.
+#: (crs, name, latitude, longitude); coordinates are None when NaPTAN gave none.
+StationRow = tuple[str, str, float | None, float | None]
+
+
+def parse_naptan(source: str | Path | BinaryIO) -> list[StationRow]:
+    """``(crs, name, lat, lon)`` for every active stop point carrying a CRS.
 
     Several stop points can share a code — Clapham Junction has five, one per
     group of platforms, and SGB is both "Smethwick Galton Bridge" and its
     "High Level" — so each code keeps its shortest name, which is the
-    station's own rather than one part of it.
+    station's own rather than one part of it, and the coordinates that came
+    with that name rather than one of the others'. Coordinates are rounded to
+    4 dp: plenty for a forecast, and it keeps the file diffing readably.
     """
-    names: dict[str, str] = {}
+    rows: dict[str, StationRow] = {}
     for _, element in ET.iterparse(source, events=("end",)):
         if element.tag != f"{_NS}StopPoint":
             continue
@@ -67,23 +74,50 @@ def parse_naptan(source: str | Path | BinaryIO) -> list[tuple[str, str]]:
             name = _SUFFIX.sub("", name.strip())
             if not _CRS.fullmatch(crs) or not name:
                 continue
-            held = names.get(crs)
-            if held is None or (len(name), name) < (len(held), held):
-                names[crs] = name
+            held = rows.get(crs)
+            if held is not None and (len(held[1]), held[1]) <= (len(name), name):
+                continue
+            lat = element.findtext(f".//{_NS}Latitude")
+            lon = element.findtext(f".//{_NS}Longitude")
+            latitude = round(float(lat), 4) if lat else None
+            longitude = round(float(lon), 4) if lon else None
+            rows[crs] = (crs, name, latitude, longitude)
         finally:
             # The file is 27 MB; keep only the (empty) stop points in memory.
             element.clear()
-    return sorted(names.items(), key=lambda item: (item[1].lower(), item[0]))
+    return sorted(rows.values(), key=lambda row: (row[1].lower(), row[0]))
 
 
-def render(stations: list[tuple[str, str]], generated: date) -> str:
+def render(stations: list[StationRow], generated: date) -> str:
     """The JSON file, one station to a line so a refresh diffs readably."""
     head = {"source": SOURCE, "licence": LICENCE, "generated": generated.isoformat()}
     lines = [f"  {json.dumps(key)}: {json.dumps(value)}," for key, value in head.items()]
-    body = ",\n".join(
-        f"    {json.dumps([crs, name], ensure_ascii=False)}" for crs, name in stations
-    )
+    body = ",\n".join(f"    {json.dumps(list(row), ensure_ascii=False)}" for row in stations)
     return "{\n" + "\n".join(lines) + '\n  "stations": [\n' + body + "\n  ]\n}\n"
+
+
+@functools.lru_cache(maxsize=1)
+def _coordinates() -> dict[str, tuple[float, float]]:
+    """CRS -> (lat, lon) from the committed station list. Loaded once, lazily.
+
+    A backend concern, not an admin one: /admin's own lookup reads the JSON
+    file straight from the browser, but forecasts are fetched from here, so
+    the list has one home either way.
+    """
+    try:
+        data = json.loads(OUTPUT.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    result: dict[str, tuple[float, float]] = {}
+    for row in data.get("stations", []):
+        if len(row) >= 4 and row[2] is not None and row[3] is not None:
+            result[row[0]] = (float(row[2]), float(row[3]))
+    return result
+
+
+def coordinates_for(crs: str) -> tuple[float, float] | None:
+    """A station's (lat, lon) from the committed list, or None if unknown."""
+    return _coordinates().get(crs.upper())
 
 
 def _download(url: str, into: Path) -> None:

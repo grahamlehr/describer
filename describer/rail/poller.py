@@ -63,6 +63,9 @@ class Poller:
         #: The release this process runs, sent with every frame so the board
         #: can tell it has come back up on a newer one.
         self.version: str | None = None
+        #: Set by main.py to WeatherService.forecasts_for_state; kept as one
+        #: call so the poller does not otherwise know weather exists.
+        self._weather: Callable[[Config], list[dict | None]] | None = None
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -80,6 +83,20 @@ class Poller:
 
     def add_listener(self, listener: BoardsListener) -> None:
         self._listeners.append(listener)
+
+    def set_weather(self, provider: Callable[[Config], list[dict | None]] | None) -> None:
+        """Register the one call the poller makes into weather, per state frame."""
+        self._weather = provider
+
+    def publish_now(self) -> None:
+        """Push a fresh frame without waiting for the next board poll.
+
+        WeatherService calls this when a forecast changes: it runs on its own
+        clock, independent of the board poll interval, so a browser watching
+        for a new forecast would otherwise wait up to a whole poll interval
+        for a frame that happens to carry it.
+        """
+        self._publish(self.state())
 
     # -- sources -----------------------------------------------------------
 
@@ -195,6 +212,7 @@ class Poller:
             "display": config.display.model_dump(mode="json"),
             "stations": [station.model_dump(mode="json") for station in config.stations],
             "boards": [board.model_dump(mode="json") for board in self.boards()],
+            "weather": self._weather(config) if self._weather else [None] * len(config.stations),
         }
 
     # -- polling -----------------------------------------------------------

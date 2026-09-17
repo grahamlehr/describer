@@ -89,6 +89,8 @@ function stationCard(station, index, onRemove) {
   field('platforms').value = (station.platforms || []).join(', ');
   field('show_unplatformed').checked = station.show_unplatformed === true;
   field('walk_time').value = station.walk_time ?? 0;
+  field('latitude').value = station.latitude ?? '';
+  field('longitude').value = station.longitude ?? '';
 
   card.querySelector('[data-remove]').addEventListener('click', () => onRemove(index));
   wireLookup(card);
@@ -131,9 +133,13 @@ function readStations() {
 const MAX_SUGGESTIONS = 8;
 /** Station name by code, filled once the list arrives. */
 const stationNames = new Map();
+/** [lat, lon] by code, when NaPTAN has a fix for it (about 2,630 of 2,638 do). */
+const stationCoords = new Map();
 const stationsReady = fetch('/static/stations.json')
   .then((response) => (response.ok ? response.json() : null))
-  .then((data) => (data?.stations || []).map(([crs, name]) => indexStation(crs, name)))
+  // Rows are [crs, name, lat, lon]; lat/lon are read by position; a row with
+  // no fix at all (a handful of NaPTAN entries) is JS's ordinary undefined.
+  .then((data) => (data?.stations || []).map(([crs, name, lat, lon]) => indexStation(crs, name, lat, lon)))
   .catch(() => []);
 let lookupIds = 0;
 
@@ -147,8 +153,9 @@ function normaliseName(text) {
     .trim();
 }
 
-function indexStation(crs, name) {
+function indexStation(crs, name, lat, lon) {
   stationNames.set(crs, name);
+  if (lat != null && lon != null) stationCoords.set(crs, [lat, lon]);
   const key = normaliseName(name);
   return { crs, name, key, words: key.split(' ') };
 }
@@ -184,6 +191,16 @@ function searchStations(list, query) {
   return scored.slice(0, MAX_SUGGESTIONS).map(([, station]) => station);
 }
 
+/** Whether the chosen CRS has a forecast location in the station list — the
+ *  "Forecast location" details block's own hint, independent of the name
+ *  lookup's "not in the list" warning above it. */
+function showCoordsNote(crs) {
+  if (!/^[A-Z]{3}$/.test(crs)) return '';
+  return stationCoords.has(crs)
+    ? 'Forecast location from the station list (NaPTAN); the fields above override it.'
+    : 'No coordinates for this code in the station list — no forecast for this board unless set above.';
+}
+
 /**
  * A combobox over the station list, for one station card. Typing a name or a
  * code suggests stations; arrows and Enter, or a click, put the chosen code in
@@ -195,6 +212,7 @@ function wireLookup(card) {
   const lookup = card.querySelector('[data-station="lookup"]');
   const crsField = card.querySelector('[data-station="crs"]');
   const note = card.querySelector('.crs-note');
+  const coordsNote = card.querySelector('[data-station="coords-note"]');
   const listbox = card.querySelector('.suggestions');
   const id = `station-lookup-${(lookupIds += 1)}`;
   listbox.id = id;
@@ -209,6 +227,7 @@ function wireLookup(card) {
     const unknown = stationNames.size > 0 && /^[A-Z]{3}$/.test(crs) && !name;
     note.hidden = !unknown;
     note.textContent = unknown ? 'Not in the station list: check the code.' : '';
+    if (coordsNote) coordsNote.textContent = showCoordsNote(crs);
   };
 
   const highlight = (index) => {
@@ -331,8 +350,18 @@ function readStationList(host) {
         .filter(Boolean),
       show_unplatformed: field('show_unplatformed').checked,
       walk_time: Number(field('walk_time').value) || 0,
+      ...readCoords(field('latitude').value, field('longitude').value),
     };
   });
+}
+
+/** Both or neither, as StationConfig requires — an empty box on either side
+ *  means "use the station list", not zero. */
+function readCoords(latitude, longitude) {
+  const lat = latitude.trim();
+  const lon = longitude.trim();
+  if (!lat || !lon) return { latitude: null, longitude: null };
+  return { latitude: Number(lat), longitude: Number(lon) };
 }
 
 /* ------------------------------------------------------------- weekdays */
@@ -1295,6 +1324,11 @@ async function loadStatus() {
       <dt>Last announcement</dt><dd>${status.last_announcement || '—'}</dd>
       <dt>Boards</dt><dd>${boards || '—'}</dd>
       <dt>Config file</dt><dd><code>${status.config_path}</code></dd>`;
+    document.getElementById('weather-status').innerHTML = `
+      <dt>Weather</dt><dd>${status.weather.enabled ? ok('on') : pill('', 'off')}
+        ${status.weather.locations} location${status.weather.locations === 1 ? '' : 's'} tracked</dd>
+      <dt>Last forecast fetch</dt><dd>${formatTime(status.weather.last_fetch)}</dd>
+      <dt>Last weather error</dt><dd>${status.weather.last_error ? bad(status.weather.last_error) : ok('none')}</dd>`;
     document.getElementById('force-source').value = status.forced_source || 'auto';
     document.getElementById('force-profile').value = status.forced_profile || '';
 
@@ -1307,6 +1341,7 @@ async function loadStatus() {
     }
   } catch (err) {
     statusList.innerHTML = `<dt>Status</dt><dd>${bad('unavailable')}</dd>`;
+    document.getElementById('weather-status').innerHTML = '';
     setGlance('bad', 'Backend unreachable');
   }
 }

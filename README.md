@@ -318,6 +318,33 @@ would otherwise mean a train is dropped from the board before it is ever close
 enough to be called, so the announcement comes at whichever of the two is
 longer — the last moment the train is still worth walking for.
 
+### Weather
+
+`display.show_weather: true` adds a 24-hour forecast strip from
+[Open-Meteo](https://open-meteo.com/), which needs no key and no account.
+Only the **modern** and **thameslink** themes draw it; every other theme
+ignores the option. The forecast location comes from NaPTAN's own coordinates
+for the station's CRS code — the same list `/admin`'s Station box searches —
+or from `latitude`/`longitude` set on the station itself, for a code Darwin
+knows and NaPTAN does not:
+
+```yaml
+stations:
+  - crs: SPX
+    latitude: 51.4841   # both or neither; overrides NaPTAN's own coordinates
+    longitude: -0.1245
+display:
+  show_weather: true
+weather:
+  refresh_interval: 1800   # seconds between fetches for a wanted location (min 900)
+  stale_after: 10800       # a forecast older than this is dropped rather than shown
+```
+
+Two stations at the same or a neighbouring location share one request, and
+nothing is fetched while the option is off or the display is scheduled off.
+Weather data by [Open-Meteo.com](https://open-meteo.com/), licensed
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
 ### Themes
 
 | Theme       | Look                                                        |

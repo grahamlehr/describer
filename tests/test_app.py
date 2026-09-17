@@ -137,6 +137,28 @@ def test_state_carries_show_calling_times(client):
     assert client.get("/api/state").json()["display"]["show_calling_times"] is True
 
 
+def test_state_carries_weather_parallel_to_boards(client):
+    """The poller's own knowledge of weather is one injected call; fake it."""
+    state = client.get("/api/state").json()
+    assert state["weather"] == [None]  # show_weather is off by default
+
+    client.app.state.poller.set_weather(lambda config: [{"latitude": 51.5}])
+
+    state = client.get("/api/state").json()
+    assert state["weather"] == [{"latitude": 51.5}]
+
+
+def test_status_carries_the_weather_block(client):
+    status = client.get("/api/status").json()
+
+    assert status["weather"] == {
+        "enabled": False,
+        "locations": 0,
+        "last_fetch": None,
+        "last_error": None,
+    }
+
+
 def test_invalid_config_is_rejected_with_field_errors(client):
     config = client.get("/api/config").json()
     config["sources"]["poll_interval"] = 3

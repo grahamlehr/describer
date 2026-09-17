@@ -4,7 +4,14 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from describer.config import Config, ConfigStore, load_config, save_config
+from describer.config import (
+    Config,
+    ConfigStore,
+    StationConfig,
+    load_config,
+    merge_profile,
+    save_config,
+)
 
 EXAMPLE = "config.example.yaml"
 
@@ -267,3 +274,65 @@ def test_a_file_without_show_calling_times_loads_unchanged(tmp_path):
     path.write_text(yaml.dump({"stations": [{"crs": "PAD"}]}))
 
     assert load_config(path).display.show_calling_times is False
+
+
+# ---------------------------------------------------------------- weather
+
+
+def test_show_weather_defaults_off():
+    assert Config(stations=[{"crs": "PAD"}]).display.show_weather is False
+
+
+def test_weather_defaults():
+    weather = Config(stations=[{"crs": "PAD"}]).weather
+
+    assert weather.refresh_interval == 1800
+    assert weather.stale_after == 10800
+    assert weather.base_url == "https://api.open-meteo.com/v1/forecast"
+
+
+def test_weather_refresh_interval_floor_is_enforced():
+    with pytest.raises(ValidationError):
+        Config(stations=[{"crs": "PAD"}], weather={"refresh_interval": 60})
+
+
+def test_station_latitude_and_longitude_must_come_together():
+    with pytest.raises(ValidationError):
+        StationConfig(crs="PAD", latitude=51.5)
+    with pytest.raises(ValidationError):
+        StationConfig(crs="PAD", longitude=-0.17)
+
+    station = StationConfig(crs="PAD", latitude=51.5, longitude=-0.17)
+    assert station.latitude == 51.5
+    assert station.longitude == -0.17
+
+
+@pytest.mark.parametrize(
+    "latitude,longitude",
+    [(40.0, -0.17), (65.0, -0.17), (51.5, -20.0), (51.5, 10.0)],
+)
+def test_station_coordinates_are_bounded_to_roughly_the_uk(latitude, longitude):
+    with pytest.raises(ValidationError):
+        StationConfig(crs="PAD", latitude=latitude, longitude=longitude)
+
+
+def test_a_profile_can_turn_show_weather_on():
+    config = Config(
+        stations=[{"crs": "PAD"}],
+        profiles={
+            "entries": [
+                {
+                    "name": "Weather hour",
+                    "start": "00:00",
+                    "end": "00:00",
+                    "display": {"show_weather": True},
+                }
+            ]
+        },
+    )
+    profile = config.profiles.entries[0]
+
+    resolved = merge_profile(config, profile)
+
+    assert config.display.show_weather is False
+    assert resolved.display.show_weather is True
