@@ -2240,6 +2240,9 @@ absence; the two number fields read and write `latitude`/`longitude`), and
 the Data sources tab's Weather block (config fields plus live status,
 including "2 locations tracked" once two stations shared a rounded key).
 
+Judged on the Pi's own monitor after release, and it looks right there:
+`--weather-share: 1.6` and the strip's `vh` height stand as they are.
+
 ## Out of scope
 
 Per-station `show_weather` (it is a `DisplayConfig` toggle, like
