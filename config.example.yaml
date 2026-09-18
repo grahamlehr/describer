@@ -1,6 +1,8 @@
 # Describer configuration. Copy to config.yaml (dev) or
-# /etc/describer/config.yaml (Pi). The file is the source of truth; the
-# admin page at /admin reads and writes this same file.
+# /etc/describer/config.yaml (Pi, seeded there by deploy/install.sh -- the
+# checkout at /opt/describer must never hold a config.yaml of its own, or it
+# would win over this one). The file is the source of truth; the admin page
+# at /admin reads and writes this same file.
 #
 # No credentials are here. They live in the environment (or .env):
 #   RDM_API_KEY    for the Rail Data Marketplace

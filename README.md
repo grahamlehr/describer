@@ -54,21 +54,38 @@ page shows what is missing.
 ## Pi installation
 
 ```bash
-git clone <this repo> ~/describer && cd ~/describer
-./deploy/install.sh
+git clone <this repo> && cd describer
+sudo ./deploy/install.sh
 ```
 
-The script installs system packages, builds the venv, fetches Piper and a
-voice, and installs three systemd services:
+The install is root-run and idempotent, and does everything: system packages,
+a `describer` system user, the checkout at `/opt/describer`, the venv, Piper
+and a voice, config and credential files under `/etc/describer`, and three
+systemd services. It runs in two parts if you want them separately
+(`sudo ./deploy/install.sh provision` then `configure`); `all` (the default)
+runs both.
 
-- `describer.service` — a **user** service running the FastAPI backend on
-  port 8080
+- `describer.service` — a **system** service, `User=describer`, running the
+  FastAPI backend on port 8080 from `/opt/describer`
 - `kiosk.service` — a **system** service on tty1 running `cage` and Chromium
-  in `--kiosk` against localhost. It has to be a system service: cage needs a
-  logind seat for the display and input devices, and a lingering user session
-  never gets one.
+  in `--kiosk` against localhost, also as `describer`. It has to be a system
+  service: cage needs a logind seat for the display and input devices, and a
+  lingering user session never gets one.
 - `shutdown-button.service` — a **system** service watching a button for the
   clean-shutdown gesture (below).
+
+### Moving from an older install
+
+An install from before this layout kept the checkout at `~/describer` and ran
+`describer.service` as a user unit for whoever owned it. Running
+`sudo ./deploy/install.sh` (as that same user, via `sudo`) detects that old
+layout automatically and migrates it: it copies `~/describer/config.yaml` to
+`/etc/describer/config.yaml` (only if the new path is empty — it never
+overwrites one already there), copies `voices/` and `.piper/` across to save
+re-downloading them, chowns the existing `/etc/describer/describer.env` to
+the new `describer` user, and disables the old per-user unit. It does not
+delete `~/describer`; delete it yourself once the board is confirmed working
+under the new layout.
 
 ### Shutdown button
 
@@ -89,41 +106,35 @@ GPIO21, so any other gesture on that button belongs in the same script.
 sudo journalctl -u shutdown-button -n 5   # "watching GPIO21 for 6 presses within 10s"
 ```
 
-`install.sh` asks for both sets of credentials and writes them to
-`/etc/describer/describer.env` (mode 600). On a re-run, pressing Enter at a
-prompt keeps the credential already there. To change them later, edit that
-file and:
+`sudo deploy/install.sh configure` asks for both sets of credentials and
+writes them to `/etc/describer/describer.env` (mode 600, owned by
+`describer`). On a re-run, pressing Enter at a prompt keeps the credential
+already there. To change them later, edit that file and:
 
 ```bash
-systemctl --user restart describer
-sudo systemctl restart kiosk
-systemctl --user status describer
-sudo systemctl status kiosk shutdown-button
-journalctl --user -u describer -f
+sudo systemctl restart describer kiosk
+sudo systemctl status describer kiosk shutdown-button
+sudo journalctl -u describer -f
 sudo journalctl -u kiosk -f
 ```
 
-`describer.service` reads `~/describer/.env` first and
-`/etc/describer/describer.env` second. systemd applies environment files in
-order and the last assignment wins — **including an assignment to the empty
-string** — so the deployed credentials are read last and a stray `.env` in the
-checkout cannot blank them. Do not reverse this. A repo `.env` holding nothing
-but `RDM_API_KEY=` once left the board with no key at all: RDM was a permanent
-failure from the first poll, the board failed over to RTT without complaint,
-and a day's allowance went with it. If credentials appear to be missing,
-`/api/status` reports `credentials`, and this settles where they got lost:
+`describer.service` reads only `/etc/describer/describer.env` — a system
+install has no checkout `.env` for it to read at all, which removes a whole
+class of the "blanked key" trap a dev-machine `.env` could once cause. If
+credentials appear to be missing, `/api/status` reports `credentials`, and
+this settles it:
 
 ```bash
-systemctl --user show describer -p Environment | tr ' ' '\n' | grep -c '^RDM_API_KEY=.\+'
+sudo systemctl show describer -p Environment | tr ' ' '\n' | grep -c '^RDM_API_KEY=.\+'
 ```
 
 Keys can also be set or cleared from **/admin → Data sources → Credentials**,
 which writes them to `/etc/describer/describer.env` and puts them to work
 without a restart. It is write-only: a saved key is never shown again.
 
-Note that the unit file is *copied* into `~/.config/systemd/user/`, so a
-`git pull` does not update it. Changing it means re-running `install.sh`, or
-re-copying it and running `systemctl --user daemon-reload`.
+Note that unit files are *copied* into `/etc/systemd/system/`, so a `git
+pull` does not update them. Changing one means re-running `sudo deploy/install.sh`
+(or `provision`), plus `sudo systemctl daemon-reload`.
 
 ### Updating a Pi
 
@@ -131,19 +142,20 @@ The board checks GitHub every six hours (`updates:` in the config). When a
 newer release is waiting, **/admin → Status → Updates** lists it, and **Update
 and restart** installs it: it fast-forwards the checkout, installs
 requirements if they changed, checks the new code starts with your config,
-and restarts the backend. The board reloads itself when it comes back. If the
-new code will not start, the checkout is put back and nothing restarts.
+and restarts the backend (system scope: `systemctl restart describer.service`).
+The board reloads itself when it comes back. If the new code will not start,
+the checkout is put back and nothing restarts.
 
 It will not update a checkout with local changes to tracked files, one on
 another branch, or one with commits of its own. When a release changes
-`deploy/`, re-run `deploy/install.sh` afterwards; the unit files are copied,
-not pulled.
+`deploy/`, re-run `sudo deploy/install.sh` afterwards; the unit files are
+copied, not pulled.
 
 By hand:
 
 ```bash
-cd ~/describer && git pull
-systemctl --user restart describer && sudo systemctl restart kiosk
+cd /opt/describer && sudo -u describer git pull
+sudo systemctl restart describer kiosk
 ```
 
 Static files are served with `Cache-Control: no-cache`, so Chromium checks
@@ -154,7 +166,9 @@ previous release's stylesheet. Clearing the browser cache once fixes it for
 good:
 
 ```bash
-sudo systemctl stop kiosk && rm -rf ~/.cache/chromium && sudo systemctl start kiosk
+sudo systemctl stop kiosk
+sudo -u describer rm -rf /var/lib/describer/.cache/chromium
+sudo systemctl start kiosk
 ```
 
 ## Configuration
@@ -162,9 +176,11 @@ sudo systemctl stop kiosk && rm -rf ~/.cache/chromium && sudo systemctl start ki
 `config.yaml` is the source of truth. It is looked up as `config.yaml`
 relative to the working directory first, then `/etc/describer/config.yaml`;
 `DESCRIBER_CONFIG` overrides both. The backend runs with `WorkingDirectory`
-set to the checkout, so **a `config.yaml` in `~/describer` on the Pi wins over
-`/etc/describer/config.yaml`** — check which one `/api/status` reports as
-`config_path` before editing either.
+set to the checkout (`/opt/describer` on the Pi), so **a `config.yaml` there
+would win over `/etc/describer/config.yaml`** — `install.sh` refuses to
+provision if one exists at `/opt/describer/config.yaml` for exactly this
+reason. Check which file is live via `/api/status`'s `config_path` before
+editing either.
 
 Every option is documented in `config.example.yaml`. The admin page at
 `/admin` edits the same file and applies theme, station, feed and

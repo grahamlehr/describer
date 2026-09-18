@@ -38,7 +38,7 @@ STARTUP_DELAY = 60.0
 #: Seconds between answering /api/updates/apply and restarting, so the answer
 #: reaches the browser before the process goes.
 RESTART_DELAY = 1.0
-#: The backend's own systemd user unit.
+#: The backend's own systemd unit.
 UNIT = "describer.service"
 FETCH_TIMEOUT = 60.0
 INSTALL_TIMEOUT = 900.0
@@ -83,8 +83,10 @@ async def _run(
 
 
 async def _systemd_restart(repo: Path) -> None:
+    # System scope, not --user: describer.service is a system unit now. A
+    # polkit rule lets the describer user run exactly this restart.
     # --no-block: the restart stops this very process, so do not wait on it.
-    await _run(["systemctl", "--user", "restart", "--no-block", UNIT], repo, 30)
+    await _run(["systemctl", "restart", "--no-block", UNIT], repo, 30)
 
 
 _SYSTEMD = object()
