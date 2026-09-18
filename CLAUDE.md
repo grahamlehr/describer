@@ -215,7 +215,6 @@ describer/
       rtt.py               # Realtime Trains client
       sources.py           # holds both clients, fails over, recovers
       poller.py            # background polling, staleness, backoff
-      client.py            # deprecated alias for ldbws; delete after a release
     announce/
       phrasing.py          # builds announcement text from Service
       tts.py               # Piper wrapper + cache + playback
@@ -327,7 +326,7 @@ describer/rail/
   rtt.py           # RttClient
   sources.py       # SourceManager: builds clients from config, does failover
   client.py        # thin re-export of ldbws for backwards compatibility; delete
-                   # once nothing imports it
+                   # once nothing imports it (removed 2026-09, one release on)
 ```
 
 ```python
