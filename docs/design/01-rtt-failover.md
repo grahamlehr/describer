@@ -25,7 +25,7 @@ describer/rail/
   rtt.py           # RttClient
   sources.py       # SourceManager: builds clients from config, does failover
   client.py        # thin re-export of ldbws for backwards compatibility; delete
-                   # once nothing imports it
+                   # once nothing imports it (removed 2026-09, one release on)
 ```
 
 ```python
