@@ -363,7 +363,7 @@ module. Every export is optional — hooks such as `attach`, `configure`,
 and `afterRender`, plus the `serviceDetail` and `weather` flags that opt a
 theme in to the position/formation line and the forecast strip. `board.js`
 calls them and hands over the theme's own config block; the full contract is
-the table in `CLAUDE.md` (Addendum 3). `modern.js` is the smallest example to copy: no animation at
+the table in [`docs/design/03`](docs/design/03-board-layout-and-theme-contract.md#theme-module-contract). `modern.js` is the smallest example to copy: no animation at
 all, so the module exists only to apply the palette. Adding a theme touches no
 backend code beyond adding its name to the `theme` literal in
 `describer/config.py`, so the config validates.
