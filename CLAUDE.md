@@ -39,9 +39,12 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
   a restart loop and the console keeps its login prompt. The binary on current
   Pi OS is `/usr/bin/chromium`; there is no `chromium-browser`. cage draws a
   pointer in the middle of the screen with or without a mouse and has no flag
-  to hide it, so `install.sh` writes a transparent cursor theme and the unit
-  points `XCURSOR_THEME` at it; the board's `cursor: none` alone is not
-  enough, because with no input device no pointer ever enters the window.
+  to hide it. It also ignores `XCURSOR_THEME` and `XCURSOR_SIZE` and loads
+  whatever theme is named `default`, so `install.sh` writes a transparent
+  theme under that name in `/usr/local/share/describer-cursors` and the unit
+  puts that directory first on `XCURSOR_PATH`. The board's `cursor: none`
+  alone is not enough, because with no input device no pointer ever enters
+  the window.
 - **Frontend**: plain HTML/CSS/JS served by FastAPI. No build step, no
   frameworks, no npm. Themes are CSS + small JS modules. Live updates via
   Server-Sent Events from the backend so the page never polls the API
@@ -149,8 +152,9 @@ over portability or packaging. No multi-user, no auth beyond LAN trust.
    minutes, and the clock in a white panel at the foot.
 
 Themes share one DOM structure and one data model; a theme is a CSS file
-plus an optional JS module for animation. Adding a theme must not require
-touching backend code. Addendum 3 carries the sizing model, the full module
+plus an optional JS module for animation. Adding a theme touches no backend
+code except its name in the `ThemeName` literal in `config.py`, so the config
+validates (plus a `ThemesConfig` block if it has options). Addendum 3 carries the sizing model, the full module
 contract and what the two dot-matrix themes share.
 
 ### Announcements (Piper TTS)
@@ -162,7 +166,9 @@ contract and what the two dot-matrix themes share.
   London Paddington." Plus optional delay and cancellation announcements
   with the standard apology wording.
 - Each service is announced at most once per event type (arriving,
-  delayed, cancelled). Track announced IDs in memory; reset on restart.
+  delayed, cancelled). Tracked in memory and reset on restart; keyed by the
+  train rather than `Service.id` (Addendum 1) and forgotten by age
+  (Addendum 6).
 - Optional two-tone chime before each announcement.
 - Quiet hours honoured (see schedule below).
 
@@ -195,7 +201,9 @@ contract and what the two dot-matrix themes share.
 describer/
   CLAUDE.md
   README.md
-  requirements.txt
+  requirements.txt         # runtime and dev deps together
+  pyproject.toml           # ruff and pytest settings
+  .claude/launch.json      # the dev server for preview tools; clears RTT_TOKEN (Addendum 4)
   config.example.yaml      # documented defaults; copy to config.yaml
   .env.example             # the credential names; .env itself is never committed
   describer/
@@ -245,7 +253,8 @@ describer/
     shutdown_button.py     # six presses on GPIO21 in 10 s -> poweroff; system python
     shutdown-button.service  # systemd *system* unit for the above
   tests/
-    fixtures/              # recorded LDBWS and RTT JSON responses
+    conftest.py            # autouse guards: no credentials, no network, no update checks
+    fixtures/              # recorded LDBWS, RTT, NaPTAN and Open-Meteo responses
 ```
 
 ## Conventions
@@ -256,8 +265,10 @@ describer/
 - Async I/O for the HTTP client and poller (`httpx.AsyncClient`).
 - Log with the stdlib `logging` module to stdout; systemd captures it.
   Never log the API key or full raw responses at INFO.
-- Frontend JS: ES modules, no bundler, no dependencies. Fonts are
-  self-hosted in `web/static/fonts` so the board works with no internet.
+- Frontend JS: ES modules, no bundler, no dependencies. Any web font is
+  self-hosted in `web/static/fonts`, never a CDN, so the board works with no
+  internet. Only `bedstead.woff2` ships; every other theme falls back to
+  system fonts (see `fonts/README.md`).
 - Keep the Pi in mind: avoid heavy Python deps (no pandas, no numpy),
   and avoid CSS filters that force full-screen repaints every frame.
 - Every config option has a sensible default in `config.example.yaml`
@@ -277,7 +288,9 @@ export RDM_API_KEY=...
 unset RTT_TOKEN            # dev never talks to RTT; see Addendum 4
 uvicorn describer.main:app --reload --port 8080
 ```
-Set `sources.fallback: null` in the local `config.yaml`. RDM has a generous
+Set `sources.fallback: null` in the local `config.yaml`. The `describer`
+entry in `.claude/launch.json` (what `preview_start` runs) starts uvicorn with
+`RTT_TOKEN` set to empty, so a token in the local `.env` is never loaded. RDM has a generous
 allowance and is the only upstream a dev machine may call; RTT's free tier is
 1000 calls a day shared with the live board, so **anything spent here is taken
 off the Pi**. Addendum 4 is the rule, not a suggestion.
@@ -405,6 +418,10 @@ sources:
     detail_rows: 8          # services per board that get a calling-points call
 ```
 
+The `rtt:` block above is the v1 shape and is superseded: Addendum 2 has the
+current one (`data.rtt.io`, `detail_rows: 3`, `time_window`,
+`min_poll_interval`).
+
 `SourcesConfig` in `config.py` validates that `primary != fallback` and
 that `detail_rows` is between 1 and 12.
 
@@ -442,8 +459,9 @@ that `detail_rows` is between 1 and 12.
 
 ## Deployment
 
-- `deploy/install.sh` prompts for RTT credentials alongside the RDM key
-  and writes both to `/etc/describer/describer.env`, mode 600.
+- `deploy/install.sh` prompts for `RTT_TOKEN` alongside `RDM_API_KEY`
+  and writes both to `/etc/describer/describer.env`, mode 600. Enter at a
+  prompt keeps the value already there.
 - The backend unit reads `%h/describer/.env` **before**
   `/etc/describer/describer.env`, not after. systemd applies environment files
   in order and the last assignment wins, an assignment to the empty string
@@ -452,7 +470,7 @@ that `detail_rows` is between 1 and 12.
   failed over to RTT, and a day's allowance went with it. Deployed credentials
   must be read last. `install.sh` copies the unit; changing it means re-running
   the script (or re-copying) plus `systemctl --user daemon-reload`.
-- No new apt or pip dependencies; `httpx` already supports Basic auth.
+- No new apt or pip dependencies; RTT's bearer token is a plain header.
 
 ## Out of scope for this addendum
 
@@ -641,7 +659,7 @@ those.
 | `serviceDetail` | read once | `true` shows the position/formation line; absent (or `false`) keeps it hidden, share 0, on every other theme |
 | `positionText(service, mode)` | per detail line | return `null` to accept the default wording |
 | `renderFormation(el, formation, length)` | per detail line | replaces the default car strip (Addendum 8); no theme uses it now |
-| `renderCallingPoints(list, points, rawPoints, service)` | per board | replaces the default paging; `rawPoints` is the service's full `CallingPoint` list and `service` the top service itself (for its `journey`), both ignored by every theme but thameslink |
+| `renderCallingPoints(list, points, rawPoints, service, showTimes)` | per board | replaces the default paging; `rawPoints` is the service's full `CallingPoint` list, `service` the top service itself (for its `journey`) and `showTimes` is `display.show_calling_times` (Addendum 12), all three ignored by every theme but thameslink |
 | `callingPointsLabel(mode, service)` | per board | return `null` to accept "Calling at" / "Called at" |
 | `reasonText(service, mode)` | per reason line | return `null` to accept the default wording |
 | `renderReason(el, text)` | per board | replaces `textContent` on the reason line |
@@ -1471,6 +1489,10 @@ none of the five changed at all — verified by measuring the computed
 
 ### `modern`
 
+*Superseded by Addendum 8: `modern` now draws the same car strip as
+`thameslink`, on a line of its own. The share and colour mixing below still
+hold.*
+
 The 0.9 slot share decided up front, rather than folding the line into the
 calling-points pages. Coaches are boxes outlined in `--muted`, filled from
 `--on-time` / `--late` / `--cancelled` mixed with `--bg`; unknown is an empty
@@ -1589,8 +1611,7 @@ share that line cannot hold their marks: `.service-detail` is a column in
 `base.css`, and `board.js` sets `--detail-share` to 0.9 per line shown — 1.8
 with both, 0.9 with one, 0 with neither. That share is only felt by `modern`,
 whose `--slot` counts it; `thameslink` keeps the block out of its slot. A board with only a length
-(RTT) reads "10 coaches" rather than ten empty outlines. The loading bands
-are duplicated from `board.js`; change both.
+(RTT) reads "10 coaches" rather than ten empty outlines.
 
 **Only accessible toilets are marked, by decision.** Standard toilets are
 noise at this size, and the feed has nothing about wheelchair spaces;
@@ -2221,7 +2242,7 @@ outright.
 ## Verified by hand
 
 Dev server, `sources.fallback: null`, `RTT_TOKEN` blanked for the run (the
-committed `.env` on this machine carries a real token; it was neither read
+local, uncommitted `.env` on this machine carries a real token; it was neither read
 nor edited — the shell's own copy of the variable was set to an empty string
 before `uvicorn` started, which `python-dotenv`'s `override=False` leaves
 alone). `display.show_weather` turned on against real coordinates for a real
