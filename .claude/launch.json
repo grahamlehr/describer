@@ -3,8 +3,10 @@
   "configurations": [
     {
       "name": "describer",
-      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeExecutable": "/usr/bin/env",
       "runtimeArgs": [
+        "RTT_TOKEN=",
+        ".venv/bin/uvicorn",
         "describer.main:app",
         "--port",
         "8080"

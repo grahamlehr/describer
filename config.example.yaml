@@ -149,9 +149,9 @@ weather:
 # Profiles choose content; the schedule above still owns the power. While the
 # display is off, no profile is active and nothing is fetched.
 #
-# sources: and display.resolution cannot be overridden: they are plumbing and
-# hardware, not presentation. Editable from /admin, which can also pin one for
-# testing without waiting until 07:00.
+# sources:, schedule:, updates:, weather: and display.resolution cannot be
+# overridden: they are plumbing and hardware, not presentation. Editable from
+# /admin, which can also pin one for testing without waiting until 07:00.
 profiles:
   enabled: true             # false stops the entries below being consulted
   entries: []
@@ -162,7 +162,7 @@ profiles:
   #   stations:             # present = replaces the list above entirely
   #     - {crs: ABW, mode: departures, rows: 10, platforms: ["1"]}
   #     - {crs: LBG, mode: arrivals, rows: 10}
-  #   display:              # theme, clock, show_calling_points, show_position, show_formation and theme options
+  #   display:              # any display key but resolution, and theme options
   #     theme: thameslink
   #   announcements:        # any announcement option but the Piper paths
   #     lead_time: 180

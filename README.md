@@ -358,10 +358,12 @@ Weather data by [Open-Meteo.com](https://open-meteo.com/), licensed
 | `thameslink` | The LCD "next train" panels on the Thameslink core; one service takes the head of the board with its route drawn beneath it, the rest are a "Later trains" list counting down in minutes. |
 
 A theme is a CSS file in `describer/web/static/themes/` plus a same-named JS
-module. The module may export `attach`, `configure`, `detach`, `renderText`,
-`statusText`, `renderCallingPoints`, `reasonText`, `renderReason` and
-`afterRender`, all optional; `board.js` calls them and hands over the theme's
-own config block. `modern.js` is the smallest example to copy: no animation at
+module. Every export is optional — hooks such as `attach`, `configure`,
+`detach`, `renderText`, `statusText`, `renderCallingPoints`, `renderReason`
+and `afterRender`, plus the `serviceDetail` and `weather` flags that opt a
+theme in to the position/formation line and the forecast strip. `board.js`
+calls them and hands over the theme's own config block; the full contract is
+the table in [`docs/design/03`](docs/design/03-board-layout-and-theme-contract.md#theme-module-contract). `modern.js` is the smallest example to copy: no animation at
 all, so the module exists only to apply the palette. Adding a theme touches no
 backend code beyond adding its name to the `theme` literal in
 `describer/config.py`, so the config validates.
@@ -473,8 +475,10 @@ profiles:
 
 The `/admin` **Profiles** tab edits them, draws the week as a ribbon so gaps
 and overlaps can be seen, and the Status tab can pin one so the evening board
-can be checked at eleven in the morning. `sources` and `display.resolution`
-cannot be overridden: they are plumbing and hardware, not presentation. The
+can be checked at eleven in the morning. A profile may set `stations`,
+`display` (bar `resolution`) and `announcements` (bar Piper's paths);
+`sources`, `schedule`, `updates`, `weather` and `display.resolution` cannot be
+overridden: they are plumbing and hardware, not presentation. The
 display schedule above still owns the power — while the screen is off, no
 profile is active and nothing is fetched.
 
@@ -488,7 +492,13 @@ RTT REST   ──► rail/rtt.py  ──┘   (picks one, fails over)  │      
                                             announce/scheduler.py │
                                                      │            │
                                              announce/tts.py    SSE ──► board.js ──► theme
+                                                                  ▲
+Open-Meteo ──► weather.py (own loop) ─────────────────────────────┘
 ```
+
+`profiles.py` sits in front of all of it: the poller, the announcer and the
+weather loop read the config *resolved* for the current hour, while `/admin`
+reads and writes the raw file.
 
 The poller owns the only copy of the live boards, backs off exponentially on
 errors, and keeps serving the last good data with a "data stale" flag. The
