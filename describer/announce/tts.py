@@ -94,9 +94,13 @@ class TtsEngine:
     def voice_path(self) -> Path:
         return Path(self._config.voices_dir) / f"{self._config.voice}.onnx"
 
-    def player_command(self, path: Path) -> list[str] | None:
-        """The playback command for this host, or None if nothing can play."""
-        device = ALSA_DEVICES.get(self._config.audio_device, "default")
+    def player_command(self, path: Path, audio_device: str | None = None) -> list[str] | None:
+        """The playback command for this host, or None if nothing can play.
+
+        ``audio_device`` overrides the configured output for one clip: the
+        setup page's test plays through the choice not yet saved.
+        """
+        device = ALSA_DEVICES.get(audio_device or self._config.audio_device, "default")
         if shutil.which("aplay"):
             command = ["aplay", "-q"]
             if device != "default":
@@ -155,8 +159,8 @@ class TtsEngine:
 
     # -- playback ----------------------------------------------------------
 
-    async def play_file(self, path: Path) -> None:
-        command = self.player_command(path)
+    async def play_file(self, path: Path, audio_device: str | None = None) -> None:
+        command = self.player_command(path, audio_device)
         if command is None:
             raise TtsError("No audio player found (install alsa-utils)")
         process = await asyncio.create_subprocess_exec(
@@ -168,7 +172,7 @@ class TtsEngine:
         if process.returncode:
             raise TtsError(f"Playback failed: {stderr.decode(errors='replace').strip()[:200]}")
 
-    async def speak(self, text: str) -> None:
+    async def speak(self, text: str, audio_device: str | None = None) -> None:
         """Chime (if enabled) then speak. Serialised against other calls."""
         async with self._lock:
             if self._config.chime:
@@ -176,8 +180,8 @@ class TtsEngine:
                 if not chime.exists():
                     write_chime(chime, self._config.volume)
                 try:
-                    await self.play_file(chime)
+                    await self.play_file(chime, audio_device)
                 except TtsError as exc:
                     log.warning("Chime failed: %s", exc)
             clip = await self.synthesize(text)
-            await self.play_file(clip)
+            await self.play_file(clip, audio_device)

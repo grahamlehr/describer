@@ -19,7 +19,7 @@ from pydantic import BaseModel, ValidationError
 from starlette.responses import Response
 from starlette.types import Scope
 
-from . import credentials
+from . import credentials, setup
 from .announce.scheduler import AnnouncementScheduler
 from .announce.tts import TtsEngine, TtsError
 from .config import Config, ConfigStore, config_path, load_config
@@ -61,6 +61,9 @@ def configure_logging() -> None:
 
 class TestAnnouncement(BaseModel):
     text: str = "This is a test announcement from the departure board."
+    #: Play through this output rather than the saved one: /setup tests the
+    #: choice before it is saved.
+    audio_device: Literal["hdmi", "jack", "default"] | None = None
 
 
 class ForceSource(BaseModel):
@@ -97,6 +100,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     weather = WeatherService(config.weather, store.active)
     weather.on_change = poller.publish_now
     poller.set_weather(weather.forecasts_for_state)
+    poller.set_setup(lambda: setup.setup_state(poller, store))
 
     async def follow_config(_boards: list[Board], active: Config) -> None:
         """Keep Piper on the config actually in force, profile included."""
@@ -155,6 +159,11 @@ async def admin_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "admin.html", headers=NO_CACHE)
 
 
+@app.get("/setup", include_in_schema=False)
+async def setup_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "setup.html", headers=NO_CACHE)
+
+
 @app.get("/api/state")
 async def api_state(request: Request) -> dict:
     return request.app.state.poller.state()
@@ -175,15 +184,19 @@ async def api_put_config(request: Request, payload: dict) -> dict:
         detail = exc.errors(include_url=False, include_context=False)
         raise HTTPException(status_code=422, detail=detail) from exc
 
-    store: ConfigStore = request.app.state.store
-    store.set(config)
-    # Applied live: no restart for theme, stations, sources or announcements.
-    request.app.state.engine.update_config(store.active().announcements)
-    request.app.state.updater.update_config(config.updates)
-    request.app.state.weather.update_config(config.weather)
-    request.app.state.weather.config_changed()
-    request.app.state.poller.config_changed()
+    request.app.state.store.set(config)
+    _apply_live(request.app, config)
     return config.model_dump(mode="json")
+
+
+def _apply_live(app: FastAPI, config: Config) -> None:
+    """Put a config that has just been saved to work: no restart for theme,
+    stations, sources or announcements."""
+    app.state.engine.update_config(app.state.store.active().announcements)
+    app.state.updater.update_config(config.updates)
+    app.state.weather.update_config(config.weather)
+    app.state.weather.config_changed()
+    app.state.poller.config_changed()
 
 
 @app.get("/api/status")
@@ -281,6 +294,86 @@ async def api_set_credentials(request: Request, payload: CredentialsUpdate) -> d
     return credentials.status()
 
 
+def _validation_error(exc: ValidationError) -> HTTPException:
+    return HTTPException(
+        status_code=422, detail=exc.errors(include_url=False, include_context=False)
+    )
+
+
+def _key_error(exc: credentials.CredentialError) -> HTTPException:
+    # The message names the rule that was broken, never the value.
+    return HTTPException(
+        status_code=422, detail=[{"loc": ["body", "key"], "msg": str(exc), "type": "value_error"}]
+    )
+
+
+@app.post("/api/setup/test-key")
+async def api_setup_test_key(request: Request, payload: setup.KeyCheck) -> dict:
+    """One RDM request with a key that is not saved yet. Never retried, never logged."""
+    try:
+        key = credentials.validate(payload.key)
+    except credentials.CredentialError as exc:
+        raise _key_error(exc) from exc
+    rdm = request.app.state.store.get().sources.rdm
+    return await setup.check_key(key, payload.crs, payload.mode, rdm)
+
+
+@app.post("/api/setup/complete")
+async def api_setup_complete(request: Request, payload: setup.SetupComplete) -> dict:
+    """Save the wizard's answers: the key, then the config, then put both to work."""
+    store: ConfigStore = request.app.state.store
+    poller: Poller = request.app.state.poller
+
+    key = (payload.key or "").strip()
+    if key:
+        try:
+            credentials.validate(key)
+        except credentials.CredentialError as exc:
+            raise _key_error(exc) from exc
+    elif not credentials.status()["keys"]["rdm"]["set"]:
+        raise _key_error(credentials.CredentialError("Paste your Rail Data Marketplace key"))
+
+    # Validated in full before anything is written, so a bad answer leaves both
+    # the key file and config.yaml as they were. The raw config, never active().
+    try:
+        config = setup.apply_setup(store.get(), payload)
+    except ValidationError as exc:
+        raise _validation_error(exc) from exc
+
+    if key:
+        try:
+            credentials.write({"rdm": key})
+        except credentials.CredentialError as exc:
+            raise _key_error(exc) from exc
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"Could not write the key: {exc}") from exc
+    try:
+        store.set(config)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not write the config: {exc}") from exc
+
+    poller.sources.credentials_changed()
+    _apply_live(request.app, config)
+    # The screen on the TV goes away with this frame, not with the next poll.
+    poller.publish_now()
+    return {
+        "setup": setup.setup_state(poller, store),
+        "stations": [station.model_dump(mode="json") for station in config.stations],
+    }
+
+
+@app.get("/api/setup/qr.svg")
+async def api_setup_qr() -> Response:
+    """The QR code the setup screen shows: the address by number when there is one,
+    since every phone can open that; the ``.local`` name otherwise."""
+    urls = setup.network_urls()
+    return Response(
+        setup.qr_svg(urls["ip_url"] or urls["url"]),
+        media_type="image/svg+xml",
+        headers=NO_CACHE,
+    )
+
+
 @app.get("/api/updates")
 async def api_updates(request: Request) -> dict:
     return request.app.state.updater.status()
@@ -308,7 +401,7 @@ async def api_apply_update(request: Request) -> dict:
 async def api_test_announcement(request: Request, payload: TestAnnouncement) -> dict:
     announcer: AnnouncementScheduler = request.app.state.announcer
     try:
-        await announcer.say(payload.text)
+        await announcer.say(payload.text, payload.audio_device)
     except TtsError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"spoken": payload.text}

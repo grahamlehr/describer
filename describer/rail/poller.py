@@ -66,6 +66,9 @@ class Poller:
         #: Set by main.py to WeatherService.forecasts_for_state; kept as one
         #: call so the poller does not otherwise know weather exists.
         self._weather: Callable[[Config], list[dict | None]] | None = None
+        #: Set by main.py to describer.setup.setup_state, for the same reason:
+        #: first-run setup is not the poller's business, only its frame's.
+        self._setup: Callable[[], dict | None] | None = None
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -87,6 +90,10 @@ class Poller:
     def set_weather(self, provider: Callable[[Config], list[dict | None]] | None) -> None:
         """Register the one call the poller makes into weather, per state frame."""
         self._weather = provider
+
+    def set_setup(self, provider: Callable[[], dict | None] | None) -> None:
+        """Register the call that says whether the board is waiting on setup."""
+        self._setup = provider
 
     def publish_now(self) -> None:
         """Push a fresh frame without waiting for the next board poll.
@@ -213,6 +220,8 @@ class Poller:
             "stations": [station.model_dump(mode="json") for station in config.stations],
             "boards": [board.model_dump(mode="json") for board in self.boards()],
             "weather": self._weather(config) if self._weather else [None] * len(config.stations),
+            # None is the normal case; the board draws the setup screen otherwise.
+            "setup": self._setup() if self._setup else None,
         }
 
     # -- polling -----------------------------------------------------------

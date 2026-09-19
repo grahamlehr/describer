@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Describer — set up</title>
+<link rel="stylesheet" href="/static/setup.css">
+</head>
+<body>
+
+<header class="top">
+  <h1>Set up your departure board</h1>
+  <p class="progress" id="progress" aria-live="polite"></p>
+</header>
+
+<main>
+  <!-- novalidate for the reason admin.html gives: a field on a hidden step cannot
+       be focused, so the browser would refuse to submit and say nothing. setup.js
+       checks each step itself. Nothing here has a name; setup.js reads the fields
+       it wants, so the key can never travel anywhere but the one request. -->
+  <form id="wizard" novalidate autocomplete="off">
+
+    <!-- ------------------------------------------------------ 1. station -->
+    <section class="step" data-step="1">
+      <h2>Which station?</h2>
+      <p class="hint">Type the station&rsquo;s name and pick it from the list. You can show
+        a second station beside it.</p>
+
+      <div id="stations"></div>
+      <button type="button" class="secondary" id="add-station">Add another station</button>
+
+      <div class="actions">
+        <button type="button" data-next>Next</button>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------- 2. key -->
+    <section class="step" data-step="2" hidden>
+      <h2>Your rail data key</h2>
+      <p class="hint">Live train times come from the Rail Data Marketplace. It is run by the
+        rail industry, and every board needs its own key. It takes about five minutes to
+        get one, and you only do it once.</p>
+
+      <!-- TODO(graham): confirm wording. Everything in this list is from the plan and the
+           design notes, not from a walk through the site: the product name and the
+           departures-only product are in docs/design/00 and the README; "free", the
+           sign-up and subscribe buttons, and the "Consumer key" label are not recorded
+           anywhere in the repo. Screenshots go in web/static/setup/ (see its README). -->
+      <ol class="walkthrough">
+        <li>
+          <p>Go to <a href="https://raildata.org.uk" target="_blank" rel="noopener">raildata.org.uk</a>
+            and create an account.</p>
+          <!-- screenshot: setup/1-create-account.png — the Rail Data Marketplace home page with the sign-up button marked -->
+        </li>
+        <li>
+          <p>Find the product called <strong>Live Arrival and Departure Boards</strong>.
+            <strong>Don&rsquo;t pick the departures-only one</strong>: it looks almost the same,
+            but the board can&rsquo;t use it.</p>
+          <!-- screenshot: setup/2-find-product.png — the search results with the right product marked and the departures-only one crossed out -->
+        </li>
+        <li>
+          <p>Subscribe to it. It&rsquo;s free.</p>
+          <!-- screenshot: setup/3-subscribe.png — the product page with the subscribe button marked -->
+        </li>
+        <li>
+          <p>Open your subscription and copy the <strong>Consumer key</strong>.</p>
+          <!-- screenshot: setup/4-consumer-key.png — the subscription page with the Consumer key and its copy button marked -->
+        </li>
+        <li>
+          <p>Paste it here.</p>
+        </li>
+      </ol>
+
+      <label>Consumer key
+        <input type="password" id="key" autocomplete="new-password" autocapitalize="off"
+               autocorrect="off" spellcheck="false" placeholder="Paste your key">
+      </label>
+      <p class="note" id="key-saved" hidden>A key is saved. Paste a new one only to replace it.</p>
+      <p class="note error" id="key-error" role="alert" hidden></p>
+
+      <button type="button" class="secondary" id="test-key">Test key</button>
+      <p class="note" id="key-result" role="status" hidden></p>
+
+      <div class="actions">
+        <button type="button" class="ghost" data-back>Back</button>
+        <button type="button" data-next id="key-next">Next</button>
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------------- 3. sound -->
+    <section class="step" data-step="3" hidden>
+      <h2>Sound</h2>
+      <p class="hint">The board can announce trains out loud, like a station.</p>
+
+      <label class="check"><input type="checkbox" id="announce" checked> Announce trains</label>
+
+      <div id="sound-options">
+        <label>Play the sound through
+          <select id="audio-device">
+            <option value="hdmi">The TV or monitor (HDMI)</option>
+            <option value="jack">Headphones or speakers (3.5&nbsp;mm socket)</option>
+          </select>
+        </label>
+        <button type="button" class="secondary" id="play-test">Play a test</button>
+        <p class="note" id="sound-result" role="status" hidden></p>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="ghost" data-back>Back</button>
+        <button type="button" data-next>Next</button>
+      </div>
+    </section>
+
+    <!-- -------------------------------------------------------- 4. finish -->
+    <section class="step" data-step="4" hidden>
+      <h2>Ready</h2>
+      <dl class="summary" id="summary"></dl>
+      <p class="note error" id="finish-error" role="alert" hidden></p>
+
+      <div class="actions">
+        <button type="button" class="ghost" data-back>Back</button>
+        <button type="submit" id="finish">Finish</button>
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------------- done -->
+    <section class="step" id="done" hidden>
+      <h2>Done: look at the TV</h2>
+      <p>Your board will appear in a few seconds.</p>
+      <p class="hint">Everything else &mdash; colours, more stations, times of day, updates &mdash;
+        is in <a href="/admin">settings</a>. You can come back to this page any time.</p>
+    </section>
+
+  </form>
+
+  <template id="station-template">
+    <div class="station">
+      <div class="station-head">
+        <strong class="station-title"></strong>
+        <button type="button" class="ghost danger" data-remove>Remove</button>
+      </div>
+      <div class="station-lookup">
+        <label>Station
+          <input type="text" data-station="lookup" role="combobox" aria-autocomplete="list"
+                 aria-expanded="false" autocomplete="off" autocapitalize="off" spellcheck="false"
+                 placeholder="Start typing a station name">
+        </label>
+        <ul class="suggestions" role="listbox" hidden></ul>
+      </div>
+      <p class="note error" data-station="error" role="alert" hidden></p>
+      <label>Station code
+        <input type="text" data-station="crs" maxlength="3" autocomplete="off" autocapitalize="characters"
+               placeholder="PAD">
+        <small class="hint crs-note" hidden></small>
+      </label>
+      <fieldset class="modes">
+        <legend>Show</legend>
+        <label class="check"><input type="radio" data-station="mode" value="departures" checked> Trains leaving</label>
+        <label class="check"><input type="radio" data-station="mode" value="arrivals"> Trains arriving</label>
+      </fieldset>
+    </div>
+  </template>
+</main>
+
+<script type="module" src="/static/setup.js"></script>
+</body>
+</html>

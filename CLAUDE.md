@@ -183,6 +183,36 @@ specifics are in `docs/design/03`; the palette roles in `/05` and `/11`.
   weather and `/api/status` use). Mixing the two up writes a profile into the
   base file.
 
+### First run (`/setup`)
+- A board with no RDM key has nothing to show, so the board says so: a
+  full-screen `.setup` element (QR code, `<host>.local:8080/setup`, the LAN
+  address beneath it, one line of instructions). A phone on the same Wi-Fi
+  finishes setup on `/setup`, and the screen goes away with no reload.
+- `describer/setup.py` owns the decision: `setup_state(poller, store)` is
+  `None`, `{"reason": "no_key"}` or `{"reason": "key_rejected"}`, each with
+  `url` and `ip_url`. It rides in `/api/state` and every SSE frame as `setup`.
+  **Only RDM counts**: a missing RTT token never triggers it, and neither does
+  a primary that is not RDM. A live board from another source keeps it away.
+- `key_rejected` is RDM answering 401 or 403 and nothing having served since.
+  `RailApiError.status` carries the HTTP status; `SourceManager` remembers
+  whether RDM's last answer was a refusal (`rdm_auth_failed`), cleared by a
+  board, or by `credentials_changed()`. **It changes what the screen says and
+  nothing else: a 401 never stops polling.**
+- `/setup` (`setup.html`/`.css`/`.js`, mobile-first, 375 px) is four steps:
+  station (the combobox, in `stationsearch.js`, shared with `/admin`), the key,
+  sound, finish. `POST /api/setup/test-key` makes **one** LDBWS request with a
+  key passed in (never read from the environment, never logged, never retried)
+  and answers `ok`, `rejected` or `unreachable`. `POST /api/setup/complete`
+  validates everything first, then writes the key (`credentials.write`), then
+  the config through **`ConfigStore.get()`/`set()`, never `active()`**, then
+  `credentials_changed()`. A station already in the file keeps its other
+  options; profiles are untouched.
+- The QR code is `GET /api/setup/qr.svg` (segno; `no-cache`): black modules on
+  nothing, drawn by the page through `mask-image` on a white panel, so it is
+  dark on light whatever the theme. It encodes `ip_url` when there is one.
+- The key field and the station search box have no `name`, and `/setup` has no
+  generic form reader, so a key travels in exactly two requests.
+
 ### Admin page (`/admin`)
 - Edits every config option with validation, saves to `config.yaml`, applies
   live without restart where possible. Shows API status, rate limit, last
@@ -200,6 +230,9 @@ specifics are in `docs/design/03`; the palette roles in `/05` and `/11`.
   `readForm` still reads it, so the values in the file survive the round trip.
 - Station boxes look names up in the committed `stations.json` (NaPTAN,
   rebuilt by hand with `python -m describer.stationlist`; `docs/design/10`).
+  The combobox is `stationsearch.js`, shared with `/setup`; the admin page
+  wraps it, so a change there is a change to both pages. Its header link
+  opens `/setup`.
 
 ## Project layout
 
@@ -219,6 +252,7 @@ describer/
     schedule.py            # display on/off schedule
     profiles.py            # which profile is in force, and merging it in
     stationlist.py         # builds web/static/stations.json from NaPTAN; run by hand
+    setup.py               # is first-run setup needed; the key test; the wizard's answers
     credentials.py         # write-only API keys from /admin
     updater.py             # checks GitHub for a newer release, installs on request
     weather.py             # Open-Meteo forecasts: cache, refresh loop
@@ -238,6 +272,9 @@ describer/
       base.css             # structure and the sizing model; themes add the look
       board.js             # SSE client, renders the DOM, calls into the theme
       admin.html  admin.css  admin.js
+      setup.html  setup.css  setup.js   # the phone's first-run wizard
+      stationsearch.js     # the station combobox, shared by admin and setup
+      setup/               # screenshots for the key walkthrough (Graham's to add)
       stations.json        # every station's CRS, name and coordinates
       fonts/               # self-hosted; only bedstead.woff2 ships
       themes/              # <theme>.css + <theme>.js for each of the seven
@@ -336,6 +373,17 @@ the full story.
   object on; the announcer indexes stations against the boards it was given.
   On a profile switch, prune `_boards` of slots not in the new set, or a
   three-hour-old board renders as live. (`06`)
+- **The setup screen owns its colours.** The themes do not share a palette
+  (nse's body is a pale casing under a dark panel, and several have no `--bg`
+  or `--fg`), so `.setup` takes `--bg`/`--fg` where a theme has them and black
+  and white where not, and the QR code is always black on white. Sit it above
+  crt's scanlines (`z-index: 6` against 5), or they draw lines across the code.
+  Check any change to it on all seven themes at both sizes. It is a mask, so
+  it needs no colour of its own in the SVG.
+- **Setup writes through `get()`, and never overwrites a saved key with a
+  blank.** `/api/setup/complete` treats a blank `key` as "keep the saved one";
+  a test key is not installed until Finish. Neither `/api/setup/*` route may
+  log, echo or return a key, in any outcome.
 - **An empty assignment still assigns.** A bare `RDM_API_KEY=` in the
   checkout's `.env` once shadowed the deployed key on a per-user install and
   spent a day's RTT allowance — `describer.service` read the checkout `.env`
@@ -370,6 +418,7 @@ Change every home, or they drift silently.
 | theme options | the Display tab's HTML; `THEME_OPTIONS` in `admin.js` |
 | a stop's time rules | `stopTime` in `board.js`; its copy in `thameslink.js` |
 | the theme names | `ThemeName` in `config.py`; the radios in `admin.html`; the list in `admin.js` |
+| the backend's port (8080) | `PORT` in `setup.py` (the QR code's address); `--port` in the units, the kiosk URL and `.claude/launch.json` |
 
 ## Running
 
