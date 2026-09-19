@@ -10,6 +10,22 @@
 <body data-theme="modern">
   <main id="boards" class="boards" data-count="1"></main>
 
+  <!-- First run: no rail data key yet (or it was refused). Outside .boards,
+       so the board's grid does not place it; styled in base.css only. -->
+  <section id="setup" class="setup" hidden>
+    <div class="setup-text">
+      <h1 class="setup-heading"></h1>
+      <p class="setup-url"></p>
+      <p class="setup-ip" hidden></p>
+      <p class="setup-hint">Scan with your phone&rsquo;s camera. Your phone must be on the same Wi-Fi.</p>
+    </div>
+    <!-- Dark modules on a light panel whatever the theme: see base.css. -->
+    <div class="setup-qr" aria-hidden="true">
+      <div class="setup-qr-panel"></div>
+      <div class="setup-qr-code"></div>
+    </div>
+  </section>
+
   <div id="asleep" class="asleep" hidden>
     <p>Display off</p>
   </div>

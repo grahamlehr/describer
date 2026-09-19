@@ -8,6 +8,7 @@
 
 const boardsEl = document.getElementById('boards');
 const asleepEl = document.getElementById('asleep');
+const setupEl = document.getElementById('setup');
 const connectionEl = document.getElementById('connection');
 const themeLink = document.getElementById('theme-css');
 const boardTemplate = document.getElementById('board-template');
@@ -48,6 +49,37 @@ let themeLoading = null;
 const themeApi = { render: () => { render(); } };
 /** Clock offset so the board follows the Pi's clock, not the browser's. */
 let clockOffsetMs = 0;
+
+const SETUP_HEADINGS = {
+  no_key: 'Set up your departure board',
+  key_rejected: 'Your rail data key was not accepted',
+};
+
+/**
+ * The first-run screen. `setup` is null when the board needs nothing, which is
+ * nearly always; otherwise it carries why, and where a phone finds /setup. The
+ * QR code is the address by number when there is one, since that opens on every
+ * phone, and the server picks. The boards stay laid out behind it, so a theme
+ * keeps measuring; the screen is opaque.
+ */
+function renderSetup(setup) {
+  setupEl.hidden = !setup;
+  if (!setup) return;
+  const bare = (url) => url.replace(/^https?:\/\//, '');
+  setupEl.querySelector('.setup-heading').textContent =
+    SETUP_HEADINGS[setup.reason] || SETUP_HEADINGS.no_key;
+  setupEl.querySelector('.setup-url').textContent = bare(setup.url);
+  const ip = setupEl.querySelector('.setup-ip');
+  ip.hidden = !setup.ip_url;
+  ip.textContent = setup.ip_url ? `or ${bare(setup.ip_url)}` : '';
+  // The address is in the query so a changed address is a new URL, not a cached one.
+  const code = setupEl.querySelector('.setup-qr-code');
+  const src = `url("/api/setup/qr.svg?u=${encodeURIComponent(setup.ip_url || setup.url)}")`;
+  if (code.dataset.src !== src) {
+    code.dataset.src = src;
+    code.style.maskImage = src;
+  }
+}
 
 /* ---------------------------------------------------------------- theming */
 
@@ -747,7 +779,8 @@ async function render() {
   await applyTheme(state.display.theme, options);
 
   asleepEl.hidden = state.display_on;
-  boardsEl.hidden = !state.display_on;
+  boardsEl.hidden = !state.display_on || !!state.setup;
+  renderSetup(state.setup);
 
   const boardEls = ensureBoards(state.boards.length);
   state.boards.forEach((board, index) => {

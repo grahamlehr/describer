@@ -137,9 +137,9 @@ class AnnouncementScheduler:
 
     # -- speaking ----------------------------------------------------------
 
-    async def say(self, text: str) -> None:
-        """Speak immediately (used by the admin page's test button)."""
-        await self._engine.speak(text)
+    async def say(self, text: str, audio_device: str | None = None) -> None:
+        """Speak immediately (used by the test buttons on /admin and /setup)."""
+        await self._engine.speak(text, audio_device)
         self.last_spoken = text
         self.last_spoken_at = datetime.now().astimezone()
 

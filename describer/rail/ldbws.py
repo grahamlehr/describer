@@ -318,26 +318,41 @@ class LdbwsClient:
     min_poll_interval = 0
     rate_limit: dict[str, int] = {}
 
-    def __init__(self, base_url: str, *, timeout: float = 10.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        timeout: float = 10.0,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._client = httpx.AsyncClient(
             timeout=timeout,
             headers={"Accept": "application/json", "User-Agent": "describer/1.0"},
+            transport=transport,
         )
 
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def fetch_board(self, crs: str, mode: str = "departures") -> Board:
-        """Fetch one station board. Raises :class:`RailApiError` on failure."""
+    async def fetch_board(
+        self, crs: str, mode: str = "departures", *, key: str | None = None
+    ) -> Board:
+        """Fetch one station board. Raises :class:`RailApiError` on failure.
+
+        ``key`` is for the setup page's key test, which must try a key that is
+        not in the environment yet. The poller never passes one.
+        """
         url = f"{self._base_url}/{BOARD_ENDPOINT}/{crs.upper()}"
         try:
-            response = await self._client.get(url, headers={"x-apikey": api_key()})
+            response = await self._client.get(url, headers={"x-apikey": key or api_key()})
             response.raise_for_status()
             payload = response.json()
         except httpx.HTTPStatusError as exc:
             # Status only — the body can echo the key back at us.
-            raise RailApiError(f"HTTP {exc.response.status_code} for {crs}") from exc
+            raise RailApiError(
+                f"HTTP {exc.response.status_code} for {crs}", status=exc.response.status_code
+            ) from exc
         except httpx.HTTPError as exc:
             raise RailApiError(f"{type(exc).__name__} for {crs}") from exc
         except ValueError as exc:

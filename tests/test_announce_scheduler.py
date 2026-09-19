@@ -15,7 +15,7 @@ class RecordingEngine:
     def __init__(self) -> None:
         self.spoken: list[str] = []
 
-    async def speak(self, text: str) -> None:
+    async def speak(self, text: str, audio_device: str | None = None) -> None:
         self.spoken.append(text)
 
 
