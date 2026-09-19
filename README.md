@@ -192,6 +192,49 @@ Credentials are never stored in `config.yaml`. They come from the
 environment (or `.env`): `RDM_API_KEY` for the Rail Data Marketplace, and
 `RTT_TOKEN` for Realtime Trains. Neither is ever written to the logs.
 
+### First run: the setup screen and `/setup`
+
+A board that has no Rail Data Marketplace key has nothing to show, so it says
+so. The TV shows **Set up your departure board**, a QR code, and the address
+in large type (`describer.local:8080/setup`, with the numeric address beneath
+it, in case `.local` names do not resolve on your network). Scan the code with
+your phone's camera; the phone has to be on the same Wi-Fi as the board.
+
+`/setup` takes four short steps:
+
+1. **Station.** Type a name and pick it, as in `/admin`. Choose trains leaving
+   or trains arriving, and add a second station if you want one beside it.
+2. **Rail data key.** A numbered walkthrough for getting the key: create an
+   account at [raildata.org.uk](https://raildata.org.uk), find the product
+   called **Live Arrival and Departure Boards** (not the departures-only one,
+   which cannot show arrivals), subscribe, and copy the *Consumer key*.
+   **Test key** makes one request with it for your station and tells you the
+   next train, or why the key was not accepted. Nothing is saved until the
+   last step.
+3. **Sound.** Announcements on or off, through the TV (HDMI) or the 3.5 mm
+   socket, with a **Play a test** button that plays through the choice you have
+   made, not the one already saved.
+4. **Finish.** Saves the key and the station, and the board appears on the TV
+   within seconds, with no restart and no reload.
+
+The screen also comes back if the Marketplace answers *401* or *403* to the key
+(revoked, expired, or a mistake), with the heading **Your rail data key was
+not accepted**. Saving a new key clears it at once, and it comes straight
+back if that key is refused too. It
+appears only for the Marketplace: a board with no Realtime Trains token is
+normal. Polling is never stopped by any of this, and if the fallback source is
+carrying a live board the screen stays out of the way.
+
+The page stays available after setup, and `/admin` links to it. Like the
+credentials block in `/admin`, the key is write-only: once saved it is never
+shown again, and on a second visit the page says *A key is saved. Paste a new
+one only to replace it.* Stations you already have keep their other options
+(rows, platforms, walking time); everything else lives in `/admin`.
+
+On a development machine with no `RDM_API_KEY` the screen shows too; that is
+the setup screen working, not a fault. The QR code is served at
+`/api/setup/qr.svg` and encodes the address by number when the board has one.
+
 ### Data sources
 
 Two independent upstreams serve the same board, so a Marketplace outage or an

@@ -416,6 +416,58 @@ html, body {
 }
 .wx-icon[data-condition="unknown"] { mask-image: none; }
 
+/* First-run setup, over whatever theme is loaded. The themes do not share a
+   palette (nse's body is a pale casing under a dark panel, and several have no
+   --bg or --fg at all), so this takes the two the palette roles name where a
+   theme has them (modern, thameslink and crt) and plain black and white where it
+   does not. The font comes from body, which every theme sets. The QR code does
+   not follow the theme at all: dark modules on a light ground are what a phone's
+   camera is sure to read, whatever colours a board was given. */
+.setup {
+  --setup-bg: var(--bg, #000);
+  --setup-fg: var(--fg, #fff);
+  --setup-qr-dark: #000;
+  --setup-qr-light: #fff;
+  position: fixed;
+  inset: 0;
+  /* Over the boards and over crt's scanlines (5) and curvature (4), which would
+     draw lines across the QR code; under the "display off" blackout and the
+     reconnect flag. */
+  z-index: 6;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5vw;
+  padding: 6vh 6vw;
+  background: var(--setup-bg);
+  color: var(--setup-fg);
+  font-family: inherit;
+  text-transform: none;
+}
+/* An author display beats the hidden attribute's UA rule: say it here. */
+.setup[hidden] { display: none; }
+.setup-text { min-width: 0; }
+.setup-text > * { margin: 0; overflow-wrap: anywhere; }
+.setup-heading { font-size: 6.6vh; line-height: 1.2; font-weight: 700; }
+.setup-url { margin-top: 5vh; font-size: 5.2vh; line-height: 1.2; font-weight: 700; }
+.setup-ip { margin-top: 1.6vh; font-size: 3.6vh; line-height: 1.2; opacity: 0.8; }
+.setup-ip[hidden] { display: none; }
+.setup-hint { margin-top: 5vh; font-size: 3.2vh; line-height: 1.35; opacity: 0.8; }
+
+/* A QR code wants a quiet zone of four modules round it. The panel is the light
+   and the code sits on it as a mask: the SVG says where the modules are and has
+   no colour of its own. board.js sets its mask-image. */
+.setup-qr { position: relative; padding: 6vh; }
+.setup-qr-panel { position: absolute; inset: 0; background: var(--setup-qr-light); }
+.setup-qr-code {
+  position: relative;
+  width: 40vh;
+  height: 40vh;
+  background: var(--setup-qr-dark);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+}
+
 .asleep {
   position: fixed;
   inset: 0;

@@ -59,6 +59,17 @@ def test_player_command_omits_the_device_for_default_output(monkeypatch, tmp_pat
     assert "-D" not in engine.player_command(tmp_path / "clip.wav")
 
 
+def test_one_clip_can_try_an_output_that_is_not_saved_yet(tmp_path, monkeypatch):
+    """/setup's test button plays through the choice on screen, not the saved one."""
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/aplay" if name == "aplay" else None)
+    engine = TtsEngine(AnnouncementsConfig(audio_device="hdmi"))
+
+    command = engine.player_command(tmp_path / "clip.wav", "jack")
+
+    assert "plughw:CARD=Headphones,DEV=0" in command
+    assert "plughw:CARD=Headphones,DEV=0" not in engine.player_command(tmp_path / "clip.wav")
+
+
 def test_no_player_available(monkeypatch, tmp_path):
     monkeypatch.setattr("shutil.which", lambda name: None)
     engine = TtsEngine(AnnouncementsConfig())

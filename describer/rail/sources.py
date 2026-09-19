@@ -42,6 +42,10 @@ class SourceManager:
         self._next_probe: float | None = None
         self._healthy: dict[str, bool] = dict.fromkeys(CREDENTIAL_CHECKS, True)
         self._reported: set[str] = set()
+        #: True from an RDM answer of 401/403 until RDM next answers a board or
+        #: the key is changed. Read by the first-run screen and nothing else:
+        #: polling carries on regardless.
+        self._rdm_auth_failed = False
         self._active = config.primary
         self._check_credentials()
         if not self._usable(config.primary) and self._usable(config.fallback):
@@ -54,6 +58,11 @@ class SourceManager:
     def active(self) -> str:
         """The source the next fetch will use."""
         return self._forced or self._active
+
+    @property
+    def rdm_auth_failed(self) -> bool:
+        """Whether the last thing RDM said was that it does not accept our key."""
+        return self._rdm_auth_failed
 
     def force(self, source: str | None) -> None:
         """Pin the active source for testing. In memory only; never saved."""
@@ -163,6 +172,7 @@ class SourceManager:
         self._failures = 0
         self._next_probe = None
         self._healthy = dict.fromkeys(CREDENTIAL_CHECKS, True)
+        self._rdm_auth_failed = False
         self._reported.clear()
         self._check_credentials()
         primary, fallback = self._config.primary, self._config.fallback
@@ -185,10 +195,14 @@ class SourceManager:
             raise RailApiError(f"{name} has no credentials")
         try:
             board = await self._client(name).fetch_board(crs, mode)
-        except RailApiError:
+        except RailApiError as exc:
             self._healthy[name] = False
+            if name == "rdm":
+                self._rdm_auth_failed = exc.is_auth_failure
             raise
         self._healthy[name] = True
+        if name == "rdm":
+            self._rdm_auth_failed = False
         return board.model_copy(update={"source": name})
 
     def _probe_due(self) -> bool:

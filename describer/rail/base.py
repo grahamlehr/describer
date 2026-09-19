@@ -19,7 +19,20 @@ HHMM_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
 class RailApiError(RuntimeError):
-    """Any failure to obtain a usable board from a source."""
+    """Any failure to obtain a usable board from a source.
+
+    ``status`` is the HTTP status the upstream answered with, when it answered
+    at all; the first-run screen reads it to tell a refused key from an outage.
+    """
+
+    def __init__(self, message: str, *, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+
+    @property
+    def is_auth_failure(self) -> bool:
+        """The upstream understood the request and refused the credentials."""
+        return self.status in (401, 403)
 
 
 @runtime_checkable
