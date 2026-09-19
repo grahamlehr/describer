@@ -27,6 +27,7 @@ from .profiles import next_change
 from .rail.models import Board
 from .rail.poller import Poller
 from .schedule import is_display_on
+from .system import Power, PowerError
 from .updater import UpdateError, Updater
 from .weather import WeatherService
 
@@ -120,6 +121,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # until systemd lost patience; closing them lets it go at once.
     updater.before_restart = poller.close_streams
     app.state.updater = updater
+    app.state.power = Power()
 
     await updater.start()
     poller.version = updater.running
@@ -130,6 +132,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await app.state.power.stop()
         await updater.stop()
         await poller.stop()
         await announcer.stop()
@@ -207,9 +210,11 @@ async def api_status(request: Request) -> dict:
     announcer: AnnouncementScheduler = request.app.state.announcer
     profile = store.active_profile()
     upcoming = next_change(config, forced=store.forced_profile)
+    await request.app.state.updater.refresh_deploy()
     return {
         "config_path": str(store.path),
         "updates": request.app.state.updater.status(),
+        "system": request.app.state.power.status(),
         "active_profile": profile.name if profile else None,
         "forced_profile": store.forced_profile,
         "next_profile": upcoming[1] if upcoming else None,
@@ -376,6 +381,7 @@ async def api_setup_qr() -> Response:
 
 @app.get("/api/updates")
 async def api_updates(request: Request) -> dict:
+    await request.app.state.updater.refresh_deploy()
     return request.app.state.updater.status()
 
 
@@ -395,6 +401,22 @@ async def api_apply_update(request: Request) -> dict:
         return await request.app.state.updater.update()
     except UpdateError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/system/{action}")
+async def api_power(request: Request, action: Literal["poweroff", "reboot"]) -> dict:
+    """Power the Pi off or reboot it, a second after this answer goes out.
+
+    409 off a Pi, and nothing runs. LAN trust, like the rest of /admin: anyone
+    on the network can switch the board off, which is the same trust the six
+    presses on the button already assume of anyone in the room.
+    """
+    power: Power = request.app.state.power
+    try:
+        power.request(action)
+    except PowerError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"ok": True, "action": action}
 
 
 @app.post("/api/announce/test")

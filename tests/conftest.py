@@ -96,6 +96,27 @@ def no_weather_network(monkeypatch) -> None:
     monkeypatch.setattr(weather.WeatherClient, "__init__", guarded_init)
 
 
+@pytest.fixture(autouse=True)
+def power_tripwire(monkeypatch) -> list[list[str]]:
+    """A test must never power off or reboot the machine it runs on.
+
+    ``system.run_command`` is the only thing that reaches ``systemctl
+    poweroff|reboot``; it is replaced for every test with one that records the
+    call and refuses. Tests of the power controls hand ``Power`` their own fake
+    runner, and ``test_system.py`` asserts this list is still empty.
+    """
+    from describer import system
+
+    calls: list[list[str]] = []
+
+    async def tripwire(args) -> None:
+        calls.append(list(args))
+        raise AssertionError(f"a test tried to run {list(args)}")
+
+    monkeypatch.setattr(system, "run_command", tripwire)
+    return calls
+
+
 @pytest.fixture
 def rtt_credentials(monkeypatch, clean_credentials) -> None:
     """A source with no credentials is treated as permanently down."""

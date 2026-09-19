@@ -11,7 +11,12 @@ WorkingDirectory=/opt/describer
 # it, which removes a whole class of the "blanked key" trap (Addendum 1) --
 # there is nothing left to read first.
 EnvironmentFile=/etc/describer/describer.env
-ExecStart=/opt/describer/.venv/bin/uvicorn describer.main:app --host 0.0.0.0 --port 8080
+# --timeout-graceful-shutdown: an SSE stream never ends on its own, and after an
+# update that touched deploy/ the restart comes from describer-apply-deploy,
+# which cannot close the app's streams first the way the in-app restart does.
+# Without this a stop waits out systemd's 90 s (measured: an open stream held
+# uvicorn up for over 20 s; with the flag it exits at once).
+ExecStart=/opt/describer/.venv/bin/uvicorn describer.main:app --host 0.0.0.0 --port 8080 --timeout-graceful-shutdown 3
 Restart=always
 RestartSec=5
 # Logs go to the journal: journalctl -u describer -f

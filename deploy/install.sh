@@ -11,7 +11,12 @@
 #                                       # Needs a real system with a terminal.
 #   sudo deploy/install.sh all         # provision, then configure. The default.
 #
-# Safe to re-run; every step is idempotent.
+# Safe to re-run; every step is idempotent. /admin's updater re-runs
+# `provision` as root after a release that touches deploy/ (see
+# deploy/apply-deploy.sh), from a root-owned clone of GitHub rather than from
+# /opt/describer. That is why provision reads every file it installs from the
+# checkout it runs *from* ($SCRIPT_DIR), and runs anything that lives inside
+# /opt/describer, which the describer user owns, as describer rather than root.
 set -euo pipefail
 
 #: Where the code ends up. Fixed: this is the one layout, not configurable.
@@ -25,6 +30,12 @@ VOICE="${VOICE:-en_GB-alan-medium}"
 PIPER_VERSION="${PIPER_VERSION:-2023.11.14-2}"
 PIPER_URL="https://github.com/rhasspy/piper/releases/download/${PIPER_VERSION}/piper_linux_aarch64.tar.gz"
 VOICE_BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB"
+
+#: Run a command as the service user, with its own home: runuser keeps the
+#: caller's environment, and pip would otherwise try to cache under /root.
+as_describer() {
+  runuser -u describer -- env HOME=/var/lib/describer "$@"
+}
 
 say() { printf '\n\033[1;36m==> %s\033[0m\n' "$1"; }
 
@@ -93,26 +104,33 @@ get_code() {
   if [ -n "$ref" ]; then
     git -C "$TARGET_DIR" checkout --quiet "$ref"
   fi
+  # Once, on a tree we just cloned ourselves. Never recursively on an existing
+  # one: describer owns it already, and a root chown -R over a tree that user
+  # can rearrange is not something to run.
+  chown -R describer:describer "$TARGET_DIR"
 }
 
 build_app() {
+  # Everything here runs as describer: the venv and its pip, and the tar that
+  # unpacks Piper, all live in a tree that user can write, so root must not
+  # execute or extract into any of it.
   say "Creating the Python environment"
   cd "$TARGET_DIR"
   if [ ! -d .venv ]; then
-    python3 -m venv .venv
+    as_describer python3 -m venv .venv
   fi
-  ./.venv/bin/pip install --quiet --upgrade pip
-  ./.venv/bin/pip install --quiet -r requirements.txt
+  as_describer ./.venv/bin/pip install --quiet --upgrade pip
+  as_describer ./.venv/bin/pip install --quiet -r requirements.txt
 
   say "Installing Piper"
   if [ ! -x "$TARGET_DIR/.piper/piper/piper" ]; then
-    mkdir -p "$TARGET_DIR/.piper"
-    curl -fsSL "$PIPER_URL" | tar -xz -C "$TARGET_DIR/.piper"
+    as_describer mkdir -p "$TARGET_DIR/.piper"
+    curl -fsSL "$PIPER_URL" | as_describer tar -xz -C "$TARGET_DIR/.piper"
   fi
   ln -sf "$TARGET_DIR/.piper/piper/piper" /usr/local/bin/piper
 
   say "Fetching the voice: $VOICE"
-  mkdir -p "$TARGET_DIR/voices"
+  as_describer mkdir -p "$TARGET_DIR/voices"
   # Voice paths look like .../en_GB/alan/medium/en_GB-alan-medium.onnx
   local voice_rest="${VOICE#en_GB-}"
   local speaker="${voice_rest%%-*}"
@@ -121,30 +139,33 @@ build_app() {
   for suffix in onnx onnx.json; do
     target="$TARGET_DIR/voices/$VOICE.$suffix"
     if [ ! -f "$target" ]; then
-      curl -fsSL -o "$target" "$VOICE_BASE/$speaker/$quality/$VOICE.$suffix"
+      # To a .part file first: a failed download must not leave a file that the
+      # test above would take for the voice on the next run.
+      as_describer curl -fsSL -o "$target.part" "$VOICE_BASE/$speaker/$quality/$VOICE.$suffix"
+      as_describer mv "$target.part" "$target"
     fi
   done
-
-  chown -R describer:describer "$TARGET_DIR"
 }
 
 seed_config() {
   say "Preparing configuration"
   install -d -m 755 /etc/describer
   if [ ! -f "$CONFIG_FILE" ]; then
-    cp "$TARGET_DIR/config.example.yaml" "$CONFIG_FILE"
     # RDM-only first run: an image ships with no shared RTT allowance to spend.
-    "$TARGET_DIR/.venv/bin/python3" - "$CONFIG_FILE" <<'PY'
+    # The venv's PyYAML does the edit, as describer (it is in the tree that
+    # user owns), reading the example on stdin and writing the file on stdout,
+    # which root then puts in the root-owned directory. Captured first, so a
+    # failure writes nothing: an empty config.yaml would be kept on every re-run.
+    local seeded
+    seeded="$(as_describer "$TARGET_DIR/.venv/bin/python3" -c '
 import sys
 import yaml
 
-path = sys.argv[1]
-with open(path, encoding="utf-8") as fh:
-    data = yaml.safe_load(fh) or {}
+data = yaml.safe_load(sys.stdin) or {}
 data.setdefault("sources", {})["fallback"] = None
-with open(path, "w", encoding="utf-8") as fh:
-    yaml.safe_dump(data, fh, sort_keys=False)
-PY
+yaml.safe_dump(data, sys.stdout, sort_keys=False)
+' <"$SCRIPT_DIR/config.example.yaml")"
+    printf '%s\n' "$seeded" | install -m 644 -o describer -g describer /dev/stdin "$CONFIG_FILE"
   fi
   chown describer:describer "$CONFIG_FILE"
   chmod 644 "$CONFIG_FILE"
@@ -194,22 +215,35 @@ sys.stdout.buffer.write(out)
 }
 
 install_units() {
+  # Every file comes from $SCRIPT_DIR, the checkout this script is running
+  # from, never from $TARGET_DIR: describer owns that one, and root installing
+  # a unit file it could have edited is root for whoever can reach /admin.
   say "Installing services"
-  install -m 644 "$TARGET_DIR/deploy/describer.service" /etc/systemd/system/describer.service
+  local src="$SCRIPT_DIR/deploy"
+  install -m 644 "$src/describer.service" /etc/systemd/system/describer.service
   sed -e "s|@USER@|describer|g" -e "s|@UID@|$(id -u describer)|g" \
-    "$TARGET_DIR/deploy/kiosk.service" \
+    "$src/kiosk.service" \
     | install -m 644 /dev/stdin /etc/systemd/system/kiosk.service
-  install -m 755 "$TARGET_DIR/deploy/shutdown_button.py" /usr/local/bin/shutdown-button
-  install -m 644 "$TARGET_DIR/deploy/shutdown-button.service" \
+  install -m 755 "$src/shutdown_button.py" /usr/local/bin/shutdown-button
+  install -m 644 "$src/shutdown-button.service" \
     /etc/systemd/system/shutdown-button.service
 
+  # The root oneshot /admin starts after an update that touched deploy/. It is
+  # installed root-owned outside the checkout on purpose; install(1) replaces a
+  # running copy by unlinking it, so this is safe to do from inside a run of it.
+  install -d -m 755 -o root -g root /usr/local/sbin
+  install -m 755 -o root -g root "$src/apply-deploy.sh" /usr/local/sbin/describer-apply-deploy
+  install -m 644 "$src/describer-apply-deploy.service" \
+    /etc/systemd/system/describer-apply-deploy.service
+
   install -d -m 755 /etc/polkit-1/rules.d
-  install -m 644 "$TARGET_DIR/deploy/polkit/50-describer.rules" \
-    /etc/polkit-1/rules.d/50-describer.rules
+  install -m 644 "$src/polkit/50-describer.rules" /etc/polkit-1/rules.d/50-describer.rules
 
   systemctl enable describer.service
   systemctl enable kiosk.service
   systemctl enable shutdown-button.service
+  # describer-apply-deploy.service is not enabled: it has no [Install] and is
+  # only ever started by hand or by the updater.
   systemctl set-default graphical.target
 }
 

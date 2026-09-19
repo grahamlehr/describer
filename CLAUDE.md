@@ -31,6 +31,13 @@ recorded there cost real time to find.
   can own the pin, so any further gesture on that button goes in that script.
   The press counting is the pure `Gesture` class, tested in
   `test_shutdown_button.py`; `gpiozero` is imported only in `main()`.
+  `/admin` → Status → Power has **Shut down** and **Restart** too
+  (`POST /api/system/poweroff|reboot`, `describer/system.py`): the backend runs
+  `systemctl poweroff|reboot` as `describer`, allowed by polkit. They answer
+  409 "Only on the Pi" without `/etc/describer`, and `Power`'s command is
+  injectable: `conftest.py` replaces the real one with a tripwire, so a test
+  can never power off the machine it runs on. The button stays as it is; it
+  works when the network does not.
 - Development happens on a Mac; deployment target is the Pi. Keep the app
   runnable on both (no Pi-only imports at module load time).
 - Deploying to the Pi is the user's job: there is no SSH key from the dev
@@ -217,7 +224,9 @@ specifics are in `docs/design/03`; the palette roles in `/05` and `/11`.
 - Edits every config option with validation, saves to `config.yaml`, applies
   live without restart where possible. Shows API status, rate limit, last
   fetch, a test announcement button, Force source / Force profile (memory
-  only), credentials (write-only) and updates from GitHub. LAN-only; no login.
+  only), credentials (write-only), updates from GitHub (a release that touches
+  `deploy/` is applied by a root oneshot, no re-running `install.sh`) and
+  Shut down / Restart. LAN-only; no login.
 - Tabs: Stations, Display, Profiles, Data sources, Announcements, Schedule,
   Status; one visible at a time, current tab in the URL hash. Save, Discard
   and a live health chip sit in a sticky bar.
@@ -255,6 +264,7 @@ describer/
     setup.py               # is first-run setup needed; the key test; the wizard's answers
     credentials.py         # write-only API keys from /admin
     updater.py             # checks GitHub for a newer release, installs on request
+    system.py              # Shut down / Restart from /admin: injectable, Pi-only
     weather.py             # Open-Meteo forecasts: cache, refresh loop
     rail/
       base.py              # RailSource protocol, RailApiError
@@ -284,8 +294,11 @@ describer/
     install.sh             # root-run, two-part: provision (chroot-safe), configure
     describer.service      # systemd *system* unit for the backend, User=describer
     kiosk.service          # systemd *system* unit for cage + chromium, User=describer
+    apply-deploy.sh        # root oneshot body: installs deploy/ from its own GitHub clone
+    describer-apply-deploy.service  # systemd *system* unit, oneshot, User=root
     polkit/
-      50-describer.rules   # lets describer restart describer.service, nothing else
+      50-describer.rules   # describer may: restart describer.service, start
+                           # describer-apply-deploy.service, power off, reboot
     shutdown_button.py     # six presses on GPIO21 in 10 s -> poweroff; system python
     shutdown-button.service  # systemd *system* unit for the above
   tests/
@@ -395,8 +408,18 @@ the full story.
   instead of ever writing it empty. (`01`, `13`)
 - **`install.sh` runs under `set -e`**: a helper must not end on a
   `[ … ] && …` list, or a false test ends the install. Use an `if`.
-- **Unit files are copied, not pulled.** Changing `deploy/` means re-running
-  `install.sh` (or re-copying) plus `daemon-reload`; the updater only says so.
+- **`deploy/` is applied by `describer-apply-deploy`, from its own clone,
+  never from the checkout.** The checkout is `describer`'s to write and
+  `/admin` has no login, so the root oneshot
+  (`/usr/local/sbin/describer-apply-deploy`, from `deploy/apply-deploy.sh`)
+  takes one thing from it, the commit id, and installs only if that commit is
+  on GitHub `main`, running `install.sh provision` from its own root-owned
+  clone at `/var/lib/describer-deploy`. Keep it that way: `provision` reads
+  every file it installs from `$SCRIPT_DIR`, never `$TARGET_DIR`, and runs
+  anything inside `/opt/describer` (venv, pip, tar, mkdir) through
+  `as_describer`. The URL is hard-coded in the script, and the polkit rule lets
+  `describer` start only that unit. A new unit file that is not copied by
+  `install_units` is not applied by an update. (`13`)
 - **An SSE stream never ends on its own.** Before a restart,
   `Poller.close_streams()` must run or shutdown waits for systemd to kill it.
   (`13`)

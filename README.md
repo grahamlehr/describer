@@ -97,6 +97,13 @@ pull-up means no resistor. **Six presses within 10 seconds** runs
 pulling the power. There is no abort once the sixth press lands, and testing
 it means cycling power to bring the Pi back.
 
+**No button? Use the page.** **/admin → Status → Power** has **Shut down** and
+**Restart**, each behind a confirmation. It does the same clean poweroff (or
+reboot), and needs no wiring. Anyone on your network who can open `/admin` can
+press them, the same trust as the rest of that page. On a development machine
+they answer "Only on the Pi" and do nothing. The button on GPIO21 is
+unchanged and still works when the network does not.
+
 The watcher is `deploy/shutdown_button.py`, installed to
 `/usr/local/bin/shutdown-button` and run by the system Python with the apt
 `python3-gpiozero`/`python3-lgpio` (not the venv). Only one process can own
@@ -132,9 +139,10 @@ Keys can also be set or cleared from **/admin → Data sources → Credentials**
 which writes them to `/etc/describer/describer.env` and puts them to work
 without a restart. It is write-only: a saved key is never shown again.
 
-Note that unit files are *copied* into `/etc/systemd/system/`, so a `git
-pull` does not update them. Changing one means re-running `sudo deploy/install.sh`
-(or `provision`), plus `sudo systemctl daemon-reload`.
+The unit files are *copied* into `/etc/systemd/system/`, so a bare `git pull`
+does not update them. **Updating from /admin does** (below); only a hand-run
+`git pull` leaves them behind, and `sudo /opt/describer/deploy/install.sh
+provision` catches them up.
 
 ### Updating a Pi
 
@@ -147,9 +155,31 @@ The board reloads itself when it comes back. If the new code will not start,
 the checkout is put back and nothing restarts.
 
 It will not update a checkout with local changes to tracked files, one on
-another branch, or one with commits of its own. When a release changes
-`deploy/`, re-run `sudo deploy/install.sh` afterwards; the unit files are
-copied, not pulled.
+another branch, or one with commits of its own.
+
+**When a release changes `deploy/`** (the unit files, the polkit rules, the
+shutdown-button watcher), there is nothing to re-run. After the update the
+backend starts `describer-apply-deploy.service` instead of restarting itself,
+and that root oneshot installs the new files and restarts what changed,
+including the backend. **/admin → Status → Updates** then reads **System files
+updated**, or **System files not applied: see the log** if it failed:
+
+```bash
+sudo journalctl -u describer-apply-deploy
+```
+
+That service does not take your checkout's word for what to install, since
+the checkout belongs to the unprivileged `describer` user. It reads only the
+commit the checkout is at, and installs from its own clone of the public
+GitHub repository at `/var/lib/describer-deploy`, and only if that commit is on
+GitHub's `main`. So a page anyone on your network can open can make the Pi
+install what is on GitHub, never anything else. The reasoning is in
+`docs/design/13-credentials-and-updates.md`.
+
+A Pi that was installed before this existed does not have that service yet,
+so the update that brings it in restarts the backend directly and says **System
+files were not applied**. Run `sudo /opt/describer/deploy/install.sh provision`
+once, and every update after that applies its own.
 
 By hand:
 

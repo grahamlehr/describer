@@ -11,9 +11,13 @@ the app and loads the current config in a fresh interpreter. A broken restart
 would take /admin down with it, and /admin is the only way back without SSH,
 so any failure before the restart resets the checkout to where it was.
 
-What an update cannot do is anything under ``deploy/``: the unit files are
-copied into place by ``install.sh`` with sudo. /admin says when a release
-touches them.
+Anything under ``deploy/`` (the units, the polkit rules) is root's business,
+and this process is not root. When a release touches ``deploy/`` it starts
+``describer-apply-deploy.service`` instead of restarting the backend itself:
+that oneshot runs as root from ``/usr/local/sbin/describer-apply-deploy``,
+installs the files from its *own* clone of GitHub, and does the restart.
+Nothing here tells it what to install; see ``deploy/apply-deploy.sh`` and
+``docs/design/13-credentials-and-updates.md`` for why that matters.
 """
 
 from __future__ import annotations
@@ -40,6 +44,9 @@ STARTUP_DELAY = 60.0
 RESTART_DELAY = 1.0
 #: The backend's own systemd unit.
 UNIT = "describer.service"
+#: The root oneshot that installs ``deploy/`` after an update. A polkit rule
+#: lets this user *start* it, and nothing more.
+DEPLOY_UNIT = "describer-apply-deploy.service"
 FETCH_TIMEOUT = 60.0
 INSTALL_TIMEOUT = 900.0
 SMOKE_TIMEOUT = 120.0
@@ -89,6 +96,50 @@ async def _systemd_restart(repo: Path) -> None:
     await _run(["systemctl", "restart", "--no-block", UNIT], repo, 30)
 
 
+async def _systemd_apply_deploy(repo: Path) -> None:
+    # --no-block: the oneshot ends by restarting this very process.
+    await _run(["systemctl", "start", "--no-block", DEPLOY_UNIT], repo, 30)
+
+
+async def _systemd_show_deploy(repo: Path) -> str:
+    return await _run(
+        [
+            "systemctl",
+            "show",
+            DEPLOY_UNIT,
+            "-p",
+            "LoadState",
+            "-p",
+            "ActiveState",
+            "-p",
+            "Result",
+            "-p",
+            "ExecMainStartTimestamp",
+        ],
+        repo,
+        10,
+    )
+
+
+def parse_deploy_state(shown: str) -> dict[str, str] | None:
+    """What ``systemctl show`` says about the apply-deploy unit, as /admin needs it.
+
+    ``None`` when there is nothing to report: the unit is not installed, or has
+    not run since boot (a unit's run state does not survive a reboot, which is
+    right: the files it applied are on disk by then). Otherwise ``state`` is
+    ``running``, ``applied`` or ``failed``, and ``result`` is systemd's word.
+    """
+    fields = dict(line.split("=", 1) for line in shown.splitlines() if "=" in line)
+    if fields.get("LoadState", "not-found") == "not-found":
+        return None
+    if fields.get("ActiveState") in ("activating", "active", "reloading"):
+        return {"state": "running", "result": fields.get("Result", "")}
+    if fields.get("ExecMainStartTimestamp", "") in ("", "n/a"):
+        return None
+    result = fields.get("Result", "")
+    return {"state": "applied" if result == "success" else "failed", "result": result}
+
+
 _SYSTEMD = object()
 
 
@@ -105,6 +156,8 @@ class Updater:
         smoke_command: Sequence[str] | None = None,
         install_command: Sequence[str] | None = None,
         restart: RestartHook | None | object = _SYSTEMD,
+        apply_deploy: RestartHook | None | object = _SYSTEMD,
+        deploy_state: Callable[[], Awaitable[str]] | None | object = _SYSTEMD,
     ) -> None:
         self._repo = repo
         self._config = config
@@ -127,6 +180,20 @@ class Updater:
             )
         else:
             self._restart = restart  # type: ignore[assignment]
+        # Started instead of the restart when a release touches deploy/. Off
+        # systemd there is no unit to start.
+        if apply_deploy is _SYSTEMD:
+            self._apply_deploy: RestartHook | None = (
+                (lambda: _systemd_apply_deploy(repo)) if under_systemd() else None
+            )
+        else:
+            self._apply_deploy = apply_deploy  # type: ignore[assignment]
+        if deploy_state is _SYSTEMD:
+            self._deploy_state: Callable[[], Awaitable[str]] | None = (
+                (lambda: _systemd_show_deploy(repo)) if under_systemd() else None
+            )
+        else:
+            self._deploy_state = deploy_state  # type: ignore[assignment]
         #: Called just before a restart, to close what would hold the shutdown up.
         self.before_restart: Callable[[], None] | None = None
 
@@ -143,6 +210,8 @@ class Updater:
         self.phase = "idle"
         self.last_error: str | None = None
         self.last_update: dict[str, Any] | None = None
+        #: The apply-deploy unit's last outcome (see :func:`parse_deploy_state`).
+        self.deploy: dict[str, str] | None = None
         self._upstream: str | None = None
         self._noticed: str | None = None
         self._lock = asyncio.Lock()
@@ -159,6 +228,7 @@ class Updater:
             self.blocked = "This is not a git checkout"
             log.warning("Update checks unavailable: %s", exc)
             return
+        await self.refresh_deploy()
         self._task = asyncio.create_task(self._loop())
 
     async def stop(self) -> None:
@@ -299,6 +369,7 @@ class Updater:
                 "at": datetime.now().astimezone().isoformat(),
                 "commits": self.count,
                 "deploy_changed": self.deploy_changed,
+                "applying_deploy": self.deploy_changed and self._apply_deploy is not None,
                 "restarting": self._restart is not None,
             }
             self.available, self.count = [], 0
@@ -308,7 +379,9 @@ class Updater:
                 self.phase = "idle"
             else:
                 self.phase = "restarting"
-                self._restart_task = asyncio.create_task(self._restart_soon())
+                self._restart_task = asyncio.create_task(
+                    self._restart_soon(apply_deploy=self.last_update["applying_deploy"])
+                )
             return self.status()
 
     async def _rollback(self, old: str, requirements: bool) -> None:
@@ -321,8 +394,22 @@ class Updater:
         except UpdateError as exc:
             log.error("Rollback incomplete: %s", exc)
 
-    async def _restart_soon(self) -> None:
+    async def _restart_soon(self, *, apply_deploy: bool = False) -> None:
         await asyncio.sleep(RESTART_DELAY)
+        if apply_deploy:
+            # The oneshot installs the system files and then restarts us itself,
+            # so the streams are not closed here: the kiosk would only reconnect
+            # before it got that far (describer.service bounds the shutdown).
+            try:
+                await self._apply_deploy()  # type: ignore[misc]
+            except UpdateError as exc:
+                # The unit is missing (an older install) or was refused. The new
+                # code is already on disk, so restart into it and say what is
+                # still to do rather than leave the board on the old release.
+                self.last_error = f"System files were not applied ({exc}); restarting without them"
+                log.error("%s", self.last_error)
+            else:
+                return
         if self.before_restart is not None:
             self.before_restart()
         try:
@@ -331,6 +418,15 @@ class Updater:
             self.phase = "idle"
             self.last_error = f"Installed, but the restart failed: {exc}"
             log.error("%s", self.last_error)
+
+    async def refresh_deploy(self) -> None:
+        """Re-read the apply-deploy unit's outcome. A no-op off systemd."""
+        if self._deploy_state is None:
+            return
+        try:
+            self.deploy = parse_deploy_state(await self._deploy_state())
+        except UpdateError as exc:
+            log.warning("Could not read %s: %s", DEPLOY_UNIT, exc)
 
     # -- reporting -----------------------------------------------------------
 
@@ -346,6 +442,7 @@ class Updater:
             "blocked": self.blocked,
             "deploy_changed": self.deploy_changed,
             "requirements_changed": self.requirements_changed,
+            "deploy": self.deploy,
             "phase": self.phase,
             "can_restart": self._restart is not None,
             "last_error": self.last_error,
