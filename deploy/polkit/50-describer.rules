@@ -1,6 +1,7 @@
 // What the describer system user may ask systemd and logind to do, and nothing
-// else. Raspberry Pi OS Bookworm ships polkit 122 (libduktape207), well past
-// the 0.106 that introduced JS rules, so this loads as-is.
+// else. Raspberry Pi OS Trixie ships polkitd 126 (Depends: libduktape207), well
+// past the 0.106 that introduced JS rules, so this loads as-is. (Bookworm's 122
+// used the same engine.)
 //
 // Four grants, each as narrow as polkit lets it be:
 //
