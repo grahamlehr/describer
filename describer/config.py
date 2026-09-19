@@ -577,14 +577,27 @@ def load_config(path: Path | None = None) -> Config:
 
 
 def save_config(config: Config, path: Path | None = None) -> Path:
-    """Write the config back as YAML, atomically."""
+    """Write the config back as YAML.
+
+    Atomically, via a tmp file renamed over it, wherever that is possible.
+    On the Pi, ``/etc/describer`` is root's (mode 755): install.sh creates
+    ``config.yaml`` there and hands it to the ``describer`` user, but that
+    user cannot create a new file beside it to rename over, the same
+    constraint ``credentials.py`` already works around. There we fall back
+    to writing the existing file in place.
+    """
     path = path or config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = config.model_dump(mode="json")
+    text = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    with tmp.open("w", encoding="utf-8") as fh:
-        yaml.safe_dump(payload, fh, sort_keys=False, allow_unicode=True)
-    tmp.replace(path)
+    try:
+        with tmp.open("w", encoding="utf-8") as fh:
+            fh.write(text)
+        tmp.replace(path)
+    except OSError:
+        with path.open("w", encoding="utf-8") as fh:
+            fh.write(text)
     log.info("Wrote config to %s", path)
     return path
 

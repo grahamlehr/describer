@@ -3,12 +3,12 @@ Description=Describer kiosk (cage + Chromium)
 # A system unit, not a user one: cage needs a logind seat with the DRM and
 # input devices, and a lingering user session never gets one. Binding to tty1
 # and evicting its getty gives cage the console the login prompt was using.
-After=systemd-user-sessions.service getty@tty1.service
+After=systemd-user-sessions.service getty@tty1.service describer.service
 Conflicts=getty@tty1.service
 
 [Service]
 Type=simple
-# Filled in by deploy/install.sh from the installing user.
+# Filled in by deploy/install.sh: the describer system user.
 User=@USER@
 PAMName=login
 TTYPath=/dev/tty1

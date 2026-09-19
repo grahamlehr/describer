@@ -39,6 +39,14 @@ recorded there cost real time to find.
 ## Stack
 
 - **Python 3.11+** backend using **FastAPI** + **uvicorn**.
+- **One system layout.** The checkout lives at `/opt/describer`, owned by a
+  dedicated `describer` system user (`useradd --system`, no login shell,
+  home `/var/lib/describer`, groups `video,render,input,audio,gpio`).
+  `describer.service` and `kiosk.service` are both systemd **system** units
+  running as `describer` — there is no user-scope unit anywhere in this
+  layout, and no `loginctl enable-linger`. `deploy/install.sh` is root-run
+  (`sudo deploy/install.sh [provision|configure|all]`) and builds this from
+  scratch or migrates an older per-user install onto it.
 - **Kiosk browser**: Chromium launched by a systemd **system** service bound
   to tty1, in `--kiosk` mode against `http://localhost:8080/`, under `cage`
   (a kiosk Wayland compositor) rather than a desktop. It cannot be a user
@@ -62,7 +70,11 @@ recorded there cost real time to find.
 - **Config**: YAML file at `config.yaml` (repo root in dev,
   `/etc/describer/config.yaml` on the Pi; a `config.yaml` in the checkout wins,
   and `DESCRIBER_CONFIG` overrides both), plus a web admin page at `/admin`
-  that reads/writes the same file. The file is the source of truth.
+  that reads/writes the same file. The file is the source of truth. On the
+  Pi, `/etc/describer` is root-owned (755); `install.sh` seeds
+  `config.yaml` and `describer.env` there and hands each to `describer`
+  (644 and 600 respectively), and `install.sh` refuses to provision if
+  `/opt/describer/config.yaml` exists, because that would win instead.
 - Package management: `pip` with `requirements.txt`. Use a venv at `.venv`.
 - Tests: `pytest`. Keep the data layer testable with recorded JSON fixtures.
 
@@ -269,9 +281,11 @@ describer/
         dotmatrix.js       # the shared 5x7 dot font; not a theme
         colours.js         # writes the configured palette; not a theme
   deploy/
-    install.sh             # Pi setup: apt deps, venv, piper, cage, services
-    describer.service      # systemd *user* unit for the backend
-    kiosk.service          # systemd *system* unit for cage + chromium
+    install.sh             # root-run, two-part: provision (chroot-safe), configure
+    describer.service      # systemd *system* unit for the backend, User=describer
+    kiosk.service          # systemd *system* unit for cage + chromium, User=describer
+    polkit/
+      50-describer.rules   # lets describer restart describer.service, nothing else
     shutdown_button.py     # six presses on GPIO21 in 10 s -> poweroff; system python
     shutdown-button.service  # systemd *system* unit for the above
   tests/
@@ -370,10 +384,15 @@ the full story.
   blank.** `/api/setup/complete` treats a blank `key` as "keep the saved one";
   a test key is not installed until Finish. Neither `/api/setup/*` route may
   log, echo or return a key, in any outcome.
-- **Environment files: the deployed one is read last.** An empty assignment
-  still assigns; a bare `RDM_API_KEY=` in the checkout's `.env` once blanked
-  the deployed key and spent a day's RTT allowance. Clearing a key deletes
-  its line, never writes it empty. (`01`, `13`)
+- **An empty assignment still assigns.** A bare `RDM_API_KEY=` in the
+  checkout's `.env` once shadowed the deployed key on a per-user install and
+  spent a day's RTT allowance — `describer.service` read the checkout `.env`
+  first, and systemd applies environment files in order with the last
+  assignment winning, so a blank line there beat a real key. The system unit
+  now has only one `EnvironmentFile`, `/etc/describer/describer.env`, which
+  removes the whole class of trap rather than just reordering it; the
+  history is why `credentials.py` still clears a key by deleting its line
+  instead of ever writing it empty. (`01`, `13`)
 - **`install.sh` runs under `set -e`**: a helper must not end on a
   `[ … ] && …` list, or a false test ends the install. Use an `if`.
 - **Unit files are copied, not pulled.** Changing `deploy/` means re-running
@@ -420,8 +439,8 @@ env -u RTT_TOKEN -u RDM_API_KEY .venv/bin/python -m pytest -q
 .venv/bin/ruff format . && .venv/bin/ruff check .
 ```
 
-Pi: run `deploy/install.sh` once, then `systemctl --user status describer`
-and `sudo systemctl status kiosk shutdown-button`.
+Pi: run `sudo deploy/install.sh` once, then `sudo systemctl status describer
+kiosk shutdown-button`.
 
 ## Verifying a board change by hand
 

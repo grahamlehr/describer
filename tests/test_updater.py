@@ -321,6 +321,22 @@ async def test_the_default_restart_needs_systemd(repos, monkeypatch):
     assert on.status()["can_restart"] is True
 
 
+async def test_the_default_restart_is_system_scope(monkeypatch):
+    """describer.service is a system unit now: no --user."""
+    calls = []
+
+    async def fake_run(args, cwd, timeout, env=None):
+        calls.append(args)
+        return ""
+
+    monkeypatch.setattr(updater_module, "_run", fake_run)
+
+    await updater_module._systemd_restart(updater_module.Path("."))
+
+    assert calls == [["systemctl", "restart", "--no-block", "describer.service"]]
+    assert "--user" not in calls[0]
+
+
 async def test_an_unreachable_remote_is_reported(repos, make):
     _dev, pi = repos
     git(pi, "remote", "set-url", "origin", str(pi.parent / "gone.git"))
