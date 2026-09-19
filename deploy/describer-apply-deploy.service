@@ -1,0 +1,18 @@
+[Unit]
+Description=Install the deploy/ files of the release Describer just updated to
+# Started by the describer user after /admin installs an update that touched
+# deploy/ (a polkit rule allows exactly that and nothing else). It runs as root,
+# so it takes no input from that user beyond which commit the checkout is at,
+# and checks even that against GitHub: see the header of the script.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/sbin/describer-apply-deploy
+# A package or two may be installed. Do not leave a stuck run holding the unit,
+# which would stop the next update from starting it.
+TimeoutStartSec=1800
+StandardOutput=journal
+StandardError=journal

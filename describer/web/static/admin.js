@@ -1400,7 +1400,19 @@ function showUpdates(u) {
     ? `<dt>Last update</dt><dd><code>${escapeHtml(u.last_update.from || '?')}</code> &rarr;
         <code>${escapeHtml(u.last_update.to)}</code> at ${formatTime(u.last_update.at)}
         ${u.last_update.restarting ? '' : pill('warn', 'restart the server to run it')}
-        ${u.last_update.deploy_changed ? pill('warn', 're-run deploy/install.sh') : ''}</dd>`
+        ${u.last_update.deploy_changed && !u.last_update.restarting ? pill('warn', 'deploy/ changed: run install.sh provision') : ''}</dd>`
+    : '';
+  // What the root oneshot that installs deploy/ last did. Its state lives in
+  // systemd, so this survives the backend restarting as part of it.
+  const deployStates = {
+    running: pill('warn', 'Applying system files&hellip;'),
+    applied: ok('System files updated'),
+    // TODO(graham): confirm wording
+    failed: bad('System files not applied: see the log'),
+  };
+  const deploy = u.deploy
+    ? `<dt>System files</dt><dd>${deployStates[u.deploy.state] || ''}
+        ${u.deploy.state === 'failed' ? '<code>journalctl -u describer-apply-deploy</code>' : ''}</dd>`
     : '';
 
   updateList.innerHTML = `
@@ -1408,10 +1420,13 @@ function showUpdates(u) {
     <dt>${escapeHtml(u.tracking)}</dt><dd>${state}${checked}</dd>
     ${u.count ? `<dt>Waiting</dt><dd>${shown}${more}</dd>` : ''}
     ${u.blocked ? `<dt>Cannot update</dt><dd>${bad(escapeHtml(u.blocked))}</dd>` : ''}
-    ${u.count && u.deploy_changed ? `<dt>Also needed</dt><dd>${pill('warn', 'deploy/ changed')}
-        re-run <code>deploy/install.sh</code> on the Pi afterwards; the unit files are copied, not pulled</dd>` : ''}
+    ${u.count && u.deploy_changed ? `<dt>System files</dt><dd>${pill('warn', 'deploy/ changed')}
+        ${u.can_restart
+          ? 'installed automatically after the update, as root, from GitHub'
+          : 'not applied here: on a Pi they are installed automatically'}</dd>` : ''}
     ${u.count && u.requirements_changed ? '<dt>Packages</dt><dd>requirements.txt changed; the update installs them</dd>' : ''}
     ${u.last_error ? `<dt>Last error</dt><dd>${bad(escapeHtml(u.last_error))}</dd>` : ''}
+    ${deploy}
     ${done}`;
 
   applyUpdateButton.hidden = !(u.count && !u.blocked);
@@ -1466,6 +1481,47 @@ applyUpdateButton.addEventListener('click', async () => {
   clearInterval(restartWatch);
   restartWatch = setInterval(loadUpdates, 2000);
 });
+
+/* ---------------------------------------------------------------- power */
+
+// Shut down and Restart. Buttons only: no `name`, so readForm never sweeps
+// them, and they never touch the config. The backend answers 409 "Only on the
+// Pi" on a dev machine and does nothing.
+const powerMessage = document.getElementById('power-message');
+const POWER = {
+  poweroff: {
+    button: document.getElementById('poweroff'),
+    confirm: 'Shut the Pi down? The screen will go blank. Wait for the green light to stop flashing before unplugging.',
+    done: 'Shutting down. Wait for the green light on the Pi to stop flashing before you unplug it.',
+  },
+  reboot: {
+    button: document.getElementById('reboot'),
+    // TODO(graham): confirm wording
+    confirm: 'Restart the Pi? The screen will go blank and the board will be back in a minute or two.',
+    done: 'Restarting. The board will be back in a minute or two, and this page will not answer until then.',
+  },
+};
+
+for (const [action, { button, confirm: question, done }] of Object.entries(POWER)) {
+  button.addEventListener('click', async () => {
+    if (dirty && !confirm('You have unsaved changes, and they will be lost. Carry on?')) return;
+    if (!confirm(question)) return;
+    for (const other of Object.values(POWER)) other.button.disabled = true;
+    powerMessage.textContent = 'Asking the Pi…';
+    try {
+      const response = await fetch(`/api/system/${action}`, { method: 'POST' });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok) {
+        powerMessage.textContent = done;
+        return;
+      }
+      powerMessage.textContent = body.detail || response.statusText;
+    } catch {
+      powerMessage.textContent = 'Could not reach the Pi.';
+    }
+    for (const other of Object.values(POWER)) other.button.disabled = false;
+  });
+}
 
 document.addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === 's') {

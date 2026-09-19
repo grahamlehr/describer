@@ -446,6 +446,19 @@
         </label>
       </div>
     </div>
+
+    <div class="subpanel" id="power">
+      <h3>Power</h3>
+      <p class="hint">Shut the Pi down cleanly before unplugging it, or restart it.
+        The screen goes blank; after a shutdown wait for the green light on the
+        Pi to stop flashing before you pull the plug. Anyone on your network who
+        can open this page can do this.</p>
+      <div class="inline-actions">
+        <button type="button" class="ghost" id="reboot">Restart</button>
+        <button type="button" id="poweroff">Shut down</button>
+      </div>
+      <p class="hint" id="power-message" role="status"></p>
+    </div>
   </section>
 
 </form>

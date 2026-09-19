@@ -73,6 +73,9 @@ async def make(repos):
             restarts.append(True)
 
         kwargs.setdefault("restart", restart)
+        # Nothing under test may reach systemctl, whoever launched pytest.
+        kwargs.setdefault("apply_deploy", None)
+        kwargs.setdefault("deploy_state", None)
         instance = Updater(
             pi,
             UpdatesConfig(),
@@ -308,6 +311,129 @@ async def test_without_a_restart_hook_the_update_stays_put(repos, make):
     assert report["phase"] == "idle"
     assert report["last_update"]["restarting"] is False
     assert (pi / "a.txt").exists()
+
+
+def with_apply_hook():
+    applied: list[bool] = []
+
+    async def apply():
+        applied.append(True)
+
+    return applied, apply
+
+
+async def test_a_release_touching_deploy_starts_the_oneshot_not_a_restart(repos, make):
+    dev, _pi = repos
+    applied, apply = with_apply_hook()
+    instance, restarts = await make(apply_deploy=apply)
+    closed: list[str] = []
+    instance.before_restart = lambda: closed.append("streams")
+    publish(dev, "deploy/describer.service", "[Unit]\n", "Change the unit")
+
+    report = await instance.update()
+    await settle()
+
+    assert report["last_update"]["deploy_changed"] is True
+    assert report["last_update"]["applying_deploy"] is True
+    assert applied == [True]
+    # The oneshot restarts the backend itself, so neither the direct restart
+    # nor the stream close happens here.
+    assert restarts == []
+    assert closed == []
+
+
+async def test_a_release_without_deploy_restarts_directly(repos, make):
+    dev, _pi = repos
+    applied, apply = with_apply_hook()
+    instance, restarts = await make(apply_deploy=apply)
+    publish(dev, "a.txt", "a\n", "Second")
+
+    report = await instance.update()
+    await settle()
+
+    assert report["last_update"]["applying_deploy"] is False
+    assert applied == []
+    assert restarts == [True]
+
+
+async def test_if_the_oneshot_cannot_be_started_it_restarts_anyway(repos, make):
+    """An install from before this existed has no such unit; the new code must still start."""
+    dev, _pi = repos
+
+    async def missing():
+        raise UpdateError("systemctl start failed: Unit describer-apply-deploy.service not found")
+
+    instance, restarts = await make(apply_deploy=missing)
+    closed: list[str] = []
+    instance.before_restart = lambda: closed.append("streams")
+    publish(dev, "deploy/describer.service", "[Unit]\n", "Change the unit")
+
+    await instance.update()
+    await settle()
+
+    assert restarts == [True]
+    assert closed == ["streams"]
+    assert "System files were not applied" in instance.last_error
+    assert "not found" in instance.last_error
+
+
+async def test_without_systemd_deploy_files_are_left_alone(repos, make):
+    dev, _pi = repos
+    applied, apply = with_apply_hook()
+    instance, _ = await make(restart=None, apply_deploy=apply)
+    publish(dev, "deploy/describer.service", "[Unit]\n", "Change the unit")
+
+    await instance.update()
+    await settle()
+
+    assert applied == []
+
+
+def test_the_deploy_unit_outcome_is_read_from_systemd():
+    parse = updater_module.parse_deploy_state
+    base = "LoadState=loaded\nActiveState=inactive\nResult=success\n"
+
+    # Never run since boot, or not installed: nothing to say.
+    assert parse(base + "ExecMainStartTimestamp=\n") is None
+    assert parse(base + "ExecMainStartTimestamp=n/a\n") is None
+    assert parse("LoadState=not-found\nActiveState=inactive\nResult=success\n") is None
+    # Ran and finished.
+    ran = base + "ExecMainStartTimestamp=Sat 2026-09-19 10:00:00 BST\n"
+    assert parse(ran) == {"state": "applied", "result": "success"}
+    failed = ran.replace("Result=success", "Result=exit-code")
+    assert parse(failed) == {"state": "failed", "result": "exit-code"}
+    # Still going.
+    going = "LoadState=loaded\nActiveState=activating\nResult=success\n"
+    assert parse(going) == {"state": "running", "result": "success"}
+
+
+async def test_the_status_carries_the_deploy_outcome(make):
+    async def shown():
+        return (
+            "LoadState=loaded\nActiveState=inactive\nResult=exit-code\n"
+            "ExecMainStartTimestamp=Sat 2026-09-19 10:00:00 BST\n"
+        )
+
+    instance, _ = await make(deploy_state=shown)
+
+    assert instance.status()["deploy"] == {"state": "failed", "result": "exit-code"}
+
+
+async def test_the_deploy_defaults_are_system_scope(monkeypatch):
+    calls = []
+
+    async def fake_run(args, cwd, timeout, env=None):
+        calls.append(args)
+        return ""
+
+    monkeypatch.setattr(updater_module, "_run", fake_run)
+
+    await updater_module._systemd_apply_deploy(updater_module.Path("."))
+    await updater_module._systemd_show_deploy(updater_module.Path("."))
+
+    assert calls[0] == ["systemctl", "start", "--no-block", "describer-apply-deploy.service"]
+    assert calls[1][:3] == ["systemctl", "show", "describer-apply-deploy.service"]
+    assert all("--user" not in call for call in calls)
 
 
 async def test_the_default_restart_needs_systemd(repos, monkeypatch):
