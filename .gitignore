@@ -10,3 +10,9 @@ tts-cache/
 .ruff_cache/
 .DS_Store
 *.pdf
+
+# --- repo kit additions ---
+.env*
+!.env.example
+.ua
+.claude/settings.local.json
