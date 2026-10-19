@@ -23,7 +23,7 @@ packaging. No multi-user, no auth beyond LAN trust. Read the design note for an 
 ## Commands
 | Task | Command |
 |---|---|
-| Install | `python -m venv .venv && .venv/bin/pip install -r requirements.txt` |
+| Install | `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt` |
 | Dev | `env RTT_TOKEN= .venv/bin/uvicorn describer.main:app --reload --port 8080` (or `preview_start` entry `describer`) |
 | Test | `env -u RTT_TOKEN -u RDM_API_KEY .venv/bin/python -m pytest -q` |
 | Lint / format | `.venv/bin/ruff format . && .venv/bin/ruff check .` |
