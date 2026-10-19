@@ -1,0 +1,11 @@
+#!/bin/sh
+# Secret scan of staged changes. Installed by scripts/install-hooks.sh.
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not installed (brew install gitleaks); skipping secret scan" >&2
+  exit 0
+fi
+if gitleaks help git >/dev/null 2>&1; then
+  exec gitleaks git --pre-commit --staged --redact --no-banner
+else
+  exec gitleaks protect --staged --redact --no-banner
+fi

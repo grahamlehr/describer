@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git worktree list*)",
+      "Bash(git fetch*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh run list*)",
+      "Bash(gh run view*)",
+      "Bash(gh repo view*)",
+      "Bash(ls*)",
+      "Bash(wc*)",
+      "Bash(env -u RTT_TOKEN -u RDM_API_KEY .venv/bin/python -m pytest*)",
+      "Bash(.venv/bin/python -m pytest*)",
+      "Bash(.venv/bin/ruff check*)",
+      "Bash(.venv/bin/ruff format*)",
+      "Bash(gitleaks*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./RTT_API_token.txt)",
+      "Read(./*_token.txt)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)"
+    ]
+  }
+}
