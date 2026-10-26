@@ -1,7 +1,7 @@
 fastapi>=0.143.3
 uvicorn[standard]>=0.30
 httpx>=0.28.1
-pydantic>=2.7
+pydantic>=2.14.1
 PyYAML>=6.0
 python-dotenv>=1.2.4
 segno>=1.6
