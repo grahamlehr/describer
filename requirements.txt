@@ -1,6 +1,7 @@
 fastapi>=0.161.1
 uvicorn[standard]>=0.30
 httpx>=0.28.1
+certifi>=2026.10.19  # transitive via httpx; floor set for a CA bundle security update
 pydantic>=2.14.1
 PyYAML>=6.0
 python-dotenv>=1.2.4
