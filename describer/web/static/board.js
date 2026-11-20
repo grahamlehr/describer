@@ -189,6 +189,9 @@ function renderRows(boardEl, board, station) {
     setText(row.querySelector('[data-field="platform"]'), service.platform || '-');
     setText(row.querySelector('[data-field="status"]'), statusText(service));
     setText(row.querySelector('[data-field="operator"]'), service.operator_code || '');
+    // A theme that draws something of its own in a row (a route, a marker)
+    // gets the service itself here; the cells above are already painted.
+    theme?.renderRow?.(row, service, board.mode);
   });
 
   for (const child of Array.from(rowsEl.children)) {

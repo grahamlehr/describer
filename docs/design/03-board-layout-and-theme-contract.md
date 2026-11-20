@@ -74,6 +74,7 @@ those.
 | `detach()` | on switch away | **must** clear timers and caches |
 | `renderText(cell, text)` | per cell | replaces `textContent` |
 | `statusText(service)` | per status cell | return `null` to accept the default wording |
+| `renderRow(row, service, mode)` | per service row | after its cells are painted, with the row in the tree: for a theme that draws something of its own in a row (Addendum 16) |
 | `serviceDetail` | read once | `true` shows the position/formation line; absent (or `false`) keeps it hidden, share 0, on every other theme |
 | `positionText(service, mode)` | per detail line | return `null` to accept the default wording |
 | `renderFormation(el, formation, length)` | per detail line | replaces the default car strip (Addendum 8); no theme uses it now |

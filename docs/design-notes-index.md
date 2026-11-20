@@ -25,6 +25,7 @@ over both.
 | 13 | `credentials-and-updates` | Write-only keys from /admin; updates from GitHub |
 | 14 | `splitflap-canvas` | Flaps blitted from a tile sheet; the measurements |
 | 15 | `weather` | Open-Meteo strip on modern and thameslink |
+| 16 | `swiss-linemap-dial` | Three more themes, the `renderRow` hook, the mock board |
 
 A new feature gets the next number. Write it the way the others are: the
 decision, the reason, the numbers measured, the trap found, and how it was

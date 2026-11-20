@@ -229,7 +229,7 @@ const profileRibbonEl = document.getElementById('profile-ribbon');
 const THEMES = [
   ['modern', 'Modern'], ['crt', 'CRT'], ['splitflap', 'Split-flap'],
   ['1990s', '1990s'], ['nse', 'Network SouthEast'], ['led-matrix', 'LED matrix'],
-  ['thameslink', 'Thameslink'],
+  ['thameslink', 'Thameslink'], ['swiss', 'Swiss'], ['linemap', 'Line map'], ['dial', 'Dial'],
 ];
 
 /** The options each theme offers, in the shape the Display tab spells out by
@@ -257,6 +257,9 @@ const THEME_OPTIONS = {
     { key: 'scroll_route', label: 'Scroll the route instead of paging', type: 'check' },
     { key: 'scroll_speed', label: 'Scroll speed', unit: 'stops per second', type: 'number', min: 0.1, max: 5, step: 0.1 },
     { key: 'return_speed', label: 'Return speed', unit: 'stops per second', type: 'number', min: 0.5, max: 40, step: 0.5 },
+  ],
+  swiss: [
+    { key: 'ground', label: 'Ground', type: 'select', options: [['light', 'Light (black on white)'], ['dark', 'Dark (white on black)']] },
   ],
 };
 

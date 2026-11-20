@@ -6,7 +6,7 @@
 ## What this is
 A live departure board for one or two UK National Rail stations, shown full-screen on a 16:9
 monitor attached to a Raspberry Pi 4B. It pulls live data from Rail Data Marketplace (Darwin
-LDBWS), falling back to Realtime Trains, renders it in one of seven themes, and can speak
+LDBWS), falling back to Realtime Trains, renders it in one of ten themes, and can speak
 platform-style announcements (Piper TTS) as trains approach.
 
 Personal project for a single Pi. Optimise for simplicity and reliability over portability or

@@ -188,15 +188,33 @@ class NseThemeConfig(BaseModel):
     click_sound: bool = False
 
 
+class SwissThemeConfig(BaseModel):
+    #: The ground the board is printed on: black on white, or white on black
+    #: for a room that is dark.
+    ground: Literal["light", "dark"] = "light"
+
+
 class ThemesConfig(BaseModel):
     modern: ModernThemeConfig = ModernThemeConfig()
     crt: CrtThemeConfig = CrtThemeConfig()
     splitflap: SplitflapThemeConfig = SplitflapThemeConfig()
     nse: NseThemeConfig = NseThemeConfig()
     thameslink: ThameslinkThemeConfig = ThameslinkThemeConfig()
+    swiss: SwissThemeConfig = SwissThemeConfig()
 
 
-ThemeName = Literal["modern", "crt", "splitflap", "1990s", "nse", "led-matrix", "thameslink"]
+ThemeName = Literal[
+    "modern",
+    "crt",
+    "splitflap",
+    "1990s",
+    "nse",
+    "led-matrix",
+    "thameslink",
+    "swiss",
+    "linemap",
+    "dial",
+]
 
 
 class DisplayConfig(BaseModel):

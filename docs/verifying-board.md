@@ -5,6 +5,12 @@ _Moved from the old CLAUDE.md._
 There is no frontend test harness. Check any change to what the board draws
 in the browser pane, and measure it rather than eyeballing it:
 
+- Use the mock board rather than a live feed: `preview_start` entry
+  `board-mock` (or `python3 scripts/mock_board.py`), which serves the real
+  static files with invented trains and never calls a rail API. `/mock?…`
+  switches theme, board count, mode, source, stale and empty while it runs;
+  the options are in the script's docstring. Its trains carry the awkward
+  names below.
 - 1920×1080 and 1280×720, one board and two, every theme the change touches.
   Check that unaffected themes render exactly as before by comparing the
   computed `--slot` and row height.

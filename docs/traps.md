@@ -39,7 +39,7 @@ the full story.
   or `--fg`), so `.setup` takes `--bg`/`--fg` where a theme has them and black
   and white where not, and the QR code is always black on white. Sit it above
   crt's scanlines (`z-index: 6` against 5), or they draw lines across the code.
-  Check any change to it on all seven themes at both sizes. It is a mask, so
+  Check any change to it on every theme at both sizes. It is a mask, so
   it needs no colour of its own in the SVG.
 - **Setup writes through `get()`, and never overwrites a saved key with a
   blank.** `/api/setup/complete` treats a blank `key` as "keep the saved one";

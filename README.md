@@ -3,7 +3,7 @@
 A live UK National Rail departure board for a Raspberry Pi 4B on a 16:9
 monitor. It polls the Darwin feed through the Rail Data Marketplace — falling
 back to Realtime Trains when Darwin is unreachable — renders one or two
-stations full screen in one of seven themes, and speaks platform-style
+stations full screen in one of ten themes, and speaks platform-style
 announcements as trains approach.
 
 ```
@@ -446,6 +446,12 @@ Weather data by [Open-Meteo.com](https://open-meteo.com/), licensed
 | `nse`       | Network SouthEast sign over a flip-dot indicator; discs flip column by column and the stops turn a page at a time. |
 | `led-matrix` | Amber LED dot-matrix panel of the 2000s; every word on the screen is lit dots, and long lines scroll. |
 | `thameslink` | The LCD "next train" panels on the Thameslink core; one service takes the head of the board with its route drawn beneath it, the rest are a "Later trains" list counting down in minutes. |
+| `swiss`     | International Typographic Style: one grotesque in two weights, black on white with a single red, hairline rules. An on-time train says nothing; a late one says `+4′`. |
+| `linemap`   | Every train drawn as a line on a map: a coloured route leaves the station bar with a tick for each stop, as long as the journey is, and the next train gets a labelled strip map with the train's own position on it. |
+| `dial`      | The next hour on a station clock: a minute hand, a marker on the rim for each train at the minute it leaves, and the minutes to the next one in the middle. |
+
+`swiss` has one option, `display.themes.swiss.ground` (`light` or `dark`): white on
+black for a room that is dark. `linemap` and `dial` have none.
 
 A theme is a CSS file in `describer/web/static/themes/` plus a same-named JS
 module. Every export is optional — hooks such as `attach`, `configure`,

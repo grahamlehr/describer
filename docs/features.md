@@ -41,6 +41,12 @@ _Moved from the old CLAUDE.md ("Features"): boards, themes, announcements, sched
 6. **led-matrix**: amber LED panel; everything is lit dots, long lines scroll.
 7. **thameslink**: the Thameslink core LCD panels, one featured train with
    its route drawn beneath, then a "Later trains" list counting down.
+8. **swiss**: International Typographic Style; black on white (or white on
+   black), one red, on-time trains say nothing (`docs/design/16`).
+9. **linemap**: every train a coloured line leaving the station bar, a tick
+   per stop, and a labelled strip map for the next train (`/16`).
+10. **dial**: the next hour on a clock face, a marker per train on the rim
+    and the minutes to the next one in the middle (`/16`).
 
 Themes share one DOM structure and one data model; a theme is a CSS file
 plus an optional JS module. Adding a theme touches no backend code except its

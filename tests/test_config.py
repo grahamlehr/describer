@@ -196,6 +196,21 @@ def test_theme_colours_default_to_the_stylesheet():
     assert set(colours.model_dump().values()) == {None}
 
 
+@pytest.mark.parametrize("theme", ["swiss", "linemap", "dial"])
+def test_the_newer_themes_are_selectable(theme):
+    assert Config(stations=[{"crs": "PAD"}], display={"theme": theme}).display.theme == theme
+
+
+def test_swiss_is_printed_on_a_light_ground_unless_asked_otherwise():
+    assert Config(stations=[{"crs": "PAD"}]).display.themes.swiss.ground == "light"
+
+    config = Config(stations=[{"crs": "PAD"}], display={"themes": {"swiss": {"ground": "dark"}}})
+    assert config.display.themes.swiss.ground == "dark"
+
+    with pytest.raises(ValidationError):
+        Config(stations=[{"crs": "PAD"}], display={"themes": {"swiss": {"ground": "sepia"}}})
+
+
 def test_thameslink_full_journey_is_off_unless_asked_for():
     assert Config(stations=[{"crs": "PAD"}]).display.themes.thameslink.full_journey is False
 

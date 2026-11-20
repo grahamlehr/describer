@@ -1,0 +1,376 @@
+/* linemap — every train drawn as a line on a night map.
+ *
+ * The board reads like a transit strip map radiating from this station: one
+ * continuous bar down the left is the interchange, every service is a
+ * coloured line leaving it, and the top service gets a large labelled strip
+ * map in place of the usual "Calling at" line. linemap.js draws the lines;
+ * this file owns the colour, the type and the sizing.
+ *
+ * Nothing here animates except the train marker's halo, and that is opacity
+ * and transform on one element: the Pi has nothing to repaint.
+ */
+
+:root {
+  --bg: #0f141b;
+  --fg: #f3f1ea;
+  --muted: #8b95a3;
+  --late: #ffc145;
+  --cancelled: #ff6b6b;
+  --rule: color-mix(in srgb, var(--fg) 12%, transparent);
+  /* Eight hues, picked by a hash of the place a train is going to (or coming
+     from) so a route keeps its colour as it moves up the board. */
+  --line-0: #ff5a36;
+  --line-1: #3fa9f5;
+  --line-2: #ffd23f;
+  --line-3: #3ddc97;
+  --line-4: #c77dff;
+  --line-5: #ff8fab;
+  --line-6: #9bdb4d;
+  --line-7: #ff9f1c;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Helvetica Neue", Helvetica, "Nimbus Sans", "Liberation Sans", Arial, sans-serif;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* The station bar's width is a length in viewport units, not an em, so the
+   interchange ring in the header can be exactly as wide as the bar under it.
+   At both resolutions the row type works out to about 1.4vh x 0.5em anyway. */
+.board { --lm-bar: 1.6vh; }
+
+/* ------------------------------------------------------------------ header */
+
+.board-header { padding-bottom: 0.8vh; border-bottom: 1px solid var(--rule); }
+.station-name { font-weight: 700; letter-spacing: -0.01em; }
+/* The interchange glyph: the same ring the station bar is made of. */
+.station-name::before {
+  content: "";
+  display: inline-block;
+  box-sizing: border-box;
+  width: var(--lm-bar);
+  height: var(--lm-bar);
+  margin-right: 0.45em;
+  border: 0.32vh solid var(--fg);
+  border-radius: 50%;
+  background: var(--bg);
+  vertical-align: 0.06em;
+}
+.board-mode { color: var(--muted); font-size: 1.8vh; opacity: 1; }
+.clock { font-weight: 700; }
+.source { color: var(--muted); opacity: 0.6; }
+.stale { color: var(--late); }
+
+/* -------------------------------------------------------------------- rows */
+
+.rows {
+  position: relative;
+  /* Room on the left for the station bar and a little air after it. Text and
+     routes start just to its right; the routes then reach back under the bar. */
+  --lm-gutter: calc(var(--lm-bar) + var(--row-font) * 0.5);
+  padding-left: var(--lm-gutter);
+  /* The strip map takes three slots when it is showing, and board.js already
+     turns --calling-share into 0.9 or 0, so three times a ninth of it is the
+     map's share. The reason line is a slot like any other. */
+  --map-share: calc(var(--calling-share) / 0.9 * 3);
+  --char-budget: 25;
+  --slot: calc(100cqh / (var(--rows) + var(--map-share) + var(--reason-share)));
+  /* Half a slot is the text line plus its route, with air to spare; the
+     width term is what binds on a two-board screen. */
+  --row-font: min(calc(100cqw / var(--char-budget)), calc(var(--slot) * 0.5));
+}
+
+/* The station bar: one rounded outline all the lines leave from. It sits over
+   the start of every route, so they look to emerge from behind it. */
+.lm-station {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  top: 0.2em;
+  bottom: 0.2em;
+  width: var(--lm-bar);
+  box-sizing: border-box;
+  border: 0.32vh solid var(--fg);
+  border-radius: var(--lm-bar);
+  background: var(--bg);
+  font-size: var(--row-font);
+  pointer-events: none;
+}
+
+/* time | destination | platform | status. The second grid row is the route. */
+.row {
+  grid-template-columns: 3.3em minmax(0, 1fr) 3.5em 5.4em;
+  grid-template-rows: auto 0.5em;
+  align-content: center;
+  align-items: center;
+  column-gap: 0.5em;
+  row-gap: 0.12em;
+  line-height: 1.15;
+  /* Each row carries its own line colour; linemap.js sets data-line. */
+  --line: var(--line-0);
+}
+.row[data-line="0"] { --line: var(--line-0); }
+.row[data-line="1"] { --line: var(--line-1); }
+.row[data-line="2"] { --line: var(--line-2); }
+.row[data-line="3"] { --line: var(--line-3); }
+.row[data-line="4"] { --line: var(--line-4); }
+.row[data-line="5"] { --line: var(--line-5); }
+.row[data-line="6"] { --line: var(--line-6); }
+.row[data-line="7"] { --line: var(--line-7); }
+
+.cell.operator { display: none; }
+.cell.time { font-weight: 700; }
+.cell.destination { font-weight: 700; }
+/* "via Whitechapel" is how the train gets there, not where it goes: quieter,
+   and smaller, which is also what lets a long name fit a half screen. */
+.lm-via { margin-left: 0.35em; font-size: 0.68em; font-weight: 400; color: var(--muted); }
+
+/* The platform sits in a small outlined pill, "Plat 5": it is the one thing a
+   passenger acts on after the time and the place, so it earns a shape. */
+.cell.platform {
+  justify-self: center;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.05em 0.45em;
+  border: 0.07em solid var(--muted);
+  border-radius: 0.5em;
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  overflow: visible;
+}
+.cell.platform:empty { visibility: hidden; }
+.cell.platform::before { content: "Plat "; font-weight: 400; color: var(--muted); }
+
+.cell.status { font-size: 0.92em; font-weight: 700; text-align: right; color: var(--muted); }
+.row[data-status="on_time"] .cell.status { font-weight: 400; }
+.row[data-status="expected"] .cell.status,
+.row[data-status="delayed"] .cell.status { color: var(--late); }
+.row[data-status="cancelled"] .cell.status { color: var(--cancelled); }
+.row[data-status="cancelled"] .cell.time,
+.row[data-status="cancelled"] .cell.destination,
+.row[data-status="cancelled"] .cell.platform {
+  text-decoration: line-through;
+  text-decoration-thickness: 0.06em;
+  opacity: 0.55;
+}
+
+/* ------------------------------------------------------------------ routes */
+
+/* Under the text line, reaching back under the station bar by the gutter's
+   air plus a little. The track inside leaves room at the right for the
+   terminus ring, so a full-width line is not clipped. */
+.lm-route {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  position: relative;
+  margin-left: calc(var(--row-font) * -0.5 - 0.4em);
+  min-width: 0;
+}
+.lm-track { position: absolute; inset: 0 0.5em 0 0; }
+.lm-line {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 0.14em;
+  margin-top: -0.07em;
+  border-radius: 0.1em;
+  background: var(--line);
+}
+.lm-tick {
+  position: absolute;
+  top: 50%;
+  width: 0.28em;
+  height: 0.28em;
+  margin: -0.14em 0 0 -0.14em;
+  border-radius: 50%;
+  background: var(--fg);
+}
+/* The terminus is a ring in the line's own colour, filled with the ground so
+   the line stops cleanly at it. */
+.lm-end {
+  position: absolute;
+  top: 50%;
+  box-sizing: border-box;
+  width: 0.46em;
+  height: 0.46em;
+  margin: -0.23em 0 0 -0.23em;
+  border: 0.13em solid var(--line);
+  border-radius: 50%;
+  background: var(--bg);
+}
+
+/* A cancelled train is a line that is not running: dashed and grey, no stops. */
+.row[data-status="cancelled"] .lm-line {
+  background: repeating-linear-gradient(90deg, var(--muted) 0 0.3em, transparent 0.3em 0.55em);
+  opacity: 0.8;
+}
+.row[data-status="cancelled"] .lm-end { border-color: var(--muted); }
+
+/* ------------------------------------------------------------- the strip map */
+
+/* Three slots when it is showing, none when board.js hides it. The label is
+   redundant on a map; board.js still asks for it, linemap.js answers ''. */
+.calling-points {
+  --lm-line: var(--line-0);
+  display: block;
+  position: relative;
+  flex: 0 0 calc(var(--slot) * var(--map-share));
+  /* Reaches back under the bar, as the routes do. */
+  margin-left: calc(var(--lm-gutter) * -1 + var(--lm-bar) * 0.5);
+  padding: 0;
+  /* The stop names, at about half the row's type. */
+  font-size: calc(var(--row-font) * 0.58);
+  line-height: 1.1;
+  color: var(--fg);
+}
+.calling-points-label { display: none; }
+.calling-points-track { position: static; overflow: visible; }
+.calling-points-list { position: absolute; inset: 0; display: block; }
+
+.lm-seg {
+  position: absolute;
+  height: 0.3em;
+  margin-top: -0.15em;
+  border-radius: 0.15em;
+  background: var(--lm-line);
+}
+/* Where the train has already been, and the run in or out of the stops shown:
+   dimmed, or dashed, so what is left to come is the bright part. */
+.lm-seg[data-dim] { background: color-mix(in srgb, var(--lm-line) 38%, var(--bg)); }
+.lm-seg[data-dash] {
+  background: repeating-linear-gradient(90deg, var(--lm-line) 0 0.5em, transparent 0.5em 0.9em);
+  opacity: 0.7;
+  border-radius: 0;
+}
+
+.lm-node { position: absolute; width: 0; height: 0; }
+.lm-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  width: 0.78em;
+  height: 0.78em;
+  margin: -0.39em 0 0 -0.39em;
+  border-radius: 50%;
+  background: var(--fg);
+}
+.lm-node[data-passed] .lm-dot { background: var(--muted); }
+/* Here and the terminus are rings; here is the larger, in the text colour. */
+.lm-node[data-kind="here"] .lm-dot {
+  width: 1.5em;
+  height: 1.5em;
+  margin: -0.75em 0 0 -0.75em;
+  border: 0.3em solid var(--fg);
+  background: var(--bg);
+}
+.lm-node[data-kind="end"] .lm-dot {
+  width: 1.2em;
+  height: 1.2em;
+  margin: -0.6em 0 0 -0.6em;
+  border: 0.26em solid var(--lm-line);
+  background: var(--bg);
+}
+.lm-node[data-passed][data-kind="end"] .lm-dot { border-color: var(--muted); }
+.lm-node[data-cancelled] .lm-dot { background: var(--muted); opacity: 0.6; }
+
+/* The name stands up from its dot at 40 degrees, hinged on its own bottom-left
+   corner: only a transform, so nothing reflows. Capped at 11em with an ellipsis
+   so London St Pancras International cannot reach the block's top edge: the cap
+   is 11em x sin 40 = 7.1em of height, which the block is sized to hold. */
+.lm-label {
+  position: absolute;
+  left: 0.15em;
+  bottom: 0.7em;
+  max-width: 11em;
+  padding: 0 0.1em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+  transform-origin: 0 100%;
+  transform: rotate(-40deg);
+}
+.lm-node[data-kind="here"] .lm-label { bottom: 1.05em; font-weight: 700; }
+.lm-node[data-kind="end"] .lm-label { bottom: 0.95em; font-weight: 700; }
+.lm-node[data-passed] .lm-label { color: var(--muted); }
+.lm-node[data-cancelled] .lm-label { text-decoration: line-through; color: var(--muted); }
+
+.lm-time {
+  position: absolute;
+  top: 1.05em;
+  left: 0;
+  transform: translateX(-50%);
+  font-size: 0.82em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.lm-time[data-late] { color: var(--late); }
+.lm-node[data-kind="here"] .lm-time { top: 1.35em; }
+
+/* The train. A solid lozenge with a halo that breathes: opacity and transform
+   on the halo, which is all the Pi is asked to do. */
+.lm-train {
+  position: absolute;
+  z-index: 3;
+  width: 1.1em;
+  height: 1.1em;
+  margin: -0.55em 0 0 -0.55em;
+  border-radius: 50%;
+  background: var(--fg);
+  box-shadow: 0 0 0 0.22em var(--bg);
+}
+.lm-train::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--fg);
+  animation: lm-halo 2.2s ease-out infinite;
+}
+/* Not yet left: a hollow marker that waits. */
+.lm-train[data-waiting] { background: var(--bg); border: 0.22em solid var(--fg); box-sizing: border-box; }
+.lm-train[data-waiting]::before { display: none; }
+@keyframes lm-halo {
+  from { transform: scale(1); opacity: 0.55; }
+  to { transform: scale(2.8); opacity: 0; }
+}
+
+/* More stops than fit: the line runs off the right edge in a dashed tail with
+   a chevron, and the page number sits under it. */
+.lm-chev {
+  position: absolute;
+  width: 0.7em;
+  height: 0.7em;
+  margin: -0.35em 0 0 -0.5em;
+  box-sizing: border-box;
+  border-top: 0.2em solid var(--fg);
+  border-right: 0.2em solid var(--fg);
+  transform: rotate(45deg);
+}
+.lm-page {
+  position: absolute;
+  right: 0.4em;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+/* -------------------------------------------------------------- the rest */
+
+/* Indented to the text gutter by the padding .rows already has. */
+.service-reason { color: var(--late); font-size: calc(var(--row-font) * 0.72); }
+.service-reason[data-status="cancelled"] { color: var(--cancelled); }
+
+.messages { color: var(--muted); border-top: 1px solid var(--rule); }
+.empty { color: var(--muted); font-size: 2.4vh; padding: 2vh 0; }
+
+/* base.css hides these with the attribute, and every rule above that sets a
+   display would beat it. */
+.lm-station[hidden], .calling-points[hidden], .service-reason[hidden], .messages[hidden], .stale[hidden], .source[hidden] { display: none; }
