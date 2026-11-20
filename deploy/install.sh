@@ -250,11 +250,19 @@ install_units() {
   # multi-user.target and starts getty@tty1, which on a flashed image happens
   # after this script has run: the board never appeared. So the kiosk is wanted
   # by multi-user.target (whatever the default is), the link an older install
-  # left behind goes, and tty1's login prompt is masked so nothing can start
-  # it over the board. A console login is still there on tty2 (Ctrl+Alt+F2).
-  # All three are file operations, so they are safe in a chroot.
+  # left behind goes, and a drop-in makes tty1's login prompt a no-op while
+  # the kiosk is enabled. A console login is still there on tty2 (Ctrl+Alt+F2).
+  #
+  # The getty must not be masked: that same first-boot setup ends by enabling
+  # and starting getty@tty1, both fail on a masked unit, and the user setup
+  # then fails and repeats for ever. An install from the release that did mask
+  # it is unmasked here.
+  # All of these are file operations, so they are safe in a chroot.
   rm -f /etc/systemd/system/graphical.target.wants/kiosk.service
-  systemctl mask getty@tty1.service
+  systemctl unmask getty@tty1.service
+  install -d -m 755 /etc/systemd/system/getty@tty1.service.d
+  install -m 644 "$src/getty-tty1-kiosk.conf" \
+    /etc/systemd/system/getty@tty1.service.d/10-describer-kiosk.conf
 }
 
 migrate_old_layout() {

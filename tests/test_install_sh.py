@@ -98,7 +98,22 @@ def test_the_kiosk_does_not_depend_on_the_default_target():
 
 
 def test_install_units_keeps_tty1_for_the_kiosk():
+    """tty1's getty is switched off by a condition, never by a mask or a conflict.
+
+    Pi OS's first-boot user setup ends with `systemctl enable getty@tty1` and
+    `systemctl start getty@tty1`. Masked, both fail and the user setup loops;
+    with a Conflicts= the start stops the kiosk (docs/traps.md).
+    """
     body = function_body("install_units")
-    assert "systemctl mask getty@tty1.service" in body
+    assert "systemctl mask" not in INSTALL_SH.read_text()
+    assert "systemctl unmask getty@tty1.service" in body
+    assert "/etc/systemd/system/getty@tty1.service.d/10-describer-kiosk.conf" in body
     # An install from before the change still has the old link.
     assert "rm -f /etc/systemd/system/graphical.target.wants/kiosk.service" in body
+
+    drop_in = (KIOSK_UNIT.parent / "getty-tty1-kiosk.conf").read_text()
+    assert (
+        "ConditionPathExists=!/etc/systemd/system/multi-user.target.wants/kiosk.service" in drop_in
+    )
+    unit_lines = [line for line in KIOSK_UNIT.read_text().splitlines() if not line.startswith("#")]
+    assert not any(line.startswith("Conflicts=") for line in unit_lines)

@@ -68,16 +68,26 @@ the full story.
   `as_describer`. The URL is hard-coded in the script, and the polkit rule lets
   `describer` start only that unit. A new unit file that is not copied by
   `install_units` is not applied by an update. (`13`)
-- **The kiosk must not depend on the default target, and tty1's getty stays
-  masked.** Raspberry Pi OS ends its first-boot user setup with
+- **The kiosk must not depend on the default target, and tty1's getty is
+  switched off by a condition, never masked.** Raspberry Pi OS ends its first-boot user setup with
   `cancel-rename`, which (with no lightdm installed) runs `raspi-config nonint
   do_boot_behaviour B1`: the default goes back to `multi-user.target` and
   `getty@tty1` is enabled and started. On a hand install the user exists before
   `install.sh` runs, so nothing undid it; on a flashed image it runs *after*,
   and a kiosk wanted by `graphical.target` never started while the backend ran
-  fine. So `kiosk.service` is `WantedBy=multi-user.target` and `install_units`
-  masks `getty@tty1.service`. A file check in the image build cannot see this:
-  it happens on first boot.
+  fine. So `kiosk.service` is `WantedBy=multi-user.target`. Masking
+  `getty@tty1.service` to keep it off the board was the next mistake:
+  `cancel-rename` ends with `systemctl enable getty@tty1` and `systemctl start
+  getty@tty1`, both fail on a masked unit, so the script exits non-zero.
+  cloud-init's user step then fails (two cloud-init units show as failed at
+  boot) and never masks `userconfig.service`, whose `sh -e` script hits the
+  same failure and is restarted by `Restart=on-failure`: the Pi asks for a
+  keyboard layout, username and password for ever. A `Conflicts=` on the kiosk
+  is no better, because that `start` would stop the kiosk. So `install_units`
+  installs `deploy/getty-tty1-kiosk.conf` as a drop-in whose condition makes
+  the getty a successful no-op while the kiosk is enabled, and the kiosk has no
+  `Conflicts=`. A file check in the image build cannot see any of this: it
+  happens on first boot.
 - **An SSE stream never ends on its own.** Before a restart,
   `Poller.close_streams()` must run or shutdown waits for systemd to kill it.
   (`13`)
