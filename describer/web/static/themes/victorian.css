@@ -1,0 +1,553 @@
+/* victorian — a letterpress railway handbill of the 1860s-80s, pasted up at a
+   station. Aged paper, black ink and one vermilion; a different typeface on
+   nearly every line, as a jobbing printer's cases allowed; a printer's border,
+   a pointing hand, dotted leaders and florid wording.
+
+   Everything is flat colour and static gradients: no filters, no blur, no
+   blend modes, nothing that forces a full-screen repaint on the Pi. Every
+   ornament is drawn here as an SVG data URI used as a mask over a colour (the
+   way base.css draws its weather icons), because Pi OS Lite has no font that
+   carries a manicule or a fleuron. The two ornaments that need two inks at
+   once (the locomotive and its diamonds) are plain background images with the
+   palette written into them: a data URI cannot read a custom property. */
+
+/* Abril Fatface (fat-face didone, the shouting headline), Old Standard TT
+   (late-19th-century book and timetable setting) and Rye (ornamented wood
+   type, for one display line only). All SIL OFL, self-hosted; see
+   /static/fonts/README.md. block, not swap: a fallback serif flashing up in
+   place of a fat face is uglier than a moment of blank paper. */
+@font-face {
+  font-family: "Abril Fatface";
+  src: url("/static/fonts/abril-fatface.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Old Standard TT";
+  src: url("/static/fonts/old-standard-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Old Standard TT";
+  src: url("/static/fonts/old-standard-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Old Standard TT";
+  src: url("/static/fonts/old-standard-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Rye";
+  src: url("/static/fonts/rye.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  --bg: #efe2c4;
+  --fg: #1c1814;
+  --muted: #6b5d48;
+  --accent: #a3231a;
+  --rule: color-mix(in srgb, var(--fg) 55%, transparent);
+  /* The hairline between rows: lighter than --rule, which is for the rules
+     a printer would have cut in brass. */
+  --vc-hair: color-mix(in srgb, var(--fg) 28%, transparent);
+
+  --vc-display: "Abril Fatface", Georgia, "DejaVu Serif", serif;
+  --vc-text: "Old Standard TT", Georgia, "DejaVu Serif", serif;
+  --vc-wood: "Rye", "Abril Fatface", Georgia, "DejaVu Serif", serif;
+
+  /* Where the ornaments are drawn. Written once, used by the masks below. */
+  --vc-hand: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 1 72 34'><g fill='black'><rect x='0' y='9' width='6.5' height='19' rx='0.8'/><rect x='8' y='10' width='3' height='17' rx='0.8'/><path d='M13 10.8Q22 8.6 31 10V32Q22 31.6 13 27.4Z'/><path d='M23 11Q24.6 3.6 30.4 2.8Q34.6 2.4 34 6L33.2 11.4Z'/><rect x='29' y='9.5' width='41' height='5' rx='2.5'/><rect x='29' y='15.7' width='27' height='5' rx='2.5'/><rect x='29' y='21.9' width='24' height='5' rx='2.5'/><rect x='29' y='28.1' width='20' height='4.6' rx='2.3'/></g></svg>");
+  --vc-star: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path fill='black' fill-rule='evenodd' d='M20 0L25 15L40 20L25 25L20 40L15 25L0 20L15 15Z M20 8.5a11.5 11.5 0 1 0 0.01 0Z M20 15.5a4.5 4.5 0 1 1-0.01 0Z'/></svg>");
+  /* A steam locomotive with a plume, between two diamonds, for the middle of
+     the rule under the station name: ink for the engine, a muted brown for
+     the smoke, vermilion for the diamonds. */
+  --vc-loco: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-16 -11 132 40'><g fill='%23a3231a'><path d='M-9 14L-4 9L1 14L-4 19Z'/><path d='M101 14L106 9L111 14L106 19Z'/></g><g fill='%236b5d48'><circle cx='68' cy='-1.5' r='2.4'/><circle cx='61' cy='-5' r='3.2'/><circle cx='52' cy='-7.8' r='3.8'/><circle cx='42' cy='-8.4' r='3'/></g><g fill='%231c1814'><rect x='2' y='10' width='16' height='9' rx='1'/><rect x='0' y='8' width='20' height='2.4'/><rect x='18' y='17' width='6' height='1.6'/><rect x='22' y='5' width='15' height='14'/><rect x='20' y='3' width='19' height='2.6' rx='0.8'/><rect x='35' y='10' width='38' height='9' rx='3'/><path d='M49 10Q52.5 3.6 56 10Z'/><path d='M66 3.6h9l-1.5 2.2h-6z'/><rect x='68' y='5.6' width='5' height='5'/><rect x='72' y='11' width='5' height='8' rx='1.5'/><rect x='18' y='19' width='62' height='3'/><path d='M78 19L82 24L76 22Z'/><circle cx='9' cy='23.6' r='3.4'/><circle cx='29' cy='23.2' r='5.2'/><circle cx='44' cy='23.2' r='5.2'/><circle cx='59' cy='23.2' r='5.2'/><circle cx='72' cy='24.8' r='3'/></g><g fill='%23efe2c4'><rect x='25.5' y='8.6' width='7' height='5' rx='0.6'/><circle cx='29' cy='23.2' r='1.7'/><circle cx='44' cy='23.2' r='1.7'/><circle cx='59' cy='23.2' r='1.7'/><circle cx='9' cy='23.6' r='1.2'/></g></svg>");
+}
+
+html { background: var(--bg); }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--vc-text);
+  font-weight: 400;
+  font-variant-numeric: lining-nums;
+}
+
+/* ------------------------------------------------------------------ board */
+
+/* The sheet of paper. Ageing is three static layers and nothing more: a
+   vignette that browns the edges, a handful of soft foxing blots, and a very
+   faint fibre. All of it is at an opacity where it can never cost the ink its
+   contrast. Each board is its own bill, so each gets its own ageing. The
+   margin leaves a strip of bare table between two bills. */
+.board {
+  --board-pad-x: 1.8vw;
+  --board-pad-y: 2.8vh;
+  position: relative;
+  margin: 0.7vh;
+  padding-bottom: 3.8vh;
+  grid-template-columns: minmax(0, 1fr);
+  background:
+    radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(112, 72, 24, 0.2) 100%),
+    radial-gradient(circle at 14% 22%, rgba(150, 96, 32, 0.1) 0, transparent 5vh),
+    radial-gradient(circle at 83% 71%, rgba(150, 96, 32, 0.09) 0, transparent 6vh),
+    radial-gradient(circle at 61% 9%, rgba(150, 96, 32, 0.07) 0, transparent 3.6vh),
+    radial-gradient(circle at 9% 88%, rgba(150, 96, 32, 0.08) 0, transparent 4.4vh),
+    repeating-linear-gradient(91deg, rgba(90, 60, 20, 0.022) 0 1px, transparent 1px 6px),
+    var(--bg);
+}
+
+/* The printer's border: a thick rule with a thin one just inside it, drawn on
+   one element (the thin one is its outline, pulled inwards with a negative
+   offset). The same box carries "By Order." in its own corner: text inside a
+   pseudo-element sits inside its border. */
+.board::before {
+  content: "By Order.";
+  position: absolute;
+  inset: 0.7vh;
+  border: 0.5vh solid var(--fg);
+  outline: 1px solid var(--fg);
+  outline-offset: -1vh;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0 3.6vh 0.9vh;
+  font: italic 400 1.9vh/1 var(--vc-text);
+  color: var(--fg);
+}
+/* Corner pieces: one eight-pointed rosette per corner, four mask layers of the
+   same drawing on one box the size of the border. It is symmetrical, so it
+   needs no flipping. */
+.board::after {
+  content: "";
+  position: absolute;
+  inset: 0.7vh;
+  pointer-events: none;
+  background: var(--fg);
+  mask-image: var(--vc-star), var(--vc-star), var(--vc-star), var(--vc-star);
+  mask-repeat: no-repeat;
+  mask-size: 3.2vh 3.2vh;
+  mask-position: left top, right top, left bottom, right bottom;
+  -webkit-mask-image: var(--vc-star), var(--vc-star), var(--vc-star), var(--vc-star);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 3.2vh 3.2vh;
+  -webkit-mask-position: left top, right top, left bottom, right bottom;
+}
+
+/* Between two bills: the border of each already makes a thick-thin-thick
+   column rule down the middle; a vermilion diamond stud on it, halfway down,
+   is the printer's ornament. It sits in the strip between the bills and is
+   clear of every cell. */
+.boards { position: relative; }
+.boards[data-count="2"] .board + .board { border-left: none; }
+.boards[data-count="2"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2.8vh;
+  height: 2.8vh;
+  margin: -1.4vh 0 0 -1.4vh;
+  background: var(--accent);
+  mask: var(--vc-star) center / contain no-repeat;
+  -webkit-mask: var(--vc-star) center / contain no-repeat;
+  pointer-events: none;
+}
+
+/* ----------------------------------------------------------------- header */
+
+/* The playbill. Each line is in a different face and size, centred, as a
+   jobbing printer would set it:
+     courtesy line   Old Standard italic, small      (::before)
+     the mode        Rye, vermilion
+     from / at       Old Standard italic, small      (.station-name::before)
+     the station     Abril Fatface capitals, huge
+     the rule        thick-thin, with an engine in it (::after)
+   The clock is lifted out of the flow into a cartouche at the top right, and
+   the source out of it into the foot, so neither disturbs the centred stack. */
+.board-header {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 0;
+  text-align: center;
+  padding-bottom: 0.4vh;
+}
+.board-header::before {
+  content: "The Public are respectfully informed of the";
+  grid-row: 1;
+  font: italic 400 1.9vh/1.3 var(--vc-text);
+  color: var(--muted);
+}
+.board-mode {
+  grid-row: 2;
+  font: 400 3.6vh/1.15 var(--vc-wood);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 1;
+  color: var(--accent);
+  /* The red plate printed a hair out of register with the black: a ghost of
+     ink, offset, under the vermilion. */
+  text-shadow: 0.05em 0.04em 0 rgba(28, 24, 20, 0.3);
+}
+.station-name {
+  grid-row: 3;
+  /* victorian.js sets --vc-fit below 1 for a name too long for the line. */
+  --vc-fit: 1;
+  width: 100%;
+  /* A fixed line height, so a name scaled down to fit does not shrink the
+     header and shift every row below it. */
+  font: 400 calc(6.4vh * var(--vc-fit))/6.8vh var(--vc-display);
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+  text-align: center;
+  text-overflow: clip;
+}
+.station-name::before {
+  content: "from";
+  display: block;
+  margin-bottom: 0.3vh;
+  font: italic 400 2.1vh/1.2 var(--vc-text);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+.board[data-mode="arrivals"] .station-name::before { content: "at"; }
+
+/* Thick-thin rule on either side of a small engine and its two diamonds. The
+   lines are one gradient strip (thick, gap, thin), drawn twice. */
+.board-header::after {
+  content: "";
+  grid-row: 4;
+  align-self: stretch;
+  justify-self: stretch;
+  height: 3.6vh;
+  margin-top: 0.5vh;
+  background:
+    var(--vc-loco) center / auto 100% no-repeat,
+    linear-gradient(var(--fg) 0 0.4vh, transparent 0.4vh 0.65vh, var(--fg) 0.65vh 0.8vh, transparent 0.8vh) left center / calc(50% - 6.4vh) 0.8vh no-repeat,
+    linear-gradient(var(--fg) 0 0.4vh, transparent 0.4vh 0.65vh, var(--fg) 0.65vh 0.8vh, transparent 0.8vh) right center / calc(50% - 6.4vh) 0.8vh no-repeat;
+}
+/* Railway Time: a ruled cartouche, top right. Out of the grid, so it cannot
+   push the centred lines about. The label is decoration; the time is the
+   clock board.js keeps against the Pi. */
+.clock {
+  position: absolute;
+  top: calc(var(--board-pad-y) + 0.2vh);
+  right: calc(var(--board-pad-x) + 0.4vh);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5vh 0.9vh 0.7vh;
+  border: 1px solid var(--fg);
+  outline: 1px solid var(--fg);
+  outline-offset: 0.35vh;
+  font: 400 2.9vh/1.05 var(--vc-display);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--fg);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.clock::before {
+  content: "Railway Time";
+  margin-bottom: 0.3vh;
+  font: italic 400 1.35vh/1.1 var(--vc-text);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.clock[hidden] { display: none; }
+
+/* Which feed is live: tiny and quiet, at the foot on the left, as the printer's
+   name sat on a bill. */
+.source {
+  position: absolute;
+  left: calc(var(--board-pad-x) + 2.6vh);
+  bottom: 1.5vh;
+  margin: 0;
+  font: italic 400 1.3vh/1 var(--vc-text);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--muted);
+  opacity: 1;
+}
+.source[hidden] { display: none; }
+
+.stale {
+  grid-column: 1;
+  text-align: center;
+  font: italic 400 2vh/1.3 var(--vc-text);
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------- rows */
+
+/* Tracks are in the row's own type size (--row-font) so the heading row and
+   the stops, whose type is smaller, land on exactly the rows' columns.
+     hand | hour | destination ..... | platform | remarks
+   Measured on a two-board 1920x1080 screen. The fixed tracks cost about 13em
+   and the longest destination ("Abbey Wood via Whitechapel", with its "via"
+   set small) about 12em, so 27 leaves a little air in Old Standard, which is
+   a narrow face (25 clipped it by 4% at 720p, and the next train's name is
+   set a size up). */
+.rows {
+  --vc-gutter: calc(var(--row-font) * 1.5);
+  --vc-time: calc(var(--row-font) * 2.8);
+  --vc-plat: calc(var(--row-font) * 3);
+  --vc-status: calc(var(--row-font) * 4.7);
+  --vc-gap: calc(var(--row-font) * 0.4);
+  /* Where the destination starts: the left edge the stops and reasons share. */
+  --vc-text-left: calc(var(--vc-gutter) + var(--vc-time) + var(--vc-gap) * 2);
+  --char-budget: 27;
+  --heading-share: 0.55;
+  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--reason-share)
+    + var(--heading-share)));
+  margin-top: 1vh;
+}
+
+.row, .vc-columns {
+  display: grid;
+  grid-template-columns:
+    var(--vc-gutter) var(--vc-time) minmax(0, 1fr) var(--vc-plat) var(--vc-status);
+  column-gap: var(--vc-gap);
+  align-items: center;
+}
+/* DOM order is time, destination, platform, status, operator: this is also the
+   reading order, but say so rather than rely on it. */
+.cell { grid-row: 1; }
+.cell.time { grid-column: 2; }
+.cell.destination { grid-column: 3; }
+.cell.platform { grid-column: 4; }
+.cell.status { grid-column: 5; }
+.cell.operator { display: none; }
+
+.row {
+  position: relative;
+  border-bottom: 1px solid var(--vc-hair);
+  line-height: 1.15;
+}
+
+/* The hour: the fat face, so the time is the first thing the eye lands on. */
+.cell.time {
+  font-family: var(--vc-display);
+  font-weight: 400;
+  font-size: 1.02em;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* The destination, then a dotted leader running across to the platform as in a
+   printed timetable. The text is a span (victorian.js: renderText), the leader
+   is the cell's own ::after, filling whatever the name leaves. Nothing needs a
+   paper-coloured patch behind the text, so the ageing shows through. */
+.cell.destination {
+  display: flex;
+  align-items: baseline;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.vc-dest {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* "via Whitechapel" is the route, not the place: lighter and smaller, so a
+   long name costs less width and the place still reads first. */
+.vc-via { font-weight: 400; font-style: italic; font-size: 0.82em; }
+.cell.destination::after {
+  content: "";
+  flex: 1 1 0;
+  min-width: 0;
+  height: 0.2em;
+  margin-left: 0.3em;
+  background: radial-gradient(circle at center, var(--fg) 0 0.045em, transparent 0.06em) left center / 0.34em 100% repeat-x;
+  opacity: 0.7;
+}
+
+/* The platform: "Plat." in small italics and the numeral in bold. */
+.row .cell.platform {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.row .cell.platform::before {
+  content: "Plat. ";
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.55em;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+/* Remarks: the wording is the period's, the colour is the board's. Punctual is
+   quiet, italic and muted; anything else is vermilion. */
+.cell.status {
+  text-align: right;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.78em;
+  color: var(--muted);
+  overflow: visible;
+  text-overflow: clip;
+}
+.row[data-status="expected"] .cell.status,
+.row[data-status="delayed"] .cell.status {
+  color: var(--accent);
+  font-weight: 700;
+  /* Roman: Old Standard's italic 4 is open-topped and reads as a struck 4. */
+  font-style: normal;
+}
+
+/* The next train, the star turn of the bill: set between a rule above and a
+   thick-thin rule below, a faint wash of red over the paper, its place in
+   bolder and larger type, and a pointing hand in the left gutter. Every row
+   reserves the gutter, so the columns stay aligned whether it is there or not. */
+.row.selected {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-top: 1px solid var(--fg);
+  border-bottom: 0.4vh double var(--fg);
+}
+.row.selected .cell.destination { font-size: 1.05em; }
+.row.selected .cell.time { color: var(--accent); }
+.row.selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: calc(var(--vc-gutter) * 0.92);
+  height: calc(var(--vc-gutter) * 0.92 * 34 / 72);
+  margin-top: calc(var(--vc-gutter) * 0.92 * -17 / 72);
+  background: var(--accent);
+  mask: var(--vc-hand) center / contain no-repeat;
+  -webkit-mask: var(--vc-hand) center / contain no-repeat;
+}
+
+/* Cancelled: what was promised is struck through and gone quiet, and the word
+   itself is overprinted like a rubber stamp, set in letter-spaced capitals and
+   a touch askew. The tilt keeps inside the cell. */
+.row[data-status="cancelled"] .cell.time,
+.row[data-status="cancelled"] .vc-dest {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 0.08em;
+}
+.row[data-status="cancelled"] .cell.time { text-decoration-thickness: 0.06em; }
+.row[data-status="cancelled"] .cell.destination::after { opacity: 0.3; }
+.row[data-status="cancelled"] .cell.status {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 0.62em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  justify-self: end;
+  padding: 0.15em 0.35em;
+  border: 0.08em solid var(--accent);
+  transform: rotate(-4deg);
+  transform-origin: center;
+}
+
+/* Column headings, inserted by victorian.js: italic small capitals between a
+   thin rule and a thick one, on the rows' own tracks. Their share of the height
+   is counted in --slot above. */
+.vc-columns {
+  flex: 0 0 calc(var(--slot) * var(--heading-share));
+  font-size: calc(var(--row-font) * 0.5);
+  line-height: 1.2;
+  font-style: italic;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: var(--fg);
+  white-space: nowrap;
+  border-top: 1px solid var(--fg);
+  border-bottom: 0.3vh solid var(--fg);
+}
+.vc-columns .cell { font: inherit; letter-spacing: inherit; color: inherit; overflow: visible; }
+.vc-columns .cell.destination { display: block; }
+.vc-columns .cell.destination::after { content: none; }
+.vc-columns .cell.platform,
+.vc-columns .cell.status { text-align: right; }
+
+/* ------------------------------------------------------------- the details */
+
+/* Calling points: the label is an italic lead-in rather than a heading, the
+   stops are set in the plain face, and the line starts under the destinations. */
+.calling-points {
+  padding-left: var(--vc-text-left);
+  align-items: baseline;
+}
+.calling-points-label {
+  opacity: 1;
+  font-style: italic;
+  font-size: 0.95em;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--accent);
+}
+.calling-points-list { font-weight: 400; color: var(--fg); }
+
+/* The reason is a footnote: "N.B." in small bold capitals, then vermilion
+   italics. The prefix is the line's own pseudo-element, not the text box
+   board.js measures when it pages the sentence. */
+.service-reason {
+  padding-left: var(--vc-text-left);
+  color: var(--accent);
+  font-style: italic;
+}
+.service-reason::before {
+  content: "N.B.";
+  flex: 0 0 auto;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 0.78em;
+  letter-spacing: 0.08em;
+}
+
+/* A notice: small print between a pair of rules, led by its own word. */
+.messages {
+  grid-column: 1;
+  margin-top: auto;
+  padding: 0.7vh 0 0.6vh;
+  border-top: 1px solid var(--fg);
+  border-bottom: 1px solid var(--fg);
+  font: italic 400 1.8vh/1.25 var(--vc-text);
+  text-align: center;
+  opacity: 1;
+  max-height: 7vh;
+}
+.messages::before {
+  content: "Notice.";
+  margin-right: 0.5em;
+  font-style: normal;
+  font-weight: 700;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+.messages[hidden] { display: none; }
+
+.empty {
+  text-align: center;
+  font: italic 400 3vh/1.3 var(--vc-text);
+  color: var(--muted);
+  padding: 3vh 0;
+}
+
+/* Nothing below the header is positioned by auto-placement: say it for the
+   rows that board.js and this theme own. */
+.row[hidden], .vc-columns[hidden] { display: none; }

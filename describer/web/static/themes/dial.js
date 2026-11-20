@@ -1,57 +1,65 @@
 /**
- * dial theme: the next hour on a station clock.
+ * dial theme: a station clock with the next hour marked on its rim.
  *
- * Each board carries an analogue dial. A minute hand points at the minute it
- * is now, and every train leaving in the next hour is a marker on the rim at
- * the minute it goes, so the gap between the hand and a marker is how long you
- * have. The middle of the dial says the one thing people look up for: minutes
- * until the next train. The ordinary list sits beside it (or under it) and is
- * not replaced, only counted down in the same words.
+ * Each board carries a proper analogue clock: sixty ticks, the twelve
+ * numerals, an hour, a minute and a second hand. Every train leaving in the
+ * next hour is one identical slim bar just outside the ticks, at the minute it
+ * goes, so the gap between the minute hand and a bar is how long you have; an
+ * arc in the accent colour draws that wait. The bars say nothing: colour only
+ * (the next running train in the accent, a late one amber, a cancelled one
+ * hollow, the rest ivory). What they mean is spelled out in a panel beside the
+ * clock, in full and never truncated: how long, where to, which platform, and
+ * the waits after that. The ordinary list sits under or beside both and is
+ * counted down in the same words.
  *
  * What needs JavaScript:
- *  - the dial itself, one per board, built lazily in afterRender because
- *    boards come and go as the station count changes between one and two;
- *  - which service each row is (renderRow), so the markers know the trains;
+ *  - the clock and the panel, one pair per board, built lazily in afterRender
+ *    because boards come and go as the station count changes between one and
+ *    two;
+ *  - which service each row is (renderRow), so the bars know the trains;
  *  - the countdown wording of the status column, which has to move with the
  *    clock, and the late trains' alternation of "N min" with "Exp HH:MM".
  *
  * "Now" is read back from the `.clock` element, never from the browser's own
  * clock: board.js keeps that against the Pi, and a kiosk whose own clock is
- * a few minutes out must still point at the right minute.
+ * a few minutes out must still show the right time and the right bars.
  */
 
-/** The dial redraws, and the hand moves on, this often. */
-const TICK_MS = 1000;
+/** The hands move on, and the clock is read again, this often. */
+const TICK_MS = 500;
 /** How often a late train's status flips between "N min" and "Exp HH:MM". */
 const REFRESH_MS = 15000;
 /** A train this far in the past still sits at its minute: it is leaving. */
 const GRACE_MINUTES = 2;
-/** The dial shows the coming hour; further away than this gets no marker. */
+/** The rim shows the coming hour; further away than this gets no bar. */
 const HORIZON_MINUTES = 60;
 /** The clock has moved a whole day if a "past" train is this far behind. */
 const PAST_WINDOW = 30;
 const DAY_MINUTES = 24 * 60;
+/** How many later waits the panel's last line may list. */
+const THEN_COUNT = 3;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 /*
- * Geometry, in viewBox units with the centre of the dial at 0,0. The viewBox
- * is a little over 100 either way so the outer ring of markers is not clipped.
- * Everything inside the tick ring is the centre text's, and the CSS sizes that
- * from the same radii: if you move TICK_MAJOR_FROM, check `.dial-centre`.
+ * Geometry, in viewBox units with the centre of the clock at 0,0. The face
+ * (bezel, ticks, numerals) takes the middle three quarters; the arc and the
+ * bars live in the margin outside it, so the whole square is the clock and
+ * nothing is clipped. Radii are what the CSS shares with this file: if you
+ * move one, look at the stroke widths in dial.css too.
  */
-const EDGE = 107;
-const TICK_OUTER = 68;
-const TICK_MINOR_FROM = 62;
-const TICK_MAJOR_FROM = 57;
-const HAND_FROM = 58;
-const HAND_TO = 72;
-/** Marker centres: the first ring, and the one a second train in a minute takes. */
-const RINGS = [80, 97];
-const R_NEXT = 9.5;
-const R_OTHER = 7;
-/** Platform text inside a marker; longer than this and the marker stays plain. */
-const PLATFORM_FIT = 2;
+const EDGE = 100;
+const BEZEL = 74;
+const TICK_OUTER = 72;
+const TICK_MINOR_FROM = 68.5;
+const TICK_MAJOR_FROM = 65;
+const NUMERAL_RADIUS = 46;
+const NUMERAL_SIZE = 13;
+/** The wait is drawn hugging the outside of the bezel. */
+const ARC_RADIUS = 77.5;
+/** Bars: inner and outer radius of each ring. A second train in a minute takes the next ring. */
+const BAR_RINGS = [[80.5, 89], [91, 99.5]];
+const BAR_WIDTH = 3.4;
 
 let root = null;
 let api = null;
@@ -61,7 +69,7 @@ let phaseTimer = null;
 let latePhase = false;
 /** The clock minute the board last repainted its countdowns for. */
 let lastMinute = null;
-/** Per board: its dial, the services its rows hold, and what is painted. */
+/** Per board: its clock and panel, the services its rows hold, and what is painted. */
 let boards = new WeakMap();
 
 export function attach(boardsEl, options, themeApi) {
@@ -78,8 +86,11 @@ export function detach() {
   clearInterval(tickTimer);
   clearInterval(phaseTimer);
   tickTimer = phaseTimer = null;
-  for (const dial of document.querySelectorAll('.dial')) dial.remove();
-  for (const row of document.querySelectorAll('.row[data-dial]')) delete row.dataset.dial;
+  for (const el of document.querySelectorAll('.dial, .next')) el.remove();
+  for (const row of document.querySelectorAll('.row[data-dial], .row[data-rim]')) {
+    delete row.dataset.dial;
+    delete row.dataset.rim;
+  }
   // A WeakMap cannot be emptied; a new one lets the old boards go.
   boards = new WeakMap();
   lastMinute = null;
@@ -122,19 +133,19 @@ function timing(service, nowMinute) {
   const late = service.status === 'expected' || service.status === 'delayed';
   // "Delayed" with no estimate has no time to count down to.
   const unknown = service.status === 'delayed' && minutesOf(service.expected_time) == null;
-  if (minute == null) return { time: null, away: null, cancelled, late, unknown, minute: null };
+  if (minute == null) return { time: null, away: null, cancelled, late, unknown, estimated, minute: null };
   let away = (((minute - nowMinute) % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES;
   // Only a little way behind is "just gone"; further round the day is tomorrow.
   if (away > DAY_MINUTES - PAST_WINDOW) away -= DAY_MINUTES;
-  return { time, away, cancelled, late, unknown, minute };
+  return { time, away, cancelled, late, unknown, estimated, minute };
 }
 
-/** The word for how long, shared by the status column and the dial. */
+/** The word for how long, used by the status column. */
 function countdown(away) {
   return away <= 0 ? 'Due' : `${away} min`;
 }
 
-/** board.js asks for every status cell; the wording counts down like the dial. */
+/** board.js asks for every status cell; the wording counts down like the panel. */
 export function statusText(service) {
   if (service.status === 'cancelled') return 'Cancelled';
   const t = timing(service, readClock().minute);
@@ -151,7 +162,7 @@ export function statusText(service) {
 function stateFor(boardEl) {
   let state = boards.get(boardEl);
   if (!state) {
-    state = { entries: new Map(), dial: null, key: null, angle: null };
+    state = { entries: new Map(), dial: null, panel: null, key: null, angles: null };
     boards.set(boardEl, state);
   }
   return state;
@@ -176,7 +187,7 @@ function orderedEntries(state) {
 
 /* ------------------------------------------------------------------ model */
 
-/** Where a minute of the hour sits on the dial, as a point at radius r. */
+/** Where a minute of the hour sits on the clock, as a point at radius r. */
 function polar(radius, minuteOfHour) {
   const angle = (minuteOfHour % 60) * (Math.PI / 30);
   return [radius * Math.sin(angle), -radius * Math.cos(angle)];
@@ -185,78 +196,106 @@ function polar(radius, minuteOfHour) {
 const round = (n) => Math.round(n * 100) / 100;
 
 /**
- * Everything the dial paints, as plain data so one comparison says whether
- * anything but the hand needs touching. Minute resolution throughout: the
- * markers, the arc and the countdown all change on a minute, never between.
+ * Everything the clock and panel paint, as plain data so one comparison says
+ * whether anything but the hands needs touching. Minute resolution
+ * throughout: the bars, the arc and the countdown change on a minute, never
+ * between.
  */
 function buildModel(entries, nowMinute) {
   const items = entries.map((entry) => ({ entry, t: timing(entry.service, nowMinute) }));
-  const next = items.find((item) => !item.t.cancelled) || null;
   const first = items[0] || null;
+  // The soonest running train, not merely the first listed: a late train
+  // keeps its place in the book but can be overtaken by the one behind it.
+  // Ties keep the earlier row.
+  const next = items
+    .filter((item) => !item.t.cancelled && item.t.away != null)
+    .reduce((best, item) => (!best || item.t.away < best.t.away ? item : best), null);
 
   const visible = items.filter(
     (item) => item.t.away != null && item.t.away >= -GRACE_MINUTES && item.t.away < HORIZON_MINUTES,
   );
-  // The next train claims the first ring, then the rest in time order; a
-  // marker takes the second ring if its neighbour minute is already taken.
+  // The next train claims the first ring, then the rest in time order; a bar
+  // goes to the next ring out only when another already sits at its minute.
   const ordered = [...visible].sort((a, b) => {
     if (a === next) return -1;
     if (b === next) return 1;
     return a.t.away - b.t.away;
   });
-  const taken = [[], []];
-  const conflicts = (ring, minute) => taken[ring].some((m) => {
-    const gap = Math.abs(m - minute) % 60;
-    return Math.min(gap, 60 - gap) <= 1;
-  });
-  const markers = ordered.map((item) => {
+  const taken = BAR_RINGS.map(() => new Set());
+  const bars = ordered.map((item) => {
     const minute = item.t.minute % 60;
-    const ring = conflicts(0, minute) && !conflicts(1, minute) ? 1 : 0;
-    taken[ring].push(minute);
-    const { service } = item.entry;
-    const platform = service.platform && service.platform !== '-' ? String(service.platform) : '';
-    const kind = item === next ? 'next' : item.t.cancelled ? 'cancelled' : item.t.late ? 'late' : 'normal';
-    return { minute, ring, kind, platform: platform.length <= PLATFORM_FIT ? platform : '' };
+    let ring = taken.findIndex((minutes) => !minutes.has(minute));
+    if (ring < 0) ring = taken.length - 1;
+    taken[ring].add(minute);
+    return { minute, ring, kind: kindOf(item, next) };
   });
 
   // The wait, drawn: from the minute it is now to the minute the next train
   // goes. Nothing to draw once it is due, or when no time is known.
-  const nextVisible = next && visible.includes(next);
-  const arc = nextVisible && !next.t.unknown && next.t.away > 0
+  const arc = next && visible.includes(next) && !next.t.unknown && next.t.away > 0
     ? { from: nowMinute % 60, span: next.t.away }
     : null;
 
-  return { markers, arc, centre: centreModel(first, next, items), items, next, visible };
+  return { bars, arc, panel: panelModel(items, first, next), items, next, visible };
 }
 
-function centreModel(first, next, items) {
-  if (!items.length) return { kind: 'none' };
-  const mode = items[0].entry.mode;
-  const placeOf = (item) => {
-    const { service } = item.entry;
-    return (mode === 'arrivals' ? service.origin : service.destination) || '';
-  };
-  const label = mode === 'arrivals' ? 'next arrival' : 'next train';
+/** One word for a train's colour, shared by its rim bar and its list chip. */
+function kindOf(item, next) {
+  if (item === next) return 'next';
+  if (item.t.cancelled) return 'cancelled';
+  return item.t.late ? 'late' : 'normal';
+}
+
+function placeOf(item) {
+  const { service, mode } = item.entry;
+  return (mode === 'arrivals' ? service.origin : service.destination) || '';
+}
+
+/** "12", "12 and 16", "12, 16 and 20", with the unit once at the end. */
+function thenLine(items, next) {
+  const waits = items
+    .filter((item) => item !== next && !item.t.cancelled && item.t.away != null && item.t.away > next.t.away && item.t.away < HORIZON_MINUTES)
+    .map((item) => item.t.away)
+    .sort((a, b) => a - b)
+    .slice(0, THEN_COUNT)
+    .map(String);
+  if (!waits.length) return '';
+  const last = waits.pop();
+  return `then ${waits.length ? `${waits.join(', ')} and ` : ''}${last} min`;
+}
+
+function panelModel(items, first, next) {
+  if (!first) return { kind: 'none' };
+  const mode = first.entry.mode;
+  const label = mode === 'arrivals' ? 'Next arrival' : 'Next train';
+  const scheduled = (item) => item.entry.service.scheduled_time || '';
   // Every train on the board is cancelled: there is no wait to count.
   if (!next) {
-    return { kind: 'cancelled', big: 'Cancelled', label, labelKind: '', place: placeOf(first), platform: '', unit: '' };
+    // No running train with a time to count to, and not every one cancelled: nothing honest to say.
+    if (!items.every((item) => item.t.cancelled)) return { kind: 'none' };
+    return {
+      kind: 'cancelled', cancel: '', label, big: 'Cancelled', unit: '', place: placeOf(first),
+      sched: scheduled(first), platform: '', exp: '', then: '',
+    };
   }
   const platform = next.entry.service.platform;
   const model = {
+    // The first train listed is cancelled: say so, then describe the first running one.
+    cancel: first.t.cancelled ? `${scheduled(first)} ${placeOf(first)} cancelled`.trim() : '',
     label,
-    labelKind: '',
-    place: placeOf(next),
-    platform: platform && platform !== '-' ? `Platform ${platform}` : '',
     unit: '',
+    place: placeOf(next),
+    sched: scheduled(next),
+    platform: platform && platform !== '-' ? `Platform ${platform}` : '',
+    exp: next.t.late && next.t.estimated ? `Exp ${next.t.time}` : '',
+    then: thenLine(items, next),
   };
-  // The train that was next has gone; say so, then count to the one that is.
-  if (first !== next) {
-    model.label = `${first.t.time || first.entry.service.scheduled_time || ''} cancelled`.trim();
-    model.labelKind = 'cancelled';
-  }
   if (next.t.unknown) return { ...model, kind: 'delayed', big: 'Delayed' };
-  if (next.t.away == null) return { ...model, kind: 'none' };
-  if (next.t.away >= HORIZON_MINUTES) return { ...model, kind: 'time', big: next.t.time };
+  // Sixty minutes off the big figure is the time itself; saying it again
+  // as the scheduled time would be noise, though a late train still differs.
+  if (next.t.away >= HORIZON_MINUTES) {
+    return { ...model, kind: 'time', big: next.t.time, sched: model.sched === next.t.time ? '' : model.sched };
+  }
   if (next.t.away <= 0) return { ...model, kind: 'due', big: 'Due' };
   return { ...model, kind: 'count', big: String(next.t.away), unit: 'min' };
 }
@@ -293,61 +332,83 @@ function buildTicks() {
   return ticks;
 }
 
+/** 1 to 12, upright, set in the SVG's own units so they scale with the face. */
+function buildNumerals() {
+  const numerals = svg('g', { class: 'dial-numerals', 'font-size': NUMERAL_SIZE });
+  for (let hour = 1; hour <= 12; hour += 1) {
+    const [x, y] = polar(NUMERAL_RADIUS, hour * 5);
+    numerals.append(svg('text', { x: round(x), y: round(y) }, String(hour)));
+  }
+  return numerals;
+}
+
+function buildHand(name, tail, length) {
+  const hand = svg('g', { class: `dial-hand dial-hand-${name}` });
+  hand.append(svg('line', { x1: 0, y1: tail, x2: 0, y2: -length }));
+  return hand;
+}
+
 function buildDial() {
   const dial = html('div', 'dial');
   dial.setAttribute('aria-hidden', 'true');
   const face = html('div', 'dial-face');
-
   const canvas = svg('svg', { viewBox: `${-EDGE} ${-EDGE} ${EDGE * 2} ${EDGE * 2}` });
-  const hand = svg('g', { class: 'dial-hand' });
-  hand.append(svg('line', { x1: 0, y1: -HAND_FROM, x2: 0, y2: -HAND_TO }));
   canvas.append(
+    svg('circle', { class: 'dial-bezel', r: BEZEL }),
     buildTicks(),
+    buildNumerals(),
     svg('path', { class: 'dial-arc', d: '' }),
-    svg('g', { class: 'dial-markers' }),
-    hand,
+    svg('g', { class: 'dial-bars' }),
+    buildHand('hour', 6, 37),
+    buildHand('minute', 8, 61),
+    buildHand('second', 14, 65),
+    svg('circle', { class: 'dial-hub', r: 3.4 }),
+    svg('circle', { class: 'dial-hub-dot', r: 1.5 }),
   );
-
-  // Over the SVG rather than in it: HTML text ellipsises, and sizes itself in
-  // the dial's own container units.
-  const centre = html('div', 'dial-centre');
-  centre.dataset.kind = 'none';
-  const count = html('div', 'dial-count');
-  count.append(html('span', 'dial-big'), html('span', 'dial-unit'));
-  centre.append(html('div', 'dial-label'), count, html('div', 'dial-place'), html('div', 'dial-platform'));
-
-  face.append(canvas, centre);
+  face.append(canvas);
   dial.append(face);
   return dial;
 }
 
-function ensureDial(boardEl, state) {
-  if (state.dial?.isConnected) return state.dial;
-  let dial = boardEl.querySelector(':scope > .dial');
-  if (!dial) {
-    dial = buildDial();
-    boardEl.insertBefore(dial, boardEl.querySelector('.rows'));
-  }
-  state.dial = dial;
-  state.key = null;
-  state.angle = null;
-  return dial;
+function buildPanel() {
+  const panel = html('div', 'next');
+  panel.dataset.kind = 'none';
+  const wait = html('div', 'next-wait');
+  wait.append(html('span', 'next-big'), html('span', 'next-unit'));
+  const facts = html('div', 'next-facts');
+  facts.append(html('span', 'next-sched'), html('span', 'next-plat'), html('span', 'next-exp'));
+  panel.append(html('div', 'next-cancel'), html('div', 'next-label'), wait, html('div', 'next-place'), facts, html('div', 'next-then'));
+  return panel;
 }
 
-function paintMarkers(dial, markers) {
-  const layer = dial.querySelector('.dial-markers');
+function ensureBoard(boardEl, state) {
+  if (state.dial?.isConnected && state.panel?.isConnected) return;
+  const rows = boardEl.querySelector('.rows');
+  // Both or neither: a half-built board would leave an orphan after a detach.
+  boardEl.querySelectorAll(':scope > .dial, :scope > .next').forEach((el) => el.remove());
+  state.dial = buildDial();
+  state.panel = buildPanel();
+  rows.before(state.dial, state.panel);
+  state.key = null;
+  state.angles = null;
+}
+
+function paintBars(dial, bars) {
+  const layer = dial.querySelector('.dial-bars');
   layer.textContent = '';
-  // The next train goes on last, so it is never covered by a neighbour.
-  for (const marker of [...markers].reverse()) {
-    const radius = marker.kind === 'next' ? R_NEXT : R_OTHER;
-    const [x, y] = polar(RINGS[marker.ring], marker.minute);
-    const group = svg('g', { class: 'dial-marker', transform: `translate(${round(x)} ${round(y)})` });
-    group.dataset.kind = marker.kind;
-    group.append(svg('circle', { r: radius }));
-    if (marker.platform) {
-      group.append(svg('text', { class: 'dial-plat', 'font-size': marker.kind === 'next' ? 11 : 8.5 }, marker.platform));
-    }
-    layer.append(group);
+  for (const bar of bars) {
+    const [inner, outer] = BAR_RINGS[bar.ring];
+    const el = svg('rect', {
+      class: 'dial-bar',
+      x: -BAR_WIDTH / 2,
+      y: -outer,
+      width: BAR_WIDTH,
+      height: outer - inner,
+      rx: BAR_WIDTH / 2,
+      transform: `rotate(${bar.minute * 6})`,
+    });
+    el.dataset.kind = bar.kind;
+    layer.append(el);
   }
 }
 
@@ -357,66 +418,83 @@ function paintArc(dial, arc) {
     path.setAttribute('d', '');
     return;
   }
-  const radius = RINGS[0];
-  const [x1, y1] = polar(radius, arc.from);
-  const [x2, y2] = polar(radius, arc.from + arc.span);
+  const [x1, y1] = polar(ARC_RADIUS, arc.from);
+  const [x2, y2] = polar(ARC_RADIUS, arc.from + arc.span);
   const large = arc.span > 30 ? 1 : 0;
-  path.setAttribute('d', `M${round(x1)} ${round(y1)}A${radius} ${radius} 0 ${large} 1 ${round(x2)} ${round(y2)}`);
+  path.setAttribute('d', `M${round(x1)} ${round(y1)}A${ARC_RADIUS} ${ARC_RADIUS} 0 ${large} 1 ${round(x2)} ${round(y2)}`);
 }
 
-function paintCentre(dial, centre) {
-  const el = dial.querySelector('.dial-centre');
-  el.dataset.kind = centre.kind;
-  el.dataset.labelKind = centre.labelKind || '';
+function paintPanel(panel, model) {
+  panel.dataset.kind = model.kind;
+  const empty = model.kind === 'none';
   const set = (selector, text) => {
-    const target = el.querySelector(selector);
-    if (target.textContent !== (text || '')) target.textContent = text || '';
+    const target = panel.querySelector(selector);
+    const value = empty ? '' : text || '';
+    if (target.textContent !== value) target.textContent = value;
   };
-  const empty = centre.kind === 'none';
-  set('.dial-label', empty ? '' : centre.label);
-  set('.dial-big', empty ? '' : centre.big);
-  set('.dial-unit', empty ? '' : centre.unit);
-  set('.dial-place', empty ? '' : centre.place);
-  set('.dial-platform', empty ? '' : centre.platform);
+  set('.next-cancel', model.cancel);
+  set('.next-label', model.label);
+  set('.next-big', model.big);
+  set('.next-unit', model.unit);
+  set('.next-place', model.place);
+  set('.next-sched', model.sched);
+  set('.next-plat', model.platform);
+  set('.next-exp', model.exp);
+  set('.next-then', model.then);
 }
 
-/** Pair each list row with its marker: the chip before the time reads this. */
+/** Pair each list row with its bar: the chip before the time reads this. */
 function markRows(model) {
   for (const item of model.items) {
-    const kind = item === model.next ? 'next' : model.visible.includes(item) ? 'on' : 'off';
+    const kind = kindOf(item, model.next);
     if (item.entry.row.dataset.dial !== kind) item.entry.row.dataset.dial = kind;
+    // A train further off than the rim shows has no bar, so its chip is faint.
+    if (model.visible.includes(item)) delete item.entry.row.dataset.rim;
+    else item.entry.row.dataset.rim = 'off';
   }
 }
 
-/** Turn the hand, keeping the angle continuous so it never spins back at 12. */
-function moveHand(dial, state, clock) {
-  const hand = dial.querySelector('.dial-hand');
-  let angle = (clock.minute % 60) * 6 + clock.second * 0.1;
-  if (state.angle != null) angle += 360 * Math.round((state.angle - angle) / 360);
-  if (angle === state.angle) return;
-  // The sweep is eased by CSS, but not on the first placing: that would
-  // spin the hand in from nought on every board that appears.
-  if (state.angle == null) delete hand.dataset.live;
-  else hand.dataset.live = '1';
-  state.angle = angle;
-  hand.style.transform = `rotate(${round(angle)}deg)`;
+/**
+ * Turn the three hands, keeping each angle continuous so none spins back at
+ * 12. The sweep is eased by CSS over the second between updates, but not on
+ * the first placing: that would spin every hand in from nought.
+ */
+function moveHands(dial, state, clock) {
+  const targets = {
+    hour: (clock.minute % 720) * 0.5 + clock.second / 120,
+    minute: (clock.minute % 60) * 6 + clock.second * 0.1,
+    second: clock.second * 6,
+  };
+  const first = state.angles == null;
+  if (first) state.angles = {};
+  for (const [name, target] of Object.entries(targets)) {
+    let angle = target;
+    const before = state.angles[name];
+    if (before != null) angle += 360 * Math.round((before - angle) / 360);
+    if (angle === before) continue;
+    const hand = dial.querySelector(`.dial-hand-${name}`);
+    if (first) delete hand.dataset.live;
+    else hand.dataset.live = '1';
+    state.angles[name] = angle;
+    hand.style.transform = `rotate(${round(angle)}deg)`;
+  }
 }
 
 function updateBoard(boardEl) {
   const state = stateFor(boardEl);
-  const dial = ensureDial(boardEl, state);
+  ensureBoard(boardEl, state);
   const clock = readClock(boardEl);
   const model = buildModel(orderedEntries(state), clock.minute);
-  moveHand(dial, state, clock);
+  moveHands(state.dial, state, clock);
 
-  // The hand moves every second; nothing else needs touching unless a minute
-  // or a train changed what the face says.
-  const key = JSON.stringify([model.markers, model.arc, model.centre]);
+  // The hands move every tick; nothing else needs touching unless a minute or
+  // a train changed what the clock says.
+  const key = JSON.stringify([model.bars, model.arc, model.panel]);
   if (key !== state.key) {
     state.key = key;
-    paintMarkers(dial, model.markers);
-    paintArc(dial, model.arc);
-    paintCentre(dial, model.centre);
+    paintBars(state.dial, model.bars);
+    paintArc(state.dial, model.arc);
+    paintPanel(state.panel, model.panel);
   }
   markRows(model);
 }

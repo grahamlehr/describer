@@ -43,8 +43,8 @@ describer/
       stationsearch.js     # the station combobox, shared by admin and setup
       setup/               # screenshots for the key walkthrough (Graham's to add)
       stations.json        # every station's CRS, name and coordinates
-      fonts/               # self-hosted; only bedstead.woff2 ships
-      themes/              # <theme>.css + <theme>.js for each of the ten
+      fonts/               # self-hosted: bedstead, and the deco and victorian faces (OFL.txt)
+      themes/              # <theme>.css + <theme>.js for each of the twelve
         dotmatrix.js       # the shared 5x7 dot font; not a theme
         colours.js         # writes the configured palette; not a theme
   deploy/

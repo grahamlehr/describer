@@ -214,6 +214,8 @@ ThemeName = Literal[
     "swiss",
     "linemap",
     "dial",
+    "deco",
+    "victorian",
 ]
 
 

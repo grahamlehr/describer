@@ -230,6 +230,7 @@ const THEMES = [
   ['modern', 'Modern'], ['crt', 'CRT'], ['splitflap', 'Split-flap'],
   ['1990s', '1990s'], ['nse', 'Network SouthEast'], ['led-matrix', 'LED matrix'],
   ['thameslink', 'Thameslink'], ['swiss', 'Swiss'], ['linemap', 'Line map'], ['dial', 'Dial'],
+  ['deco', 'Art Deco'], ['victorian', 'Victorian'],
 ];
 
 /** The options each theme offers, in the shape the Display tab spells out by

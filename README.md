@@ -3,7 +3,7 @@
 A live UK National Rail departure board for a Raspberry Pi 4B on a 16:9
 monitor. It polls the Darwin feed through the Rail Data Marketplace — falling
 back to Realtime Trains when Darwin is unreachable — renders one or two
-stations full screen in one of ten themes, and speaks platform-style
+stations full screen in one of twelve themes, and speaks platform-style
 announcements as trains approach.
 
 ```
@@ -448,10 +448,12 @@ Weather data by [Open-Meteo.com](https://open-meteo.com/), licensed
 | `thameslink` | The LCD "next train" panels on the Thameslink core; one service takes the head of the board with its route drawn beneath it, the rest are a "Later trains" list counting down in minutes. |
 | `swiss`     | International Typographic Style: one grotesque in two weights, black on white with a single red, hairline rules. An on-time train says nothing; a late one says `+4′`. |
 | `linemap`   | Every train drawn as a line on a map: a coloured route leaves the station bar with a tick for each stop, as long as the journey is, and the next train gets a labelled strip map with the train's own position on it. |
-| `dial`      | The next hour on a station clock: a minute hand, a marker on the rim for each train at the minute it leaves, and the minutes to the next one in the middle. |
+| `dial`      | A station clock that tells the time, with a mark on its rim for each train at the minute it leaves, and the next train spelled out beside it. |
+| `deco`      | A 1930s picture palace: black lacquer and gold, a sunburst marquee, stepped frames, Limelight numerals. |
+| `victorian` | A letterpress railway handbill: aged paper, a different typeface on every line, dotted leaders, a pointing hand at the next train, and trains that are "Punctual". |
 
 `swiss` has one option, `display.themes.swiss.ground` (`light` or `dark`): white on
-black for a room that is dark. `linemap` and `dial` have none.
+black for a room that is dark. `linemap`, `dial`, `deco` and `victorian` have none.
 
 A theme is a CSS file in `describer/web/static/themes/` plus a same-named JS
 module. Every export is optional — hooks such as `attach`, `configure`,
