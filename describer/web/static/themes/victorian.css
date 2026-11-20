@@ -1,553 +1,655 @@
-/* victorian — a letterpress railway handbill of the 1860s-80s, pasted up at a
-   station. Aged paper, black ink and one vermilion; a different typeface on
-   nearly every line, as a jobbing printer's cases allowed; a printer's border,
-   a pointing hand, dotted leaders and florid wording.
+/* victorian — a station train indicator on a brick wall.
 
-   Everything is flat colour and static gradients: no filters, no blur, no
-   blend modes, nothing that forces a full-screen repaint on the Pi. Every
-   ornament is drawn here as an SVG data URI used as a mask over a colour (the
-   way base.css draws its weather icons), because Pi OS Lite has no font that
-   carries a manicule or a fleuron. The two ornaments that need two inks at
-   once (the locomotive and its diamonds) are plain background images with the
-   palette written into them: a data URI cannot read a custom property. */
+   The board is drawn as the thing a station joiner and a signwriter made: a
+   timber frame fixed to a red-brick wall, a black running-in board above it
+   carrying the station name, and in the frame one painted finger board hung
+   on brass hooks for every train. The porter changed the boards by hand, so
+   each hangs a hair off true, and a delay is a slip he has tacked on beside
+   it. Calling points are small boards of their own on a rail under the next
+   train. Colours follow the Great Western's light and dark stone for the
+   woodwork, black boards with cream lettering, and a little enamel blue.
 
-/* Abril Fatface (fat-face didone, the shouting headline), Old Standard TT
-   (late-19th-century book and timetable setting) and Rye (ornamented wood
-   type, for one display line only). All SIL OFL, self-hosted; see
-   /static/fonts/README.md. block, not swap: a fallback serif flashing up in
-   place of a fat face is uglier than a moment of blank paper. */
+   Everything is flat colour, static gradients and hard shadows: no filters,
+   no blur, no blend modes, nothing that forces a full-screen repaint on the
+   Pi. The only image is the brick tile, an SVG data URI used as a background
+   (base.css draws its weather icons the same way); nothing is a file.
+
+   All the texture lives behind the boards. Nothing is ever lettered on brick
+   or on grain: every word sits on a black board, a stone slip or enamel. */
+
+/* Besley, a Clarendon: the face the signwriter and the wood-type maker both
+   knew as an "Egyptian". One variable file covers every weight used here.
+   block, not swap: a fallback serif flashing up in place of a painted
+   capital is uglier than a moment of blank board. See
+   /static/fonts/README.md. */
 @font-face {
-  font-family: "Abril Fatface";
-  src: url("/static/fonts/abril-fatface.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: block;
-}
-@font-face {
-  font-family: "Old Standard TT";
-  src: url("/static/fonts/old-standard-regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: block;
-}
-@font-face {
-  font-family: "Old Standard TT";
-  src: url("/static/fonts/old-standard-bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: block;
-}
-@font-face {
-  font-family: "Old Standard TT";
-  src: url("/static/fonts/old-standard-italic.woff2") format("woff2");
-  font-weight: 400;
-  font-style: italic;
-  font-display: block;
-}
-@font-face {
-  font-family: "Rye";
-  src: url("/static/fonts/rye.woff2") format("woff2");
-  font-weight: 400;
+  font-family: "Besley";
+  src: url("/static/fonts/besley.woff2") format("woff2");
+  font-weight: 400 900;
   font-style: normal;
   font-display: block;
 }
 
 :root {
-  --bg: #efe2c4;
-  --fg: #1c1814;
-  --muted: #6b5d48;
-  --accent: #a3231a;
-  --rule: color-mix(in srgb, var(--fg) 55%, transparent);
-  /* The hairline between rows: lighter than --rule, which is for the rules
-     a printer would have cut in brass. */
-  --vc-hair: color-mix(in srgb, var(--fg) 28%, transparent);
+  /* The setup screen reads these two. */
+  --bg: #1b1512;
+  --fg: #f3ead2;
 
-  --vc-display: "Abril Fatface", Georgia, "DejaVu Serif", serif;
-  --vc-text: "Old Standard TT", Georgia, "DejaVu Serif", serif;
-  --vc-wood: "Rye", "Abril Fatface", Georgia, "DejaVu Serif", serif;
+  --brick-a: #8a3b2a;
+  --brick-b: #7a3224;
+  --brick-c: #96452f;
+  --board-black: #15130f;
+  --cream: #f3ead2;
+  --buff: #d9c28c;
+  --ink: #241a12;
+  /* The drop shade a signwriter paints beside a capital: hard, one colour. */
+  --shade: #5a1e14;
+  --stone-dark: #5b3a24;
+  --stone-light: #c9a66b;
+  --brass: #b8923f;
+  --late: #d9a441;
+  --cancelled: #a3231a;
+  --enamel: #1f3f7a;
+  --iron: #1d2623;
 
-  /* Where the ornaments are drawn. Written once, used by the masks below. */
-  --vc-hand: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 1 72 34'><g fill='black'><rect x='0' y='9' width='6.5' height='19' rx='0.8'/><rect x='8' y='10' width='3' height='17' rx='0.8'/><path d='M13 10.8Q22 8.6 31 10V32Q22 31.6 13 27.4Z'/><path d='M23 11Q24.6 3.6 30.4 2.8Q34.6 2.4 34 6L33.2 11.4Z'/><rect x='29' y='9.5' width='41' height='5' rx='2.5'/><rect x='29' y='15.7' width='27' height='5' rx='2.5'/><rect x='29' y='21.9' width='24' height='5' rx='2.5'/><rect x='29' y='28.1' width='20' height='4.6' rx='2.3'/></g></svg>");
-  --vc-star: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path fill='black' fill-rule='evenodd' d='M20 0L25 15L40 20L25 25L20 40L15 25L0 20L15 15Z M20 8.5a11.5 11.5 0 1 0 0.01 0Z M20 15.5a4.5 4.5 0 1 1-0.01 0Z'/></svg>");
-  /* A steam locomotive with a plume, between two diamonds, for the middle of
-     the rule under the station name: ink for the engine, a muted brown for
-     the smoke, vermilion for the diamonds. */
-  --vc-loco: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-16 -11 132 40'><g fill='%23a3231a'><path d='M-9 14L-4 9L1 14L-4 19Z'/><path d='M101 14L106 9L111 14L106 19Z'/></g><g fill='%236b5d48'><circle cx='68' cy='-1.5' r='2.4'/><circle cx='61' cy='-5' r='3.2'/><circle cx='52' cy='-7.8' r='3.8'/><circle cx='42' cy='-8.4' r='3'/></g><g fill='%231c1814'><rect x='2' y='10' width='16' height='9' rx='1'/><rect x='0' y='8' width='20' height='2.4'/><rect x='18' y='17' width='6' height='1.6'/><rect x='22' y='5' width='15' height='14'/><rect x='20' y='3' width='19' height='2.6' rx='0.8'/><rect x='35' y='10' width='38' height='9' rx='3'/><path d='M49 10Q52.5 3.6 56 10Z'/><path d='M66 3.6h9l-1.5 2.2h-6z'/><rect x='68' y='5.6' width='5' height='5'/><rect x='72' y='11' width='5' height='8' rx='1.5'/><rect x='18' y='19' width='62' height='3'/><path d='M78 19L82 24L76 22Z'/><circle cx='9' cy='23.6' r='3.4'/><circle cx='29' cy='23.2' r='5.2'/><circle cx='44' cy='23.2' r='5.2'/><circle cx='59' cy='23.2' r='5.2'/><circle cx='72' cy='24.8' r='3'/></g><g fill='%23efe2c4'><rect x='25.5' y='8.6' width='7' height='5' rx='0.6'/><circle cx='29' cy='23.2' r='1.7'/><circle cx='44' cy='23.2' r='1.7'/><circle cx='59' cy='23.2' r='1.7'/><circle cx='9' cy='23.6' r='1.2'/></g></svg>");
+  /* time | destination | platform | status: the rows and the heading rail
+     share it so a heading stands over its own column. */
+  --vc-cols: 3.4em minmax(0, 1fr) 2.2em 4.7em;
 }
 
-html { background: var(--bg); }
 body {
   background: var(--bg);
-  color: var(--fg);
-  font-family: var(--vc-text);
-  font-weight: 400;
-  font-variant-numeric: lining-nums;
-}
-
-/* ------------------------------------------------------------------ board */
-
-/* The sheet of paper. Ageing is three static layers and nothing more: a
-   vignette that browns the edges, a handful of soft foxing blots, and a very
-   faint fibre. All of it is at an opacity where it can never cost the ink its
-   contrast. Each board is its own bill, so each gets its own ageing. The
-   margin leaves a strip of bare table between two bills. */
-.board {
-  --board-pad-x: 1.8vw;
-  --board-pad-y: 2.8vh;
-  position: relative;
-  margin: 0.7vh;
-  padding-bottom: 3.8vh;
-  grid-template-columns: minmax(0, 1fr);
-  background:
-    radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(112, 72, 24, 0.2) 100%),
-    radial-gradient(circle at 14% 22%, rgba(150, 96, 32, 0.1) 0, transparent 5vh),
-    radial-gradient(circle at 83% 71%, rgba(150, 96, 32, 0.09) 0, transparent 6vh),
-    radial-gradient(circle at 61% 9%, rgba(150, 96, 32, 0.07) 0, transparent 3.6vh),
-    radial-gradient(circle at 9% 88%, rgba(150, 96, 32, 0.08) 0, transparent 4.4vh),
-    repeating-linear-gradient(91deg, rgba(90, 60, 20, 0.022) 0 1px, transparent 1px 6px),
-    var(--bg);
-}
-
-/* The printer's border: a thick rule with a thin one just inside it, drawn on
-   one element (the thin one is its outline, pulled inwards with a negative
-   offset). The same box carries "By Order." in its own corner: text inside a
-   pseudo-element sits inside its border. */
-.board::before {
-  content: "By Order.";
-  position: absolute;
-  inset: 0.7vh;
-  border: 0.5vh solid var(--fg);
-  outline: 1px solid var(--fg);
-  outline-offset: -1vh;
-  pointer-events: none;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  padding: 0 3.6vh 0.9vh;
-  font: italic 400 1.9vh/1 var(--vc-text);
-  color: var(--fg);
-}
-/* Corner pieces: one eight-pointed rosette per corner, four mask layers of the
-   same drawing on one box the size of the border. It is symmetrical, so it
-   needs no flipping. */
-.board::after {
-  content: "";
-  position: absolute;
-  inset: 0.7vh;
-  pointer-events: none;
-  background: var(--fg);
-  mask-image: var(--vc-star), var(--vc-star), var(--vc-star), var(--vc-star);
-  mask-repeat: no-repeat;
-  mask-size: 3.2vh 3.2vh;
-  mask-position: left top, right top, left bottom, right bottom;
-  -webkit-mask-image: var(--vc-star), var(--vc-star), var(--vc-star), var(--vc-star);
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: 3.2vh 3.2vh;
-  -webkit-mask-position: left top, right top, left bottom, right bottom;
-}
-
-/* Between two bills: the border of each already makes a thick-thin-thick
-   column rule down the middle; a vermilion diamond stud on it, halfway down,
-   is the printer's ornament. It sits in the strip between the bills and is
-   clear of every cell. */
-.boards { position: relative; }
-.boards[data-count="2"] .board + .board { border-left: none; }
-.boards[data-count="2"]::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 2.8vh;
-  height: 2.8vh;
-  margin: -1.4vh 0 0 -1.4vh;
-  background: var(--accent);
-  mask: var(--vc-star) center / contain no-repeat;
-  -webkit-mask: var(--vc-star) center / contain no-repeat;
-  pointer-events: none;
-}
-
-/* ----------------------------------------------------------------- header */
-
-/* The playbill. Each line is in a different face and size, centred, as a
-   jobbing printer would set it:
-     courtesy line   Old Standard italic, small      (::before)
-     the mode        Rye, vermilion
-     from / at       Old Standard italic, small      (.station-name::before)
-     the station     Abril Fatface capitals, huge
-     the rule        thick-thin, with an engine in it (::after)
-   The clock is lifted out of the flow into a cartouche at the top right, and
-   the source out of it into the foot, so neither disturbs the centred stack. */
-.board-header {
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: center;
-  gap: 0;
-  text-align: center;
-  padding-bottom: 0.4vh;
-}
-.board-header::before {
-  content: "The Public are respectfully informed of the";
-  grid-row: 1;
-  font: italic 400 1.9vh/1.3 var(--vc-text);
-  color: var(--muted);
-}
-.board-mode {
-  grid-row: 2;
-  font: 400 3.6vh/1.15 var(--vc-wood);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  opacity: 1;
-  color: var(--accent);
-  /* The red plate printed a hair out of register with the black: a ghost of
-     ink, offset, under the vermilion. */
-  text-shadow: 0.05em 0.04em 0 rgba(28, 24, 20, 0.3);
-}
-.station-name {
-  grid-row: 3;
-  /* victorian.js sets --vc-fit below 1 for a name too long for the line. */
-  --vc-fit: 1;
-  width: 100%;
-  /* A fixed line height, so a name scaled down to fit does not shrink the
-     header and shift every row below it. */
-  font: 400 calc(6.4vh * var(--vc-fit))/6.8vh var(--vc-display);
-  letter-spacing: 0.015em;
-  text-transform: uppercase;
-  text-align: center;
-  text-overflow: clip;
-}
-.station-name::before {
-  content: "from";
-  display: block;
-  margin-bottom: 0.3vh;
-  font: italic 400 2.1vh/1.2 var(--vc-text);
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--muted);
-}
-.board[data-mode="arrivals"] .station-name::before { content: "at"; }
-
-/* Thick-thin rule on either side of a small engine and its two diamonds. The
-   lines are one gradient strip (thick, gap, thin), drawn twice. */
-.board-header::after {
-  content: "";
-  grid-row: 4;
-  align-self: stretch;
-  justify-self: stretch;
-  height: 3.6vh;
-  margin-top: 0.5vh;
-  background:
-    var(--vc-loco) center / auto 100% no-repeat,
-    linear-gradient(var(--fg) 0 0.4vh, transparent 0.4vh 0.65vh, var(--fg) 0.65vh 0.8vh, transparent 0.8vh) left center / calc(50% - 6.4vh) 0.8vh no-repeat,
-    linear-gradient(var(--fg) 0 0.4vh, transparent 0.4vh 0.65vh, var(--fg) 0.65vh 0.8vh, transparent 0.8vh) right center / calc(50% - 6.4vh) 0.8vh no-repeat;
-}
-/* Railway Time: a ruled cartouche, top right. Out of the grid, so it cannot
-   push the centred lines about. The label is decoration; the time is the
-   clock board.js keeps against the Pi. */
-.clock {
-  position: absolute;
-  top: calc(var(--board-pad-y) + 0.2vh);
-  right: calc(var(--board-pad-x) + 0.4vh);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0.5vh 0.9vh 0.7vh;
-  border: 1px solid var(--fg);
-  outline: 1px solid var(--fg);
-  outline-offset: 0.35vh;
-  font: 400 2.9vh/1.05 var(--vc-display);
-  letter-spacing: 0.02em;
-  text-transform: none;
-  color: var(--fg);
+  color: var(--cream);
+  font-family: Besley, Georgia, "DejaVu Serif", serif;
+  font-weight: 700;
   font-variant-numeric: lining-nums tabular-nums;
 }
-.clock::before {
-  content: "Railway Time";
-  margin-bottom: 0.3vh;
-  font: italic 400 1.35vh/1.1 var(--vc-text);
-  letter-spacing: 0.12em;
+
+/* ------------------------------------------------------------------- wall */
+
+/* The brick is a data-URI tile: five bricks wide and two courses high, so
+   the half-brick shift of stretcher bond and a little variation in the clay
+   repeat every 48vh and never read as a pattern. A brick is 3.2vh high with
+   the mortar line included, which is a believable wall behind boards that are
+   57px high on a 1080p screen. Mortar is pale lime at half strength over the
+   base brick colour, so the joints are quiet. The tile lives in the SVG, where
+   a custom property cannot reach, so the six clay colours are written there.
+   Two gradients over it darken alternate courses a touch and the foot of the
+   wall, so the brick has some depth without any contrast to fight a board. */
+.board {
+  --board-pad-x: 1.3vw;
+  --board-pad-y: 1.4vh;
+  position: relative;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.28)),
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.07) 0 3.2vh, rgba(0, 0, 0, 0) 3.2vh 6.4vh),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 480 64' preserveAspectRatio='none'%3E%3Crect width='480' height='64' fill='%23c8b89c' fill-opacity='.5'/%3E%3Cg%3E%3Crect x='1.6' y='1.6' width='92.8' height='28.8' rx='1.5' fill='%238a3b2a'/%3E%3Crect x='97.6' y='1.6' width='92.8' height='28.8' rx='1.5' fill='%237a3224'/%3E%3Crect x='193.6' y='1.6' width='92.8' height='28.8' rx='1.5' fill='%2396452f'/%3E%3Crect x='289.6' y='1.6' width='92.8' height='28.8' rx='1.5' fill='%23833626'/%3E%3Crect x='385.6' y='1.6' width='92.8' height='28.8' rx='1.5' fill='%238f3f2c'/%3E%3Crect x='-46.4' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%23823527'/%3E%3Crect x='49.6' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%239a4a33'/%3E%3Crect x='145.6' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%237a3224'/%3E%3Crect x='241.6' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%238a3b2a'/%3E%3Crect x='337.6' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%23702d20'/%3E%3Crect x='433.6' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%23823527'/%3E%3C/g%3E%3C/svg%3E")
+      0 0 / 48vh 6.4vh repeat,
+    var(--brick-b);
+}
+
+/* One board has width to spare (the type is bound by height, not width), so
+   it is hung with more wall showing round it. Two boards are bound by width
+   and keep the narrow margin. */
+.boards[data-count="1"] .board { --board-pad-x: 3.2vw; --board-pad-y: 2.2vh; }
+
+/* Between two boards, a painted cast-iron column holding up the roof: a
+   dark green-black shaft with a lighter flute, a collar at each end and a
+   plinth at the foot. It replaces base.css's hairline divider, and takes its
+   width out of the second board's padding so nothing is lettered under it. */
+.boards[data-count="2"] .board + .board { border-left: 0; padding-left: calc(var(--board-pad-x) + 1.6vw); }
+.boards[data-count="2"] .board + .board::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1.4vw;
+  background:
+    linear-gradient(to bottom, #0c1110 0 0.5vh, #33403a 0.5vh 1.1vh, #0c1110 1.1vh 1.5vh, transparent 1.5vh) top / 100% 3vh no-repeat,
+    linear-gradient(to top, #0c1110 0 0.5vh, #33403a 0.5vh 1.2vh, #0c1110 1.2vh 1.7vh, transparent 1.7vh) bottom / 100% 5vh no-repeat,
+    linear-gradient(to right, #0b0f0e 0, #26312c 22%, #3d4b44 38%, #202a26 56%, #0b0f0e 100%);
+  box-shadow: 0.35vw 0 0 rgba(0, 0, 0, 0.35);
+}
+
+/* -------------------------------------------------------------- nameboard */
+
+/* The running-in board: black, with a dark-stone frame and a light-stone
+   bead inside it, fixed to the wall at the top. Its height is fixed in vh
+   because the rows below are sized from what is left (Addendum 3), and the
+   figure is the one that keeps the row type above 19px at 1280x720 with two
+   boards on screen. */
+.board-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 1.2vw;
+  row-gap: 0;
+  height: 9.6vh;
+  padding: 0 1.2vw;
+  background: var(--board-black);
+  border: 0.6vh solid var(--stone-dark);
+  border-radius: 0.5vh;
+  box-shadow:
+    inset 0 0 0 0.3vh var(--stone-light),
+    inset 0 0 0 0.6vh #2b1a0e,
+    0 0.7vh 0 rgba(0, 0, 0, 0.38);
+}
+
+.station-name {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  /* victorian.js sets --vc-fit (0.3 to 1) when a long name will not fit. */
+  font-size: calc(5.6vh * var(--vc-fit, 1));
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--cream);
+  text-shadow: 0.07em 0.07em 0 var(--shade);
+}
+
+/* The mode is lettered on the frame rail below instead; victorian.js reads it
+   from here. */
+.board-mode { display: none; }
+
+/* The clock is a small enamel plate screwed to the right-hand end of the
+   board: white on blue, as the surviving indicator in the Science Museum is. */
+.clock {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: end;
+  /* A fixed width, so the station name's room does not move as the digits
+     change (or before the first tick has filled it). */
+  min-width: 17vh;
+  text-align: center;
+  padding: 0.5vh 1vh;
+  font-size: 3vh;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--enamel);
+  border: 0.3vh solid var(--cream);
+  border-radius: 0.7vh;
+  box-shadow: inset 0 0 0 0.2vh #14295a;
 }
 .clock[hidden] { display: none; }
 
-/* Which feed is live: tiny and quiet, at the foot on the left, as the printer's
-   name sat on a bill. */
+/* Which feed it came from: tiny, painted on the board's own lower edge. */
 .source {
-  position: absolute;
-  left: calc(var(--board-pad-x) + 2.6vh);
-  bottom: 1.5vh;
-  margin: 0;
-  font: italic 400 1.3vh/1 var(--vc-text);
-  letter-spacing: 0.04em;
-  text-transform: none;
-  color: var(--muted);
-  opacity: 1;
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  margin-top: 0.3vh;
+  font-size: 1.3vh;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--stone-light);
+  opacity: 0.6;
 }
 .source[hidden] { display: none; }
 
-.stale {
-  grid-column: 1;
-  text-align: center;
-  font: italic 400 2vh/1.3 var(--vc-text);
-  color: var(--accent);
-}
+/* ---------------------------------------------------------------- frame */
 
-/* ------------------------------------------------------------------- rows */
-
-/* Tracks are in the row's own type size (--row-font) so the heading row and
-   the stops, whose type is smaller, land on exactly the rows' columns.
-     hand | hour | destination ..... | platform | remarks
-   Measured on a two-board 1920x1080 screen. The fixed tracks cost about 13em
-   and the longest destination ("Abbey Wood via Whitechapel", with its "via"
-   set small) about 12em, so 27 leaves a little air in Old Standard, which is
-   a narrow face (25 clipped it by 4% at 720p, and the next train's name is
-   set a size up). */
+/* The indicator: a big timber frame. Dark stone ground with grain from three
+   static repeating gradients at awkward periods (so the streaks do not line up
+   into a pattern), plank seams every 9vw, a light-stone bevel round the edge.
+   The top padding is the header rail; the heading row is inside the content
+   box, counted in --slot. */
 .rows {
-  --vc-gutter: calc(var(--row-font) * 1.5);
-  --vc-time: calc(var(--row-font) * 2.8);
-  --vc-plat: calc(var(--row-font) * 3);
-  --vc-status: calc(var(--row-font) * 4.7);
-  --vc-gap: calc(var(--row-font) * 0.4);
-  /* Where the destination starts: the left edge the stops and reasons share. */
-  --vc-text-left: calc(var(--vc-gutter) + var(--vc-time) + var(--vc-gap) * 2);
-  --char-budget: 27;
-  --heading-share: 0.55;
-  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--reason-share)
-    + var(--heading-share)));
+  position: relative;
   margin-top: 1vh;
+  padding: 3.8vh 0.9vw 1.1vh;
+  border: 0.55vh solid;
+  border-color: #dcbd84 #a07c47 #8a6a3a #c9a66b;
+  border-radius: 0.5vh;
+  background:
+    linear-gradient(to bottom, rgba(255, 235, 190, 0.07), rgba(0, 0, 0, 0) 22%, rgba(0, 0, 0, 0.2)),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.32) 0 0.18vh, rgba(0, 0, 0, 0) 0.18vh 9vw),
+    repeating-linear-gradient(90deg, rgba(255, 225, 170, 0.045) 0 1px, rgba(0, 0, 0, 0) 1px 5px, rgba(0, 0, 0, 0.07) 5px 6px, rgba(0, 0, 0, 0) 6px 13px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.05) 0 0.4vh, rgba(0, 0, 0, 0) 0.4vh 1.7vh),
+    var(--stone-dark);
+  box-shadow: inset 0 0 0 0.3vh #3b2415, 0 0.8vh 0 rgba(0, 0, 0, 0.35);
+
+  /* --heading-share is the column headings, --stops-share the two rails of
+     calling-point boards. The base --slot knows about neither, and nor about
+     --detail-share and --weather-share, which this theme does not opt in to. */
+  --char-budget: 30;
+  --heading-share: 0.5;
+  --stops-share: calc(var(--calling-share) / 0.9 * 2);
+  --slot: calc(100cqh / (var(--rows) + var(--heading-share) + var(--stops-share) + var(--reason-share)));
+  --row-font: min(calc(100cqw / var(--char-budget)), calc(var(--slot) * 0.6));
 }
 
-.row, .vc-columns {
-  display: grid;
-  grid-template-columns:
-    var(--vc-gutter) var(--vc-time) minmax(0, 1fr) var(--vc-plat) var(--vc-status);
-  column-gap: var(--vc-gap);
+/* The header rail, sign-written across the top of the frame. victorian.js puts
+   the mode ("DEPARTURES") in data-vc-mode, because a pseudo-element can read an
+   attribute and not another element. */
+.rows::before {
+  content: attr(data-vc-mode);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3.8vh;
+  display: flex;
   align-items: center;
+  justify-content: center;
+  font-size: 2.1vh;
+  font-weight: 800;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  text-transform: uppercase;
+  color: var(--cream);
+  text-shadow: 0.08em 0.08em 0 rgba(0, 0, 0, 0.55);
+  border-bottom: 0.3vh solid #3b2415;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.05));
 }
-/* DOM order is time, destination, platform, status, operator: this is also the
-   reading order, but say so rather than rely on it. */
-.cell { grid-row: 1; }
-.cell.time { grid-column: 2; }
-.cell.destination { grid-column: 3; }
-.cell.platform { grid-column: 4; }
-.cell.status { grid-column: 5; }
-.cell.operator { display: none; }
 
+/* Column headings, small and painted on the frame. */
+.vc-columns {
+  display: grid;
+  grid-template-columns: var(--vc-cols);
+  column-gap: 0.3em;
+  align-items: end;
+  flex: 0 0 calc(var(--slot) * var(--heading-share));
+  padding: 0 0.55em 0.28em;
+  font-size: var(--row-font);
+  line-height: 1;
+}
+.vc-columns .cell {
+  overflow: visible;
+  font-size: 0.5em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--cream);
+  text-shadow: 0.08em 0.08em 0 rgba(0, 0, 0, 0.5);
+}
+.vc-columns .cell.time { text-align: center; padding-right: 0.25em; }
+.vc-columns .cell.destination { padding-left: 0.3em; }
+.vc-columns .cell.platform { text-align: center; letter-spacing: 0.06em; }
+
+/* ------------------------------------------------------------ finger boards */
+
+/* A train: a black board hung from the frame on two brass hooks. The visible
+   board is the padding box; a transparent border above and below leaves the
+   2-3px of frame showing between boards. The hooks are the row's ::after and
+   the slip saying NEXT TRAIN its ::before. --vc-tilt and --vc-tint are set per
+   row by victorian.js from a hash of its id, so each board hangs a little
+   differently and keeps doing so as it moves up. */
 .row {
   position: relative;
-  border-bottom: 1px solid var(--vc-hair);
+  grid-template-columns: var(--vc-cols);
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: 0.3em;
+  align-items: center;
+  padding: 0 0.55em;
+  border-block: 0.07em solid transparent;
+  border-radius: 0.14em;
+  background-clip: padding-box;
+  background-color: var(--vc-tint, var(--board-black));
+  background-image:
+    radial-gradient(circle at 1.05em 0.42em, var(--brass) 0 0.1em, #4a3910 0.11em 0.17em, transparent 0.18em),
+    radial-gradient(circle at calc(100% - 1.05em) 0.42em, var(--brass) 0 0.1em, #4a3910 0.11em 0.17em, transparent 0.18em),
+    linear-gradient(to bottom, rgba(255, 245, 220, 0.07), rgba(0, 0, 0, 0) 12%, rgba(0, 0, 0, 0) 88%, rgba(0, 0, 0, 0.35));
+  box-shadow: inset 0 0 0 0.05em rgba(243, 234, 210, 0.16), inset 0.05em 0.05em 0 0.04em rgba(255, 240, 200, 0.12);
   line-height: 1.15;
+  font-weight: 800;
+  text-transform: uppercase;
+  text-shadow: 0.05em 0.05em 0 var(--shade);
+  transform: rotate(var(--vc-tilt, 0deg));
 }
-
-/* The hour: the fat face, so the time is the first thing the eye lands on. */
-.cell.time {
-  font-family: var(--vc-display);
-  font-weight: 400;
-  font-size: 1.02em;
-  line-height: 1;
-  letter-spacing: 0.01em;
-  font-variant-numeric: lining-nums tabular-nums;
-}
-
-/* The destination, then a dotted leader running across to the platform as in a
-   printed timetable. The text is a span (victorian.js: renderText), the leader
-   is the cell's own ::after, filling whatever the name leaves. Nothing needs a
-   paper-coloured patch behind the text, so the ageing shows through. */
-.cell.destination {
-  display: flex;
-  align-items: baseline;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: clip;
-}
-.vc-dest {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* "via Whitechapel" is the route, not the place: lighter and smaller, so a
-   long name costs less width and the place still reads first. */
-.vc-via { font-weight: 400; font-style: italic; font-size: 0.82em; }
-.cell.destination::after {
-  content: "";
-  flex: 1 1 0;
-  min-width: 0;
-  height: 0.2em;
-  margin-left: 0.3em;
-  background: radial-gradient(circle at center, var(--fg) 0 0.045em, transparent 0.06em) left center / 0.34em 100% repeat-x;
-  opacity: 0.7;
-}
-
-/* The platform: "Plat." in small italics and the numeral in bold. */
-.row .cell.platform {
-  text-align: right;
-  font-weight: 700;
-  font-variant-numeric: lining-nums tabular-nums;
-}
-.row .cell.platform::before {
-  content: "Plat. ";
-  font-style: italic;
-  font-weight: 400;
-  font-size: 0.55em;
-  letter-spacing: 0.02em;
-  color: var(--muted);
-}
-
-/* Remarks: the wording is the period's, the colour is the board's. Punctual is
-   quiet, italic and muted; anything else is vermilion. */
-.cell.status {
-  text-align: right;
-  font-style: italic;
-  font-weight: 400;
-  font-size: 0.78em;
-  color: var(--muted);
-  overflow: visible;
-  text-overflow: clip;
-}
-.row[data-status="expected"] .cell.status,
-.row[data-status="delayed"] .cell.status {
-  color: var(--accent);
-  font-weight: 700;
-  /* Roman: Old Standard's italic 4 is open-topped and reads as a struck 4. */
-  font-style: normal;
-}
-
-/* The next train, the star turn of the bill: set between a rule above and a
-   thick-thin rule below, a faint wash of red over the paper, its place in
-   bolder and larger type, and a pointing hand in the left gutter. Every row
-   reserves the gutter, so the columns stay aligned whether it is there or not. */
-.row.selected {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-  border-top: 1px solid var(--fg);
-  border-bottom: 0.4vh double var(--fg);
-}
-.row.selected .cell.destination { font-size: 1.05em; }
-.row.selected .cell.time { color: var(--accent); }
-.row.selected::before {
+/* The brass hooks: two pins crossing the gap from the frame to the board. */
+.row::after {
   content: "";
   position: absolute;
   left: 0;
-  top: 50%;
-  width: calc(var(--vc-gutter) * 0.92);
-  height: calc(var(--vc-gutter) * 0.92 * 34 / 72);
-  margin-top: calc(var(--vc-gutter) * 0.92 * -17 / 72);
-  background: var(--accent);
-  mask: var(--vc-hand) center / contain no-repeat;
-  -webkit-mask: var(--vc-hand) center / contain no-repeat;
+  right: 0;
+  top: -0.14em;
+  height: 0.6em;
+  background:
+    linear-gradient(to right, var(--brass), #7d6224) left 0.95em top / 0.2em 100% no-repeat,
+    linear-gradient(to right, var(--brass), #7d6224) right 0.95em top / 0.2em 100% no-repeat;
+  pointer-events: none;
 }
+.row[data-status="cancelled"]::after { opacity: 0.6; }
 
-/* Cancelled: what was promised is struck through and gone quiet, and the word
-   itself is overprinted like a rubber stamp, set in letter-spaced capitals and
-   a touch askew. The tilt keeps inside the cell. */
-.row[data-status="cancelled"] .cell.time,
-.row[data-status="cancelled"] .vc-dest {
-  color: var(--muted);
-  text-decoration: line-through;
-  text-decoration-thickness: 0.08em;
-}
-.row[data-status="cancelled"] .cell.time { text-decoration-thickness: 0.06em; }
-.row[data-status="cancelled"] .cell.destination::after { opacity: 0.3; }
-.row[data-status="cancelled"] .cell.status {
-  font-style: normal;
-  font-weight: 700;
-  font-size: 0.62em;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--accent);
-  justify-self: end;
-  padding: 0.15em 0.35em;
-  border: 0.08em solid var(--accent);
-  transform: rotate(-4deg);
-  transform-origin: center;
-}
+.cell { overflow: hidden; text-overflow: ellipsis; }
 
-/* Column headings, inserted by victorian.js: italic small capitals between a
-   thin rule and a thick one, on the rows' own tracks. Their share of the height
-   is counted in --slot above. */
-.vc-columns {
-  flex: 0 0 calc(var(--slot) * var(--heading-share));
-  font-size: calc(var(--row-font) * 0.5);
-  line-height: 1.2;
-  font-style: italic;
-  font-variant-caps: small-caps;
-  letter-spacing: 0.1em;
-  color: var(--fg);
-  white-space: nowrap;
-  border-top: 1px solid var(--fg);
-  border-bottom: 0.3vh solid var(--fg);
-}
-.vc-columns .cell { font: inherit; letter-spacing: inherit; color: inherit; overflow: visible; }
-.vc-columns .cell.destination { display: block; }
-.vc-columns .cell.destination::after { content: none; }
-.vc-columns .cell.platform,
-.vc-columns .cell.status { text-align: right; }
-
-/* ------------------------------------------------------------- the details */
-
-/* Calling points: the label is an italic lead-in rather than a heading, the
-   stops are set in the plain face, and the line starts under the destinations. */
-.calling-points {
-  padding-left: var(--vc-text-left);
-  align-items: baseline;
-}
-.calling-points-label {
-  opacity: 1;
-  font-style: italic;
-  font-size: 0.95em;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--accent);
-}
-.calling-points-list { font-weight: 400; color: var(--fg); }
-
-/* The reason is a footnote: "N.B." in small bold capitals, then vermilion
-   italics. The prefix is the line's own pseudo-element, not the text box
-   board.js measures when it pages the sentence. */
-.service-reason {
-  padding-left: var(--vc-text-left);
-  color: var(--accent);
-  font-style: italic;
-}
-.service-reason::before {
-  content: "N.B.";
-  flex: 0 0 auto;
-  font-style: normal;
-  font-weight: 700;
-  font-size: 0.78em;
-  letter-spacing: 0.08em;
-}
-
-/* A notice: small print between a pair of rules, led by its own word. */
-.messages {
-  grid-column: 1;
-  margin-top: auto;
-  padding: 0.7vh 0 0.6vh;
-  border-top: 1px solid var(--fg);
-  border-bottom: 1px solid var(--fg);
-  font: italic 400 1.8vh/1.25 var(--vc-text);
+/* The time, ruled off from the name by a thin painted cream line. */
+.cell.time {
   text-align: center;
-  opacity: 1;
-  max-height: 7vh;
+  padding-right: 0.25em;
+  border-right: 0.05em solid rgba(243, 234, 210, 0.45);
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
-.messages::before {
-  content: "Notice.";
-  margin-right: 0.5em;
-  font-style: normal;
+.cell.destination {
+  padding-left: 0.3em;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+/* "via Whitechapel" is how it gets there, not where it goes: painted small
+   after the name, in a buff paint. */
+.vc-via {
+  margin-left: 0.5em;
+  font-size: 0.5em;
   font-weight: 700;
-  font-variant-caps: small-caps;
-  letter-spacing: 0.1em;
-  color: var(--accent);
+  letter-spacing: 0.08em;
+  color: #d9c79a;
+  text-shadow: none;
+}
+
+/* The platform is a small enamel plate, white on blue after the surviving
+   indicator, screwed to the board. */
+.cell.platform {
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-width: 1.65em;
+  height: 1.55em;
+  padding: 0 0.2em;
+  overflow: visible;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  color: #fff;
+  background: var(--enamel);
+  border: 0.07em solid var(--cream);
+  border-radius: 0.2em;
+  box-shadow: inset 0 0 0 0.06em #14295a;
+  text-shadow: none;
+}
+.cell.platform:empty { visibility: hidden; }
+.cell.operator { display: none; }
+
+/* The status is a slip tacked on beside the board, and an on-time train has
+   none: the cell is empty and its column holds the space. A slip hangs a
+   little crooked the other way from its board. */
+.cell.status {
+  justify-self: end;
+  align-self: center;
+  position: relative;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0.4em 0.45em 0.4em 0.85em;
+  overflow: visible;
+  font-size: 0.52em;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--late);
+  border-radius: 0.25em;
+  box-shadow: inset 0 0 0 0.1em rgba(255, 255, 255, 0.22), 0.1em 0.1em 0 rgba(0, 0, 0, 0.45);
+  text-shadow: none;
+  transform: rotate(calc(var(--vc-tilt, 0deg) * -5));
+}
+.cell.status:empty { display: none; }
+/* The hole the slip hangs from. */
+.cell.status::before {
+  content: "";
+  position: absolute;
+  left: 0.3em;
+  top: 50%;
+  width: 0.34em;
+  height: 0.34em;
+  margin-top: -0.17em;
+  border-radius: 50%;
+  background: var(--board-black);
+  box-shadow: 0 0 0 0.07em var(--brass);
+}
+.row[data-status="cancelled"] .cell.status {
+  color: var(--cream);
+  background: var(--cancelled);
+}
+
+/* A cancelled train keeps its board but the lettering is dimmed and struck
+   through with a painted red line. The slip stays at full strength. */
+.row[data-status="cancelled"] .cell.time,
+.row[data-status="cancelled"] .cell.destination {
+  opacity: 0.5;
+  text-decoration: line-through;
+  text-decoration-thickness: 0.09em;
+  text-decoration-color: #d4503f;
+}
+.row[data-status="cancelled"] .cell.platform { opacity: 0.45; }
+
+/* The next train: a light-stone border round the board, and a small stone
+   tab on the frame above the slip end saying so. */
+.row.selected {
+  box-shadow:
+    inset 0 0 0 0.1em var(--stone-light),
+    inset 0 0 0 0.16em rgba(0, 0, 0, 0.5),
+    inset 0.2em 0.2em 0 0.14em rgba(255, 240, 200, 0.1);
+}
+.row.selected::before {
+  content: "NEXT TRAIN";
+  position: absolute;
+  right: 0.7em;
+  top: -0.62em;
+  z-index: 1;
+  padding: 0.12em 0.5em 0.1em;
+  font-size: 0.34em;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  color: var(--ink);
+  background: var(--stone-light);
+  border-radius: 0.3em 0.3em 0 0;
+  box-shadow: 0 -0.2em 0 -0.05em rgba(0, 0, 0, 0.25);
+  text-shadow: none;
+}
+
+/* No trains: one blank black board, wording as board.js gives it. */
+.empty {
+  flex: 0 0 var(--slot);
+  display: grid;
+  place-items: center;
+  border-block: 0.07em solid transparent;
+  border-radius: 0.14em;
+  background-clip: padding-box;
+  background-color: var(--board-black);
+  box-shadow: inset 0 0 0 0.05em rgba(243, 234, 210, 0.16);
+  font-size: calc(var(--row-font) * 0.9);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0.05em 0.05em 0 var(--shade);
+  transform: rotate(-0.15deg);
+}
+
+/* ------------------------------------------------------------ calling points */
+
+/* The next train's stops, as small boards hung on a rail: two lines of them,
+   --stops-share slots high. victorian.js builds the boards and pages whole
+   boards when they will not all fit. The type is the row's, scaled down, and
+   the board height comes from the block, capped so a roomy block does not
+   make tall thin planks. The rail is a repeating gradient on the list with
+   the same pitch as a line of boards. */
+.calling-points {
+  --vc-stop-line: 0.26em;
+  align-items: center;
+  gap: 0.7em;
+  flex: 0 0 calc(var(--slot) * var(--stops-share));
+  padding: 0 0.55em;
+  font-size: calc(var(--row-font) * 0.72);
+  line-height: 1.1;
+  position: relative;
+  /* the block sits in the frame, not on the wall, so no ground of its own */
+}
+.calling-points[hidden] { display: none; }
+
+/* "CALLING AT" is signwritten on the frame in cream, two lines in a narrow
+   column. */
+.calling-points-label {
+  flex: 0 0 4.4em;
+  align-self: center;
+  white-space: normal;
+  font-size: 0.78em;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0.12em;
+  opacity: 1;
+  color: var(--cream);
+  text-shadow: 0.08em 0.08em 0 rgba(0, 0, 0, 0.55);
+}
+.calling-points-track {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: normal;
+}
+.calling-points-list {
+  display: block;
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.vc-stops {
+  --vc-stop-h: min(2.3em, calc((var(--slot) * var(--stops-share) - 2 * var(--vc-stop-line)) / 2));
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: flex-start;
+  gap: 0 0.55em;
+  /* Exactly two lines of boards, centred in the block by the track. Explicit,
+     because a percentage would resolve against an auto-height track and grow
+     with the boards, and the paging would never see a full block. */
+  height: calc(2 * (var(--vc-stop-h) + var(--vc-stop-line)));
+  /* The rail: a thin light-stone bar above every line of boards. */
+  background: repeating-linear-gradient(to bottom, #b9955a 0 0.12em, #7a5a30 0.12em 0.2em, transparent 0.2em calc(var(--vc-stop-h) + var(--vc-stop-line)));
+}
+.vc-stop {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  flex: 0 0 auto;
+  gap: 0.5em;
+  height: var(--vc-stop-h);
+  margin-top: var(--vc-stop-line);
+  padding: 0 0.7em;
+  align-items: center;
+  box-sizing: border-box;
+  color: var(--cream);
+  background: linear-gradient(to bottom, rgba(255, 245, 220, 0.07), rgba(0, 0, 0, 0) 15%), var(--vc-tint, var(--board-black));
+  border-radius: 0.14em;
+  box-shadow: inset 0 0 0 0.05em rgba(243, 234, 210, 0.2), 0.08em 0.1em 0 rgba(0, 0, 0, 0.35);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0.06em 0.06em 0 var(--shade);
+  transform: rotate(var(--vc-tilt, 0deg));
+}
+.vc-stop[hidden] { display: none; }
+/* Its hook: a brass pin from the rail down to the board. */
+.vc-stop::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(var(--vc-stop-line) * -1 - 0.02em);
+  width: 0.16em;
+  height: calc(var(--vc-stop-line) + 0.34em);
+  margin-left: -0.08em;
+  background: linear-gradient(to right, var(--brass), #7d6224);
+}
+.vc-stop-time {
+  font-size: 0.66em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #d9c79a;
+  text-shadow: none;
+}
+.vc-stop-time[data-late] { color: var(--late); }
+/* A stop the train will not make is struck through and dimmed. */
+.vc-stop[data-cancelled] .vc-stop-name {
+  opacity: 0.5;
+  text-decoration: line-through;
+  text-decoration-thickness: 0.09em;
+  text-decoration-color: #d4503f;
+}
+
+/* ------------------------------------------------------ reason, messages */
+
+/* Why a train is late or cancelled: a long buff slip tacked under the stops,
+   dark lettering in plain sentence case. board.js pages the words. */
+.service-reason {
+  position: relative;
+  flex: 0 0 calc(var(--slot) * var(--reason-share));
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 1.6em;
+  border-block: 0.14em solid transparent;
+  border-radius: 0.2em;
+  background-clip: padding-box;
+  background-color: var(--buff);
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.18), rgba(0, 0, 0, 0) 40%, rgba(90, 60, 20, 0.14));
+  box-shadow: inset 0 0 0 0.08em rgba(60, 36, 20, 0.4);
+  font-size: calc(var(--row-font) * 0.68);
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.service-reason[hidden] { display: none; }
+.service-reason[data-status="cancelled"] { background-color: #deb59a; }
+.service-reason::before,
+.service-reason::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0.4em;
+  height: 0.4em;
+  margin-top: -0.2em;
+  border-radius: 50%;
+  background: #3b2a16;
+  box-shadow: inset 0 0 0 0.1em #7d6224;
+}
+.service-reason::before { left: 0.6em; }
+.service-reason::after { right: 0.6em; }
+.service-reason-text { text-overflow: ellipsis; }
+
+/* A notice at the foot of the frame: the same buff slip, tacked to the wall. */
+.messages {
+  grid-row: 4;
+  margin-top: 1vh;
+  padding: 0.7vh 1.1vw;
+  font-size: 1.9vh;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink);
+  background: var(--buff);
+  border-radius: 0.4vh;
+  box-shadow: inset 0 0 0 0.25vh rgba(60, 36, 20, 0.4), 0 0.5vh 0 rgba(0, 0, 0, 0.35);
+  opacity: 1;
 }
 .messages[hidden] { display: none; }
 
-.empty {
-  text-align: center;
-  font: italic 400 3vh/1.3 var(--vc-text);
-  color: var(--muted);
-  padding: 3vh 0;
+/* No data: a red slip across the top of the frame. */
+.stale {
+  grid-row: 2;
+  margin-top: 0.8vh;
+  padding: 0.5vh 1.1vw;
+  font-size: 1.9vh;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cream);
+  background: var(--cancelled);
+  border-radius: 0.4vh;
+  box-shadow: inset 0 0 0 0.25vh rgba(0, 0, 0, 0.25), 0 0.5vh 0 rgba(0, 0, 0, 0.35);
 }
+.stale[hidden] { display: none; }
 
-/* Nothing below the header is positioned by auto-placement: say it for the
-   rows that board.js and this theme own. */
-.row[hidden], .vc-columns[hidden] { display: none; }
+/* The weather strip is not drawn on this theme (it does not opt in), but a
+   rule that sets display needs its [hidden] twin should one be added. */
+.weather[hidden] { display: none; }
+.service-detail[hidden] { display: none; }

@@ -1,24 +1,12 @@
-/* deco — Art Deco, the 1920s and 30s: a cinema façade, an ocean-liner
-   departure board. Black lacquer, gold, cream, with jade and coral for the
-   news. Everything ornamental is drawn from gradients, borders, clip-path
-   and small inline SVG, and it is all static: no filters, blurs or shadows,
-   so the Pi only ever repaints text. The one thing that moves is a glint
-   across the next train, an opacity-and-transform animation on a layer of
-   its own.
+/* deco — Art Deco by restraint. The lettering on a 1930s Underground station,
+   a Poirot title card, the Savoy's menu: the Deco is in the proportions, the
+   geometric sans and one fine double rule of gold, not in ornament. Soft
+   black, ivory, one flat champagne gold; only trouble takes any other
+   colour. No gradients, shadows, filters, shapes or motion: nothing for the
+   Pi to repaint but text. */
 
-   Where gold has to be written inside a data-URI SVG it is the literal
-   %23d4af37 (a var() cannot reach in there); if --gold changes, change
-   those too. */
-
-/* Limelight (Broadway-style display capitals) and Josefin Sans (a variable
-   geometric sans), both SIL OFL, self-hosted as the kiosk may have no
-   network. See fonts/README.md. */
-@font-face {
-  font-family: "Limelight";
-  src: url("/static/fonts/limelight.woff2") format("woff2");
-  font-weight: 400;
-  font-display: block;
-}
+/* Josefin Sans, a variable geometric sans (SIL OFL), self-hosted as the kiosk
+   may have no network. See fonts/README.md. */
 @font-face {
   font-family: "Josefin Sans";
   src: url("/static/fonts/josefin-sans.woff2") format("woff2");
@@ -27,24 +15,15 @@
 }
 
 :root {
-  --bg: #0a0a0c;
-  --fg: #f6ecd2;
-  --gold: #d4af37;
-  --gold-hi: #f3dc8f;
-  --gold-lo: #8a6d1b;
-  --on-time: #3fbfa0;
-  --late: #ff7f50;
-  --cancelled: #ff4d3d;
-  --muted: #a89a78;
-  --dc-display: "Limelight", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
+  --bg: #0b0b0d;
+  --fg: #f4ecd8;
+  --gold: #c9a961;
+  --muted: #8f8672;
+  --late: #e8946a;
+  --cancelled: #e2594b;
   --dc-sans: "Josefin Sans", "Helvetica Neue", "Liberation Sans", Arial, sans-serif;
-  /* Thickness of the board's frame, and how far it stands in from the edge. */
-  --dc-frame: 2vh;
-  --dc-inset-x: 0.9vw;
-  --dc-inset-y: 0.5vh;
-  /* The clock plaque's width: the header reserves it, the sunburst centres
-     on what is left. */
-  --dc-clock-w: 17vh;
+  /* The gold line at low strength: the hairlines between rows and boards. */
+  --dc-faint: color-mix(in srgb, var(--gold) 20%, transparent);
 }
 
 html { background: var(--bg); }
@@ -52,242 +31,101 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--dc-sans);
-  font-weight: 600;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ------------------------------------------------------------------ frame */
-
-/* A double gold line with stepped (ziggurat) corners round every board. It
-   is a 9-slice border-image: one 90 x 90 tile whose corners are cut 30, so
-   the corners keep their steps at any size and the straight edges (two
-   uniform lines) stretch without showing it. The padding below keeps the
-   content clear of it. */
-.board {
-  position: relative;
-  --board-pad-x: calc(var(--dc-inset-x) + var(--dc-frame) + 0.7vw);
-  --board-pad-y: calc(var(--dc-inset-y) + var(--dc-frame) + 0.5vh);
-  /* The skyline stands in the foot of the frame, so the bottom pays for it. */
-  padding-bottom: calc(var(--board-pad-y) + 1.5vh);
-}
-.board::before {
-  content: "";
-  position: absolute;
-  inset: var(--dc-inset-y) var(--dc-inset-x);
-  border: var(--dc-frame) solid transparent;
-  border-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90' fill='none' stroke='%23d4af37' stroke-linecap='square'><defs><g id='c'><path d='M5 30V18H11V12H17V5H30' stroke-width='3.6'/><path d='M14 39V27H20V21H26V14H39' stroke-width='1.8'/></g></defs><path d='M30 5H60M30 85H60M5 30V60M85 30V60' stroke-width='3.6'/><path d='M30 14H60M30 76H60M14 30V60M76 30V60' stroke-width='1.8'/><use href='%23c'/><use href='%23c' transform='matrix(-1 0 0 1 90 0)'/><use href='%23c' transform='matrix(1 0 0 -1 0 90)'/><use href='%23c' transform='matrix(-1 0 0 -1 90 90)'/></svg>") 30 / var(--dc-frame) stretch;
-  pointer-events: none;
-}
-
-/* A tiny stepped skyline along the foot of the board, in dark gold, inside
-   the frame: the Chrysler Building's crown at the centre, lesser towers
-   falling away either side. Mirrored from one half so it is symmetrical. */
-.board::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: calc(var(--dc-inset-y) + var(--dc-frame) + 0.3vh);
-  width: 13vw;
-  height: 1.2vh;
-  transform: translateX(-50%);
-  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12' preserveAspectRatio='none' fill='%238a6d1b'><path id='h' d='M0 12V10H8V8H16V9H22V6H28V3H34V5H40V2H45V4H50V1H55V3H58V0H60V12Z'/><use href='%23h' transform='matrix(-1 0 0 1 120 0)'/></svg>") center bottom / 100% 100% no-repeat;
-  pointer-events: none;
-}
-
-/* Between two boards, a gold pillar stands in the gap the frames leave:
-   a fluted shaft under stepped capitals, all background layers of one
-   absolutely placed pseudo-element (the grid ignores it, being out of
-   flow). */
-.boards { position: relative; }
-.boards[data-count="2"] .board + .board { border-left: none; }
-.boards[data-count="2"]::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: var(--dc-inset-y);
-  bottom: var(--dc-inset-y);
-  width: calc(var(--dc-inset-x) * 1.7);
-  transform: translateX(-50%);
-  background:
-    /* capitals, widest at the very top and bottom, stepping in */
-    linear-gradient(var(--gold), var(--gold)) 50% 0 / 100% 0.4vh no-repeat,
-    linear-gradient(var(--gold), var(--gold)) 50% 0.55vh / 78% 0.4vh no-repeat,
-    linear-gradient(var(--gold), var(--gold)) 50% 1.1vh / 56% 0.4vh no-repeat,
-    linear-gradient(var(--gold), var(--gold)) 50% 100% / 100% 0.4vh no-repeat,
-    linear-gradient(var(--gold), var(--gold)) 50% calc(100% - 0.55vh) / 78% 0.4vh no-repeat,
-    linear-gradient(var(--gold), var(--gold)) 50% calc(100% - 1.1vh) / 56% 0.4vh no-repeat,
-    /* the shaft: three flutes, each lit down one side */
-    linear-gradient(90deg,
-      var(--gold-lo) 0 6%, var(--gold) 6% 24%, var(--gold-hi) 24% 30%, var(--gold) 30% 34%,
-      var(--gold-lo) 34% 38%, var(--gold) 38% 56%, var(--gold-hi) 56% 62%, var(--gold) 62% 66%,
-      var(--gold-lo) 66% 70%, var(--gold) 70% 88%, var(--gold-hi) 88% 94%, var(--gold-lo) 94%)
-      50% 50% / 56% calc(100% - 3.2vh) no-repeat;
-  pointer-events: none;
-}
+.board { --board-pad-x: 2vw; --board-pad-y: 1.8vh; position: relative; }
+.boards[data-count="2"] .board + .board { border-left: 1px solid var(--dc-faint); }
 
 /* ----------------------------------------------------------------- header */
 
-/* The marquee. Name and mode stack in the first column, the clock plaque has
-   the second to itself, and the sunburst sits behind the lot. */
+/* Name and mode stack on the left, the clock sits flush right with no box.
+   The room the name has is measured by the container, so a long name on a
+   half-width board shrinks rather than clips. */
 .board-header {
   position: relative;
-  isolation: isolate;
-  grid-template-columns: minmax(0, 1fr) var(--dc-clock-w);
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
-  align-items: center;
-  gap: 0.2vh 1vw;
-  padding: 0.6vh 0 1vh;
-  /* Lets the name size itself from the room the header really has. */
+  align-items: baseline;
+  gap: 0.3vh 2vw;
+  /* Clears the double rule below. */
+  padding-bottom: 2.2vh;
   container-type: inline-size;
 }
 
-/* The sunburst: rays fanning from a hub behind the name, in gold at low
-   opacity, faded into the lacquer toward the edges by a radial layer rather
-   than a mask, so it is plain painted background. The hub is the middle of
-   the column the name sits in. */
-.board-header::before {
+/* The one ornament: two gold lines a few pixels apart, the upper the heavier,
+   across the full width. A border on each edge of an empty, out-of-flow box
+   keeps the gap between them transparent without a gradient. */
+.board-header::after {
   content: "";
   position: absolute;
-  inset: 0;
-  z-index: -1;
-  --hub: calc((100% - var(--dc-clock-w) - 1vw) / 2) 46%;
-  background:
-    radial-gradient(ellipse 56% 125% at var(--hub), transparent 0, transparent 30%, var(--bg) 100%),
-    repeating-conic-gradient(from 0deg at var(--hub),
-      rgba(212, 175, 55, 0.2) 0 4deg, transparent 4deg 8deg);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(max(2px, 0.25vh) + 0.5vh + 1px);
+  border-top: max(2px, 0.25vh) solid var(--gold);
+  border-bottom: 1px solid var(--gold);
   pointer-events: none;
 }
 
 .station-name {
   grid-row: 1;
   grid-column: 1;
-  justify-self: center;
-  position: relative;
-  max-width: 100%;
-  /* Room either side for the fans, which are painted in this padding. */
-  padding: 0.12em 1.9em;
-  font-family: var(--dc-display);
-  font-weight: 400;
   /* The vh size is the design; the container size keeps a twenty-character
-     name (Manchester Piccadilly, London Charing Cross) clear of the plaque
-     on a half-width board: about 19em for the name and its fans. */
-  font-size: min(3.6vh, calc((100cqi - var(--dc-clock-w) - 1vw) / 19));
-  line-height: 1.15;
-  letter-spacing: 0.06em;
+     name clear of the clock on a half-width board (tracked capitals cost
+     about 0.88em a letter). */
+  font-size: min(3.6vh, calc((100cqi - 11vh) / 20));
+  font-weight: 300;
+  line-height: 1.2;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--gold);
-  text-align: center;
+  color: var(--fg);
 }
-.boards[data-count="1"] .station-name { font-size: min(5vh, calc((100cqi - var(--dc-clock-w) - 1vw) / 19)); }
-
-/* The fans: half-ellipses of gold rays standing on the name's baseline, each
-   with a dark core and a bright rim, so they read as a cinema's fan lights. */
-.station-name::before,
-.station-name::after {
-  content: "";
-  position: absolute;
-  bottom: 0.2em;
-  width: 1.5em;
-  height: 0.8em;
-  background:
-    radial-gradient(ellipse 22% 44% at 50% 100%, var(--bg) 0 90%, transparent 100%),
-    radial-gradient(ellipse 50% 100% at 50% 100%, transparent 0 88%, var(--gold-hi) 90% 100%),
-    repeating-conic-gradient(from 270deg at 50% 100%, var(--gold) 0 7.5deg, transparent 7.5deg 15deg);
-  clip-path: ellipse(50% 100% at 50% 100%);
-}
-.station-name::before { left: 0.15em; }
-.station-name::after { right: 0.15em; }
+.boards[data-count="1"] .station-name { font-size: min(4.4vh, calc((100cqi - 12vh) / 20)); }
 
 .board-mode {
   grid-row: 2;
   grid-column: 1;
-  justify-self: center;
-  display: flex;
-  align-items: center;
-  gap: 0.7em;
-  font-family: var(--dc-sans);
-  font-size: 1.7vh;
+  font-size: 1.5vh;
   font-weight: 600;
-  letter-spacing: 0.42em;
-  /* The tracking adds space after the last letter; take it back so the word
-     centres between its rules. */
-  text-indent: 0.42em;
+  letter-spacing: 0.34em;
+  line-height: 1.2;
   text-transform: uppercase;
-  color: var(--fg);
+  color: var(--gold);
   opacity: 1;
 }
-/* Thin rules ending in a diamond, fading out away from the word. */
-.board-mode::before,
-.board-mode::after {
-  content: "";
-  flex: 0 0 5em;
-  height: 0.7em;
-}
-.board-mode::before {
-  background:
-    linear-gradient(to right, transparent, var(--gold)) 0 50% / calc(100% - 0.8em) 1px no-repeat,
-    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><path d='M5 0L10 5L5 10L0 5Z' fill='%23d4af37'/></svg>") 100% 50% / 0.7em 0.7em no-repeat;
-}
-.board-mode::after {
-  background:
-    linear-gradient(to left, transparent, var(--gold)) 100% 50% / calc(100% - 0.8em) 1px no-repeat,
-    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><path d='M5 0L10 5L5 10L0 5Z' fill='%23d4af37'/></svg>") 0 50% / 0.7em 0.7em no-repeat;
-}
 
-/* The clock in a gold-outlined octagonal plaque. The octagon is two stacked
-   pseudo-elements, gold under lacquer, because clip-path would clip the
-   outline of a border too. */
 .clock {
-  grid-row: 1 / 3;
+  grid-row: 1;
   grid-column: 2;
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  place-items: center;
-  height: 7.6vh;
-  font-family: var(--dc-display);
-  font-size: 3.3vh;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  color: var(--gold-hi);
+  justify-self: end;
+  font-size: 3.6vh;
+  font-weight: 300;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  color: var(--fg);
 }
-.clock::before,
-.clock::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-}
-.clock::before {
-  inset: 0;
-  background: var(--gold);
-  clip-path: polygon(12% 0, 88% 0, 100% 26%, 100% 74%, 88% 100%, 12% 100%, 0 74%, 0 26%);
-}
-.clock::after {
-  inset: 0.45vh;
-  background: var(--bg);
-  clip-path: polygon(12% 0, 88% 0, 100% 26%, 100% 74%, 88% 100%, 12% 100%, 0 74%, 0 26%);
-}
+.boards[data-count="1"] .clock { font-size: 4.4vh; }
 .clock[hidden] { display: none; }
 
-/* Which feed is live: tiny and quiet, in the header's bottom-left corner
-   beside the mode line, well clear of the name, its fans and the plaque. */
+/* Which feed is live: tiny and quiet, under the clock. */
 .source {
-  position: absolute;
-  left: 0;
-  bottom: 0.5vh;
-  z-index: 1;
+  grid-row: 2;
+  grid-column: 2;
+  justify-self: end;
   margin: 0;
   font-size: 1.1vh;
   letter-spacing: 0.2em;
   color: var(--muted);
-  opacity: 0.8;
+  opacity: 1;
 }
 .source[hidden] { display: none; }
 
 .stale {
-  grid-row: 2;
-  text-align: center;
+  padding-top: 0.8vh;
   color: var(--late);
-  font-size: 1.7vh;
+  font-size: 1.5vh;
   font-weight: 600;
   letter-spacing: 0.24em;
   text-transform: uppercase;
@@ -298,36 +136,36 @@ body {
 
 /* Tracks are written in the row's own type size (--row-font), not em, so the
    smaller heading row and the stops sit on exactly the rows' columns.
-   gutter | time | destination | platform | status | gutter
-   The gutters hold the next train's chevrons. */
+   gutter | time | destination | platform | status
+   The gutter holds the next train's bar on every row, so columns align. */
 .rows {
-  --dc-gut: calc(var(--row-font) * 1.2);
-  --dc-time: calc(var(--row-font) * 3.5);
-  --dc-plat: calc(var(--row-font) * 2);
-  --dc-status: calc(var(--row-font) * 5.8);
-  --dc-gap: calc(var(--row-font) * 0.5);
+  --dc-gut: calc(var(--row-font) * 0.7);
+  --dc-time: calc(var(--row-font) * 2.7);
+  --dc-plat: calc(var(--row-font) * 1.9);
+  --dc-status: calc(var(--row-font) * 5);
+  --dc-gap: calc(var(--row-font) * 0.45);
   /* Where the destination starts: the left edge the stops and reasons share. */
-  --dc-text-left: calc(var(--dc-gut) + var(--dc-time) + var(--dc-gap));
+  --dc-text-left: calc(var(--dc-gut) + var(--dc-time) + var(--dc-gap) * 2);
   /* Measured on a two-board 1080p screen in Josefin Sans: the fixed tracks
-     and gaps cost about 16em and the longest destination in tracked capitals
-     (Ashford International; a "via" is set small by deco.js) about 14.2em.
-     30 ellipsised it. */
-  --char-budget: 31;
-  --heading-share: 0.5;
+     and gaps cost about 12.1em and the widest destination (Abbey Wood via
+     Whitechapel, with its small "via") about 11.4em. 25 leaves about 1.5em
+     of margin for Liberation Sans, which is wider. */
+  --char-budget: 25;
+  --heading-share: 0.45;
   --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--reason-share)
     + var(--heading-share)));
-  margin-top: 0.4vh;
+  margin-top: 1.2vh;
 }
 
 .row, .dc-columns {
   display: grid;
-  grid-template-columns: var(--dc-gut) var(--dc-time) minmax(0, 1fr) var(--dc-plat) var(--dc-status) var(--dc-gut);
+  grid-template-columns: var(--dc-gut) var(--dc-time) minmax(0, 1fr) var(--dc-plat) var(--dc-status);
   column-gap: var(--dc-gap);
   align-items: center;
 }
-/* The DOM order is time, destination, platform, status, operator, and so is
-   the visual order, bar the operator, which a board this ornate can do
-   without. Placed by number so the gutters stay empty. */
+/* The DOM order is time, destination, platform, status, operator, which is
+   also the visual order bar the operator. Placed by number so the gutter
+   stays empty. */
 .cell.time { grid-column: 2; }
 .cell.destination { grid-column: 3; }
 .cell.platform { grid-column: 4; }
@@ -338,236 +176,147 @@ body {
 .row {
   position: relative;
   line-height: 1.15;
-  background-repeat: no-repeat;
+  border-bottom: 1px solid var(--dc-faint);
 }
 
 .cell.time {
-  font-family: var(--dc-display);
   font-weight: 400;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   color: var(--gold);
 }
 .cell.destination {
-  font-weight: 700;
-  font-size: 0.92em;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+}
+.cell.platform {
+  font-weight: 600;
+  text-align: right;
   color: var(--fg);
 }
 .cell.status {
-  font-size: 0.8em;
+  font-size: 0.58em;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  text-align: left;
-  color: var(--late);
+  text-align: right;
+  color: var(--muted);
 }
 
-/* The platform in a gold-outlined octagon badge, drawn like the clock: gold
-   under lacquer, text above. */
-.cell.platform {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  place-items: center;
-  justify-self: center;
-  min-width: 1.5em;
-  max-width: 100%;
-  height: 1.5em;
-  padding: 0 0.2em;
-  font-family: var(--dc-display);
-  font-size: 0.82em;
-  font-weight: 400;
-  text-align: center;
-  color: var(--gold-hi);
-  overflow: hidden;
-}
-.cell.platform::before,
-.cell.platform::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
-}
-.cell.platform::before { inset: 0; background: var(--gold); }
-.cell.platform::after {
-  inset: 0.1em;
-  background: var(--bg);
-  clip-path: polygon(29% 0, 71% 0, 100% 29%, 100% 71%, 71% 100%, 29% 100%, 0 71%, 0 29%);
-}
-
-/* Status by colour as well as by word. An expected time and "Delayed" are
-   both coral: the board has only the one amber to give. */
-.row[data-status="on_time"] .cell.status { color: var(--on-time); }
+/* Only trouble takes colour: on time is quiet. */
 .row[data-status="expected"] .cell.status,
 .row[data-status="delayed"] .cell.status { color: var(--late); }
 .row[data-status="cancelled"] .cell.status { color: var(--cancelled); }
 
-/* Cancelled: the status stays loud; what was promised goes quiet and struck. */
+/* Cancelled: the status stays loud; what was promised goes quiet and struck
+   through with a fine line. */
 .row[data-status="cancelled"] .cell.time,
 .row[data-status="cancelled"] .cell.destination {
   color: var(--muted);
-  opacity: 0.6;
+  opacity: 0.7;
   text-decoration: line-through;
-  text-decoration-thickness: 0.08em;
+  text-decoration-thickness: 1px;
 }
 .row[data-status="cancelled"] .cell.platform { opacity: 0.5; }
 
-/* Rows are parted by a fine gold hairline with a small diamond at its heart,
-   fading toward the edges. It is painted below the row's box so it never
-   moves a cell. */
-.row:not(.selected)::after {
+/* The next train: a short, fine gold bar in the gutter and nothing else. It
+   is out of flow, so it never moves a cell off its track. */
+.row.selected { background: none; }
+.row.selected::before {
   content: "";
   position: absolute;
   left: 0;
-  right: 0;
-  bottom: -0.17em;
-  height: 0.34em;
-  background:
-    linear-gradient(to left, var(--gold-lo), transparent) 0 50% / calc(50% - 0.4em) 1px no-repeat,
-    linear-gradient(to right, var(--gold-lo), transparent) 100% 50% / calc(50% - 0.4em) 1px no-repeat,
-    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><path d='M5 0L10 5L5 10L0 5Z' fill='%23d4af37'/></svg>") 50% 50% / 0.34em 0.34em no-repeat;
-  pointer-events: none;
-}
-/* The last row has nothing under it to part from. */
-.row:last-of-type::after { display: none; }
-
-/* The next train takes top billing: a band between double gold rules, a pair
-   of drawn chevrons in each gutter pointing in at it, a faint warm wash that
-   keeps the text's contrast, and a glint that crosses it every few seconds. */
-.row.selected {
-  overflow: hidden;
-  border-block: max(3px, 0.5vh) double var(--gold);
-  background-color: transparent;
-  background-image:
-    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24' fill='%23d4af37'><path d='M2 3L11 12L2 21H7L16 12L7 3Z'/><path d='M13 3L22 12L13 21H18L27 12L18 3Z' fill='%23f3dc8f'/></svg>"),
-    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24' fill='%23d4af37'><path d='M26 3L17 12L26 21H21L12 12L21 3Z'/><path d='M15 3L6 12L15 21H10L1 12L10 3Z' fill='%23f3dc8f'/></svg>"),
-    linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.1) 12%, rgba(212, 175, 55, 0.1) 88%, transparent);
-  background-position: 0.1em 50%, calc(100% - 0.1em) 50%, 0 0;
-  background-size: calc(var(--dc-gut) - 0.2em) 0.9em, calc(var(--dc-gut) - 0.2em) 0.9em, 100% 100%;
-}
-.row.selected::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 26%;
-  background: linear-gradient(100deg, transparent, rgba(243, 220, 143, 0.22) 50%, transparent);
-  opacity: 0;
-  transform: translateX(-100%);
-  animation: dc-glint 11s linear 2s infinite;
-  pointer-events: none;
-}
-/* Idle most of the time; a quick pass left to right, fading in and out. */
-@keyframes dc-glint {
-  0%   { opacity: 0; transform: translateX(-100%); }
-  3%   { opacity: 1; }
-  14%  { opacity: 1; }
-  17%  { opacity: 0; transform: translateX(380%); }
-  100% { opacity: 0; transform: translateX(380%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .row.selected::after { animation: none; }
+  top: 20%;
+  bottom: 20%;
+  width: max(2px, 0.14em);
+  background: var(--gold);
 }
 
-/* Column headings, inserted by deco.js, on the same tracks as the rows,
-   between a thick gold rule above and a thin one below. Their share of the
-   height is counted in --slot above. */
+/* The route after a destination: a supporting act, small and muted. */
+.dc-via {
+  font-size: 0.6em;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+/* Column headings, inserted by deco.js, on the same tracks as the rows. Their
+   share of the height is counted in --slot above. */
 .dc-columns {
   flex: 0 0 calc(var(--slot) * var(--heading-share));
-  font-size: calc(var(--row-font) * 0.52);
+  font-size: calc(var(--row-font) * 0.42);
   line-height: 1.2;
   white-space: nowrap;
   font-weight: 600;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--gold);
-  border-top: max(2px, 0.34vh) solid var(--gold);
-  border-bottom: 1px solid var(--gold);
-  /* The border sits inside the flex basis, so the cells centre in what is left. */
+  border-bottom: 1px solid var(--dc-faint);
 }
-.dc-columns .cell { font-family: var(--dc-sans); font-weight: 600; font-size: 1em; letter-spacing: inherit; color: var(--gold); text-align: left; opacity: 1; }
-.dc-columns .cell.platform {
-  display: block;
-  min-width: 0;
-  height: auto;
-  padding: 0;
-  text-align: center;
-  font-family: var(--dc-sans);
-  overflow: visible;
+.dc-columns .cell {
+  font-size: 1em;
+  font-weight: 600;
+  letter-spacing: inherit;
+  color: var(--gold);
+  text-align: left;
 }
-.dc-columns .cell.platform::before,
-.dc-columns .cell.platform::after { display: none; }
-.dc-columns .cell.time { text-align: left; }
+/* The tracking adds space after the last letter; take it back so a right-
+   aligned heading ends where its column's figures do. */
+.dc-columns .cell.platform,
+.dc-columns .cell.status { text-align: right; margin-right: -0.26em; }
 
-/* Calling points: the label in small gold caps, the stops in cream Josefin
+/* Calling points: the label in small gold capitals, the stops in ivory,
    starting under the destinations. */
 .calling-points {
   padding-left: var(--dc-text-left);
-  font-family: var(--dc-sans);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 400;
+  letter-spacing: 0.02em;
   color: var(--fg);
 }
 .calling-points-label {
   color: var(--gold);
   opacity: 1;
-  font-size: 0.7em;
-  font-weight: 700;
-  letter-spacing: 0.24em;
+  font-size: 0.62em;
+  font-weight: 600;
+  letter-spacing: 0.26em;
 }
 .calling-points-list { color: var(--fg); }
+.calling-points[hidden] { display: none; }
 
 .service-reason {
   padding-left: var(--dc-text-left);
-  font-family: var(--dc-sans);
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 400;
+  letter-spacing: 0.02em;
   color: var(--late);
 }
 .service-reason[data-status="cancelled"] { color: var(--cancelled); }
 .service-reason[hidden] { display: none; }
-.calling-points[hidden] { display: none; }
 
-/* Messages sit muted between two fine rules, centred like a plaque's legend. */
+/* Messages: muted and small, above a faint gold rule. */
 .messages {
   margin-top: auto;
-  padding: 0.5vh 0;
-  border-block: 1px solid var(--gold-lo);
-  text-align: center;
+  padding: 0.8vh 0 0 var(--dc-gut);
+  border-top: 1px solid var(--dc-faint);
   font-size: 1.5vh;
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-weight: 400;
+  letter-spacing: 0.03em;
   color: var(--muted);
   opacity: 1;
 }
 .messages[hidden] { display: none; }
 
-/* No services: a plaque of its own, centred in the empty rows. */
+/* No services: a quiet line in the middle of the empty rows. */
 .empty {
   align-self: center;
   margin: auto;
-  padding: 1.2em 2.2em;
-  border: max(3px, 0.5vh) double var(--gold);
-  font-size: 2.2vh;
-  font-weight: 600;
-  letter-spacing: 0.26em;
-  text-indent: 0.26em;
-  text-transform: uppercase;
+  font-size: 2.4vh;
+  font-weight: 300;
+  letter-spacing: 0.2em;
   text-align: center;
-  color: var(--gold-hi);
+  color: var(--muted);
 }
 
-/* No element here sets display on something board.js hides bar those given a
+/* No element here sets display on something board.js hides, bar those given a
    rule above; the grids on the rows and headings are for elements it never
    hides, but the explicit rule is harmless. */
 .row[hidden], .dc-columns[hidden] { display: none; }
-
-/* The route after a destination: a supporting act, set small in gold. */
-.dc-via {
-  font-size: 0.58em;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: var(--gold);
-}

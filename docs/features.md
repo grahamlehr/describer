@@ -47,8 +47,10 @@ _Moved from the old CLAUDE.md ("Features"): boards, themes, announcements, sched
    per stop, and a labelled strip map for the next train (`/16`).
 10. **dial**: a station clock with a mark on the rim for each train, and
     the next train spelled out beside it (`/16`, redrawn in `/17`).
-11. **deco**: Art Deco picture palace, gold on black lacquer (`/17`).
-12. **victorian**: a letterpress handbill on aged paper (`/17`).
+11. **deco**: Art Deco by restraint, ivory type and one double gold rule
+    (`/17`, simplified in `/18`).
+12. **victorian**: a timber train indicator on a brick wall, every train and
+    calling point a hung, sign-written board (`/18`).
 
 Themes share one DOM structure and one data model; a theme is a CSS file
 plus an optional JS module. Adding a theme touches no backend code except its

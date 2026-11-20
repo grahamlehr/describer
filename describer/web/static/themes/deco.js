@@ -1,8 +1,9 @@
 /**
- * deco theme: Art Deco. The look is all in deco.css; this module has two
- * jobs the shared DOM cannot do on its own: say the status in the board's
- * fixed vocabulary (the stylesheet capitalises it), and add the row of
- * column headings that a 1930s departure board had above its trains.
+ * deco theme: Art Deco by restraint. The look is all in deco.css; this module
+ * has three jobs the shared DOM cannot do on its own: say the status in the
+ * board's fixed vocabulary (the stylesheet capitalises it), set a route
+ * small after its destination, and add the row of column headings that a
+ * printed departure board has above its trains.
  */
 
 /** Labels for the heading row, in visual order: time | place | platform | status. */
@@ -33,9 +34,9 @@ export function statusText(service) {
 }
 
 /**
- * A route ("via Whitechapel") is set small after the name, as a programme
- * sets a supporting act. Tracked capitals are wide, and "ABBEY WOOD VIA
- * WHITECHAPEL" at full size was costing every other row a fifth of its type.
+ * A route ("via Whitechapel") is set small and muted after the name, so
+ * "Abbey Wood via Whitechapel" does not cost every other row a fifth of its
+ * type.
  * board.js puts the cell back to plain text when the theme is switched away.
  */
 export function renderText(cell, text) {

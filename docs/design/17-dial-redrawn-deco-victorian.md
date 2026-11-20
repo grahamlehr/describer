@@ -33,6 +33,8 @@ circle has no room for a station name.
 
 ## deco — a 1930s picture palace
 
+_Superseded by Addendum 18. What follows is the first version._
+
 Black lacquer, gold, cream. Asked for "all out" and "quirky".
 
 - A double gold frame with stepped corners (one SVG tile as a `border-image`),
@@ -51,6 +53,8 @@ Black lacquer, gold, cream. Asked for "all out" and "quirky".
   14.2em, and the budget is 31.
 
 ## victorian — a letterpress handbill
+
+_Superseded by Addendum 18. What follows is the first version._
 
 Aged paper, black ink, one vermilion, and a different typeface on every line,
 as a jobbing printer would have set it.
@@ -74,6 +78,8 @@ as a jobbing printer would have set it.
   night if that matters.
 
 ## Fonts are now shipped
+
+_The list of files below changed with Addendum 18; the reasoning stands._
 
 Neither period theme survives a fallback to Liberation Sans, so their faces
 are in `web/static/fonts` and served by the Pi: Limelight and Josefin Sans
