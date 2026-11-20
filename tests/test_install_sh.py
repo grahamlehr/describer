@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 INSTALL_SH = Path(__file__).resolve().parents[1] / "deploy" / "install.sh"
+KIOSK_UNIT = INSTALL_SH.parent / "kiosk.service"
 
 #: provision() must be chroot-safe: no live systemd assumed. migrate_old_layout
 #: is the one deliberate exception -- it only ever runs against a real
@@ -78,3 +79,26 @@ def test_helpers_never_end_a_function_on_a_bare_and_list():
         if stripped.startswith("if ") or stripped.startswith("elif "):
             continue
         assert not re.search(r"^\[\s.*\]\s*&&\s*\S", stripped), f"line {lineno}: {line!r}"
+
+
+def test_the_kiosk_does_not_depend_on_the_default_target():
+    """Pi OS's first-boot user setup resets the default to multi-user.target.
+
+    On a flashed image that runs after install.sh, so a kiosk wanted by
+    graphical.target never started (docs/traps.md).
+    """
+    install_section = KIOSK_UNIT.read_text().split("[Install]", 1)[1]
+    wanted_by = [
+        line.split("=", 1)[1].strip()
+        for line in install_section.splitlines()
+        if line.startswith("WantedBy=")
+    ]
+    assert wanted_by == ["multi-user.target"]
+    assert "set-default" not in INSTALL_SH.read_text()
+
+
+def test_install_units_keeps_tty1_for_the_kiosk():
+    body = function_body("install_units")
+    assert "systemctl mask getty@tty1.service" in body
+    # An install from before the change still has the old link.
+    assert "rm -f /etc/systemd/system/graphical.target.wants/kiosk.service" in body

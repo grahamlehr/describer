@@ -43,7 +43,10 @@ _Moved from the old CLAUDE.md ("Hardware and OS" and "Stack"). Rules summarised 
   (a kiosk Wayland compositor) rather than a desktop. It cannot be a user
   service: cage needs a logind seat for DRM and input, and a lingering user
   session has none, so cage exits in a restart loop and the console keeps its
-  login prompt. The binary on current Pi OS is `/usr/bin/chromium`; there is
+  login prompt. It is wanted by `multi-user.target`, not
+  `graphical.target`, and `install.sh` masks `getty@tty1`: Pi OS's first-boot
+  user setup resets the default target and restarts that getty
+  (`docs/traps.md`). A console login is on tty2 (Ctrl+Alt+F2). The binary on current Pi OS is `/usr/bin/chromium`; there is
   no `chromium-browser`. cage draws a pointer in the middle of the screen with
   or without a mouse and has no flag to hide it. It also ignores
   `XCURSOR_THEME` and `XCURSOR_SIZE` and loads whatever theme is named
