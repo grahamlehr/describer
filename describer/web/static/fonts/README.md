@@ -14,6 +14,9 @@ network at boot), drop the woff2 files here and add the matching
 | nse        | Rail Alphabet        | `rail-alphabet-bold.woff2` (licensed; Helvetica/Arial otherwise). Casing only: the matrix itself is dots |
 | led-matrix | none                 | every character is drawn as dots |
 | thameslink | Helvetica/Arial      | none needed; the LCD panels are a plain grotesque |
+| swiss      | Helvetica            | none needed; falls back to Nimbus Sans / Liberation Sans on the Pi |
+| linemap    | Helvetica/Arial      | none needed |
+| dial       | Helvetica/Arial      | none needed |
 
 Example, added at the top of `themes/modern.css`:
 

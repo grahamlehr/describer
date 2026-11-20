@@ -1,0 +1,245 @@
+/* dial — the next hour on a station clock. Warm black, ivory, signal orange.
+   Everything is flat colour and the only thing that moves is a transform, so
+   the Pi has nothing to repaint but the hand. */
+
+:root {
+  --bg: #121110;
+  --fg: #f1e9da;
+  --muted: #8f887b;
+  --accent: #ff7a1a;
+  --late: #ffc145;
+  --cancelled: #ff6b5e;
+  --rule: color-mix(in srgb, var(--fg) 12%, transparent);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Helvetica Neue", Helvetica, "Nimbus Sans", "Liberation Sans", Arial, sans-serif;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------- the layout
+   Each board gains one child, .dial. Every child names its own row and
+   column: .stale is display:none most of the day and auto-placement would
+   slide .rows out of its 1fr track, where a size container collapses to
+   nothing (Addendum 3). The rows are always in a minmax(0, 1fr) track.
+
+   Two boards: the dial above the rows, centred, with about 42% of what the
+   header leaves, and the rows take the rest. */
+.boards .board {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 42fr) minmax(0, 58fr) auto auto;
+  position: relative;
+}
+.boards .board-header { grid-row: 1; grid-column: 1 / -1; }
+.boards .stale { grid-row: 2; grid-column: 1 / -1; }
+.boards .dial { grid-row: 3; grid-column: 1; }
+.boards .rows { grid-row: 4; grid-column: 1; }
+.boards .messages { grid-row: 5; grid-column: 1 / -1; }
+.boards .weather { grid-row: 6; grid-column: 1 / -1; }
+
+/* One board: the dial left of the rows, square and as tall as the rows area
+   lets it be. The column is sized from the viewport because a grid column
+   cannot be sized from its own row's height; the dial then takes the smaller
+   of that width and whatever height the row ends up with, so it can neither
+   overflow the column nor the rows area. */
+.boards[data-count="1"] .board {
+  --dial-col: min(41vw, 88vh);
+  grid-template-columns: var(--dial-col) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  column-gap: 2.4vw;
+}
+.boards[data-count="1"] .dial { grid-row: 3; grid-column: 1; }
+.boards[data-count="1"] .rows { grid-row: 3; grid-column: 2; }
+.boards[data-count="1"] .messages { grid-row: 4; grid-column: 1 / -1; }
+.boards[data-count="1"] .weather { grid-row: 5; grid-column: 1 / -1; }
+
+/* --------------------------------------------------------------- the header */
+
+.board-header { border-bottom: 1px solid var(--rule); padding-bottom: 0.8vh; }
+.station-name { font-weight: 700; letter-spacing: -0.01em; }
+.board-mode { font-size: 1.9vh; font-weight: 400; color: var(--muted); opacity: 1; letter-spacing: 0.14em; }
+.clock { color: var(--fg); font-weight: 400; }
+
+/* Which feed is live matters least of all: out of the header's way, at the
+   foot of the board, as small as it can be and still be read up close. */
+.source {
+  position: absolute;
+  right: var(--board-pad-x);
+  bottom: 0.5vh;
+  margin: 0;
+  font-size: 1.1vh;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.stale { color: var(--late); }
+
+/* ------------------------------------------------------------------ the dial
+   .dial is the grid cell and a size container; .dial-face is the square that
+   fits it, itself a container, so everything inside is sized in cqmin of the
+   face and the dial reads the same at any size. */
+.dial {
+  container-type: size;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  margin-top: 1vh;
+}
+.dial-face {
+  position: relative;
+  width: min(100cqw, 100cqh);
+  height: min(100cqw, 100cqh);
+  container-type: size;
+}
+.dial svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.dial-tick { fill: none; stroke: var(--muted); stroke-width: 0.9; }
+.dial-tick-major { stroke: var(--fg); stroke-width: 1.8; }
+
+/* The wait itself, drawn along the ring the markers sit on and under them. */
+.dial-arc {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0.5;
+}
+
+.dial-hand line { stroke: var(--fg); stroke-width: 2.6; stroke-linecap: round; }
+/* Eased over exactly the second between updates, so it sweeps rather than
+   ticks. Not on first placing, or it would spin in from nought. */
+.dial-hand[data-live] { transition: transform 1s linear; }
+
+.dial-marker circle { fill: var(--fg); }
+.dial-marker[data-kind="next"] circle { fill: var(--accent); }
+.dial-marker[data-kind="late"] circle { fill: var(--late); }
+.dial-marker[data-kind="cancelled"] circle { fill: none; stroke: var(--cancelled); stroke-width: 1.8; }
+.dial-plat {
+  fill: var(--bg);
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.dial-marker[data-kind="cancelled"] .dial-plat { fill: var(--cancelled); }
+
+/* The middle of the dial. Padded to the width the tick ring leaves it, so the
+   destination ellipsises inside the ring rather than across it. */
+.dial-centre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 28cqmin;
+  text-align: center;
+  pointer-events: none;
+}
+.dial-centre > * { max-width: 100%; white-space: nowrap; }
+.dial-label {
+  font-size: 3.9cqmin;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.2;
+}
+.dial-centre[data-label-kind="cancelled"] .dial-label { color: var(--cancelled); font-weight: 700; }
+.dial-count {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1cqmin;
+  font-size: 25cqmin;
+  font-weight: 700;
+  line-height: 0.95;
+  margin: 0.8cqmin 0 1.2cqmin;
+}
+.dial-unit { font-size: 6cqmin; font-weight: 400; color: var(--muted); }
+.dial-unit:empty { display: none; }
+.dial-centre[data-kind="due"] .dial-count { font-size: 17cqmin; }
+.dial-centre[data-kind="time"] .dial-count { font-size: 13.5cqmin; }
+.dial-centre[data-kind="cancelled"] .dial-count { font-size: 8.4cqmin; color: var(--cancelled); }
+.dial-centre[data-kind="delayed"] .dial-count { font-size: 10cqmin; color: var(--late); }
+.dial-place {
+  width: 100%;
+  font-size: 6cqmin;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dial-platform { font-size: 4.4cqmin; line-height: 1.3; color: var(--muted); }
+.dial-label:empty, .dial-place:empty, .dial-platform:empty { display: none; }
+
+/* --------------------------------------------------------------- the list
+   time | destination | platform | status, under a gutter for the chip. */
+.rows {
+  margin-top: 1vh;
+  /* The fixed columns and the gutter cost 13.2em, and "Abbey Wood via
+     Whitechapel" in bold, on the top row, needs 14em: 25 ellipsised it at
+     every size. */
+  --char-budget: 28;
+}
+.row {
+  position: relative;
+  grid-template-columns: 3.7em minmax(0, 1fr) 2em 5.2em;
+  padding-left: 1.2em;
+  border-bottom: 1px solid var(--rule);
+}
+.cell.operator { display: none; }
+.cell.time { font-weight: 700; color: var(--fg); }
+.cell.destination { font-weight: 400; }
+.row.selected .cell.destination { font-weight: 700; }
+.cell.platform { color: var(--muted); }
+.cell.status { color: var(--fg); }
+
+/* The chip pairs a row with its marker on the rim: the same colour, and
+   hollow for a cancelled train. A train further than the dial shows has no
+   marker, so its chip is faint. */
+.row::before {
+  content: "";
+  position: absolute;
+  left: 0.15em;
+  top: 50%;
+  width: 0.55em;
+  height: 0.55em;
+  margin-top: -0.275em;
+  border-radius: 50%;
+  background: var(--fg);
+  border: 0.1em solid var(--fg);
+}
+.row[data-status="expected"]::before,
+.row[data-status="delayed"]::before { background: var(--late); border-color: var(--late); }
+.row[data-status="cancelled"]::before { background: transparent; border-color: var(--cancelled); }
+.row[data-dial="next"]:not([data-status="cancelled"])::before { background: var(--accent); border-color: var(--accent); }
+.row[data-dial="off"]::before { opacity: 0.3; }
+
+.row[data-status="expected"] .cell.status,
+.row[data-status="delayed"] .cell.status { color: var(--late); }
+.row[data-status="cancelled"] .cell.status { color: var(--cancelled); }
+.row[data-status="cancelled"] .cell.time,
+.row[data-status="cancelled"] .cell.destination {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  opacity: 0.55;
+}
+
+/* The stops under the top service, then why it is late or off. */
+.calling-points { color: var(--muted); }
+.calling-points-label { color: var(--muted); opacity: 1; }
+.calling-points-list { color: var(--fg); }
+
+.service-reason { color: var(--late); }
+.service-reason[data-status="cancelled"] { color: var(--cancelled); }
+
+.messages { color: var(--muted); border-top: 1px solid var(--rule); opacity: 1; }
+.empty { color: var(--muted); font-size: 2.4vh; padding: 2vh 0; }

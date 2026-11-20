@@ -1,0 +1,217 @@
+/* swiss — International Typographic Style. Black on paper, one red accent,
+   one grotesque in two weights, hairlines and a single thick rule. No boxes,
+   shadows, gradients, rounded corners or icons: nothing for the Pi to repaint
+   but text. */
+
+:root {
+  --bg: #f4f3ef;
+  --fg: #111111;
+  --muted: #7b7a75;
+  --accent: #e2001a;
+  /* Derived from the text colour so the hairlines suit both grounds. */
+  --rule: color-mix(in srgb, var(--fg) 14%, transparent);
+}
+/* The dark ground, chosen by swiss.js from the board's options. */
+body[data-ground="dark"] {
+  --bg: #0c0c0c;
+  --fg: #f4f3ef;
+  --muted: #8d8c87;
+  --accent: #ff3b30;
+  /* Redeclared: a var() inside a custom property is resolved where it is
+     declared, so :root's rule would otherwise keep the light text colour. */
+  --rule: color-mix(in srgb, var(--fg) 14%, transparent);
+}
+html:has(body[data-ground="dark"]) { background: #0c0c0c; }
+
+/* base.css paints html and body black; the ground has to reach both so no
+   black edge shows if the page is a pixel taller than the viewport. The
+   variables above are set on :root and (for dark) body, so html reads the
+   light value and body the swapped one: paint html from body's own colour. */
+html { background: #f4f3ef; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Helvetica Neue", Helvetica, "Nimbus Sans", "Liberation Sans", Arial, sans-serif;
+  font-weight: 400;
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+/* Overlays outside .board read their ground from body, so the setup screen
+   (which takes --bg and --fg from here) follows the chosen ground too. */
+
+.board { --board-pad-x: 2vw; --board-pad-y: 1.6vh; position: relative; }
+
+/* Header: station and mode share a baseline, flush left; clock flush right.
+   One thick rule under it is the only heavy line on the board. */
+.board-header {
+  grid-template-columns: auto 1fr auto auto;
+  gap: 0 1.2vw;
+  padding-bottom: 1vh;
+  border-bottom: 0.5vh solid var(--fg);
+}
+.station-name {
+  font-size: 4vh;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.board-mode {
+  font-size: 4vh;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.1;
+  opacity: 1;
+  color: var(--accent);
+}
+.clock {
+  font-size: 4vh;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+/* Which feed is live: quiet, at the foot, out of flow so it can reach the far
+   corner (it is a grid item of the header, not of the board). */
+.source {
+  position: absolute;
+  right: var(--board-pad-x);
+  bottom: 0.4vh;
+  margin: 0;
+  font-size: 1.1vh;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  opacity: 1;
+}
+
+.stale { color: var(--accent); font-size: 1.8vh; font-weight: 400; }
+
+/* The grid. Tracks are written in the row's own type size (--row-font) rather
+   than em so the heading row, whose type is smaller, and the calling points
+   sit on exactly the same lines as the rows.
+   gutter | time | destination | status | platform                          */
+.rows {
+  --sw-gutter: calc(var(--row-font) * 0.9);
+  --sw-time: calc(var(--row-font) * 3.3);
+  --sw-status: calc(var(--row-font) * 5.2);
+  --sw-plat: calc(var(--row-font) * 2.1);
+  --sw-gap: calc(var(--row-font) * 0.5);
+  /* Where the destination starts: the left edge the stops and reasons share. */
+  --sw-text-left: calc(var(--sw-gutter) + var(--sw-time) + var(--sw-gap));
+  /* The operator column is gone, so the type can grow: the fixed tracks cost
+     about 14em and the longest destination about 13em. Measured on a
+     two-board 1080p screen, 27 only just fits in Helvetica Neue (26 clips
+     "Abbey Wood via Whitechapel"); 28 leaves a margin for Liberation Sans,
+     which is wider and is what the Pi has. */
+  --char-budget: 28;
+  --heading-share: 0.45;
+  --slot: calc(100cqh / (var(--rows) + var(--calling-share) + var(--reason-share)
+    + var(--heading-share)));
+  margin-top: 0.8vh;
+}
+
+.row, .sw-columns {
+  display: grid;
+  grid-template-columns: var(--sw-gutter) var(--sw-time) minmax(0, 1fr) var(--sw-status) var(--sw-plat);
+  column-gap: var(--sw-gap);
+  /* The gutter and its gap are one left edge: the first track starts at 0. */
+  align-items: center;
+}
+/* The DOM order is time, destination, platform, status, operator; the eye
+   wants time, destination, status, platform. */
+.cell.time { grid-column: 2; }
+.cell.destination { grid-column: 3; }
+.cell.status { grid-column: 4; }
+.cell.platform { grid-column: 5; }
+.cell.operator { display: none; }
+.cell { grid-row: 1; }
+
+.row {
+  position: relative;
+  border-bottom: 1px solid var(--rule);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.cell.time { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cell.destination { font-weight: 400; }
+.cell.status { font-weight: 700; color: var(--accent); }
+.cell.platform { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* The top service is marked by a red square and nothing else. It is placed
+   absolutely in the gutter, so it never moves a cell off its track. */
+.row.selected { background: none; }
+.row.selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 0.38em;
+  height: 0.38em;
+  margin-top: -0.19em;
+  background: var(--accent);
+}
+
+/* Cancelled: the status stays red; what was promised goes quiet and struck. */
+.row[data-status="cancelled"] .cell.time,
+.row[data-status="cancelled"] .cell.destination {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+/* Column headings, inserted by swiss.js: small, muted, on the same tracks.
+   Their share of the height is counted in --slot above. */
+.sw-columns {
+  flex: 0 0 calc(var(--slot) * var(--heading-share));
+  font-size: calc(var(--row-font) * 0.42);
+  line-height: 1.2;
+  color: var(--muted);
+  white-space: nowrap;
+  letter-spacing: 0;
+  border-bottom: 1px solid var(--rule);
+}
+/* The heading row's own tracks are in the row's type size, but this element
+   has the small one; restate the tracks against --row-font so they match. */
+.sw-columns .cell { font-weight: 400; color: var(--muted); }
+.sw-columns .cell.status { color: var(--muted); font-weight: 400; }
+.sw-columns .cell.platform { text-align: right; }
+
+/* Calling points: label muted, stops in the text colour, both regular, and
+   the line starts under the destinations. */
+.calling-points {
+  padding-left: var(--sw-text-left);
+  letter-spacing: -0.01em;
+}
+.calling-points-label {
+  color: var(--muted);
+  opacity: 1;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8em;
+}
+.calling-points-list { color: var(--fg); font-weight: 400; }
+
+.service-reason {
+  padding-left: var(--sw-text-left);
+  color: var(--accent);
+  font-weight: 400;
+}
+
+.messages {
+  padding-left: var(--sw-gutter);
+  padding-top: 0.8vh;
+  margin-top: auto;
+  color: var(--muted);
+  opacity: 1;
+  font-size: 1.5vh;
+  border-top: 1px solid var(--rule);
+}
+.empty { color: var(--muted); font-size: 2.4vh; padding: 2vh 0 2vh var(--sw-gutter); }
+
+/* The shared divider is a white wash for dark boards; a hairline of the text
+   colour suits both grounds. */
+.boards[data-count="2"] .board + .board { border-left: 1px solid var(--rule); }
+
+/* No element here sets display on something board.js hides, bar the heading
+   row, which board.js never hides. The explicit rule is for the grid above. */
+.row[hidden], .sw-columns[hidden] { display: none; }

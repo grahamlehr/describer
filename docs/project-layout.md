@@ -44,7 +44,7 @@ describer/
       setup/               # screenshots for the key walkthrough (Graham's to add)
       stations.json        # every station's CRS, name and coordinates
       fonts/               # self-hosted; only bedstead.woff2 ships
-      themes/              # <theme>.css + <theme>.js for each of the seven
+      themes/              # <theme>.css + <theme>.js for each of the ten
         dotmatrix.js       # the shared 5x7 dot font; not a theme
         colours.js         # writes the configured palette; not a theme
   deploy/
@@ -59,6 +59,8 @@ describer/
                            # describer-apply-deploy.service, power off, reboot
     shutdown_button.py     # six presses on GPIO21 in 10 s -> poweroff; system python
     shutdown-button.service  # systemd *system* unit for the above
+  scripts/
+    mock_board.py          # a board of invented trains for checking themes; calls no API
   tests/
     conftest.py            # autouse guards: no credentials, no network, no update checks
     fixtures/              # recorded LDBWS, RTT, NaPTAN and Open-Meteo responses

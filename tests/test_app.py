@@ -61,6 +61,9 @@ def test_static_assets_are_served(client):
     assert client.get("/static/themes/dotmatrix.js").status_code == 200
     assert client.get("/static/themes/thameslink.css").status_code == 200
     assert client.get("/static/themes/thameslink.js").status_code == 200
+    for theme in ("swiss", "linemap", "dial"):
+        assert client.get(f"/static/themes/{theme}.css").status_code == 200
+        assert client.get(f"/static/themes/{theme}.js").status_code == 200
 
 
 def test_static_assets_must_be_revalidated(client):

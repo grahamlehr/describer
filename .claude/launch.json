@@ -12,6 +12,16 @@
         "8080"
       ],
       "port": 8080
+    },
+    {
+      "name": "board-mock",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "scripts/mock_board.py",
+        "--port",
+        "8090"
+      ],
+      "port": 8090
     }
   ]
 }

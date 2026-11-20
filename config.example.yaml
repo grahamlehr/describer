@@ -35,7 +35,7 @@ stations:
     longitude: null
 
 display:
-  theme: modern             # modern | crt | splitflap | 1990s | nse | led-matrix | thameslink
+  theme: modern             # modern | crt | splitflap | 1990s | nse | led-matrix | thameslink | swiss | linemap | dial
   clock: true               # show the live clock in the board header
   show_calling_points: true # expand the first row to page through its calling points
   # Where the top service is now, and its formation — modern and thameslink
@@ -73,6 +73,8 @@ display:
       # one extra role the others don't: bar, the "Later trains" header
       # background (otherwise --tl-bar in the stylesheet).
       colours: {}
+    swiss:
+      ground: light         # light | dark — black on white, or white on black for a dark room
 
 # Two independent upstreams. The primary is used while it works; after
 # failover_after consecutive failures the fallback takes over, and the primary

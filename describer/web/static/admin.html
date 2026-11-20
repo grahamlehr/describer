@@ -74,6 +74,15 @@
       <label class="theme"><input type="radio" name="display.theme" value="thameslink">
         <span class="swatch thameslink"></span><span class="theme-name">Thameslink</span>
         <span class="theme-note">LCD next train</span></label>
+      <label class="theme"><input type="radio" name="display.theme" value="swiss">
+        <span class="swatch swiss"></span><span class="theme-name">Swiss</span>
+        <span class="theme-note">Minimal, typographic</span></label>
+      <label class="theme"><input type="radio" name="display.theme" value="linemap">
+        <span class="swatch linemap"></span><span class="theme-name">Line map</span>
+        <span class="theme-note">Every train as a route</span></label>
+      <label class="theme"><input type="radio" name="display.theme" value="dial">
+        <span class="swatch dial"></span><span class="theme-name">Dial</span>
+        <span class="theme-note">The next hour on a clock</span></label>
     </div>
 
     <div class="subpanel" id="theme-options">
@@ -87,6 +96,15 @@
         <div class="colours" data-colours="modern"></div>
         <div class="preview" data-preview="modern"></div>
       </div>
+      <div class="grid theme-opts" data-theme="swiss">
+        <label>Ground
+          <select name="display.themes.swiss.ground">
+            <option value="light">Light (black on white)</option>
+            <option value="dark">Dark (white on black)</option>
+          </select></label>
+      </div>
+      <p class="hint theme-opts" data-theme="linemap">The line map has no options of its own.</p>
+      <p class="hint theme-opts" data-theme="dial">The dial has no options of its own.</p>
       <p class="hint theme-opts" data-theme="1990s">The Ceefax theme has no options of its own.</p>
       <p class="hint theme-opts" data-theme="led-matrix">Amber was the only colour these panels
         came in, so the LED matrix has no options.</p>
