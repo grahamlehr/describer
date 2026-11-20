@@ -68,6 +68,16 @@ the full story.
   `as_describer`. The URL is hard-coded in the script, and the polkit rule lets
   `describer` start only that unit. A new unit file that is not copied by
   `install_units` is not applied by an update. (`13`)
+- **The kiosk must not depend on the default target, and tty1's getty stays
+  masked.** Raspberry Pi OS ends its first-boot user setup with
+  `cancel-rename`, which (with no lightdm installed) runs `raspi-config nonint
+  do_boot_behaviour B1`: the default goes back to `multi-user.target` and
+  `getty@tty1` is enabled and started. On a hand install the user exists before
+  `install.sh` runs, so nothing undid it; on a flashed image it runs *after*,
+  and a kiosk wanted by `graphical.target` never started while the backend ran
+  fine. So `kiosk.service` is `WantedBy=multi-user.target` and `install_units`
+  masks `getty@tty1.service`. A file check in the image build cannot see this:
+  it happens on first boot.
 - **An SSE stream never ends on its own.** Before a restart,
   `Poller.close_streams()` must run or shutdown waits for systemd to kill it.
   (`13`)

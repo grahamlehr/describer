@@ -244,7 +244,17 @@ install_units() {
   systemctl enable shutdown-button.service
   # describer-apply-deploy.service is not enabled: it has no [Install] and is
   # only ever started by hand or by the updater.
-  systemctl set-default graphical.target
+
+  # The kiosk used to hang off graphical.target, with that set as the default.
+  # Raspberry Pi OS's first-boot user setup puts the default back to
+  # multi-user.target and starts getty@tty1, which on a flashed image happens
+  # after this script has run: the board never appeared. So the kiosk is wanted
+  # by multi-user.target (whatever the default is), the link an older install
+  # left behind goes, and tty1's login prompt is masked so nothing can start
+  # it over the board. A console login is still there on tty2 (Ctrl+Alt+F2).
+  # All three are file operations, so they are safe in a chroot.
+  rm -f /etc/systemd/system/graphical.target.wants/kiosk.service
+  systemctl mask getty@tty1.service
 }
 
 migrate_old_layout() {

@@ -70,7 +70,8 @@ runs both.
 - `kiosk.service` — a **system** service on tty1 running `cage` and Chromium
   in `--kiosk` against localhost, also as `describer`. It has to be a system
   service: cage needs a logind seat for the display and input devices, and a
-  lingering user session never gets one.
+  lingering user session never gets one. The login prompt on tty1 is
+  switched off to make room for it; press Ctrl+Alt+F2 for a console login.
 - `shutdown-button.service` — a **system** service watching a button for the
   clean-shutdown gesture (below).
 

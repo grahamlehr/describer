@@ -3,6 +3,8 @@ Description=Describer kiosk (cage + Chromium)
 # A system unit, not a user one: cage needs a logind seat with the DRM and
 # input devices, and a lingering user session never gets one. Binding to tty1
 # and evicting its getty gives cage the console the login prompt was using.
+# deploy/install.sh also masks getty@tty1, so nothing can start it back over
+# the board; the Conflicts stays for a Pi where someone has unmasked it.
 After=systemd-user-sessions.service getty@tty1.service describer.service
 Conflicts=getty@tty1.service
 
@@ -27,7 +29,7 @@ Environment=WLR_LIBINPUT_NO_DEVICES=1
 Environment=XCURSOR_PATH=/usr/local/share/describer-cursors:/usr/share/icons
 Environment=XCURSOR_THEME=describer-blank
 Environment=XCURSOR_SIZE=24
-# Wait for the backend (a user service) to answer before painting anything.
+# Wait for the backend to answer before painting anything.
 ExecStartPre=/bin/sh -c 'until curl -sf http://localhost:8080/api/state >/dev/null; do sleep 1; done'
 ExecStart=/usr/bin/cage -d -- /usr/bin/chromium \
   --kiosk \
@@ -43,4 +45,9 @@ Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=graphical.target
+# multi-user, not graphical: the kiosk must not depend on which target is the
+# default. Raspberry Pi OS's first-boot user setup (cancel-rename, which runs
+# `raspi-config nonint do_boot_behaviour B1` on a system with no lightdm) sets
+# the default back to multi-user.target, and on a flashed image that happens
+# after install.sh has run. See docs/traps.md.
+WantedBy=multi-user.target

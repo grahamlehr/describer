@@ -89,7 +89,7 @@ plan stops at each gate until Graham reports back.
   **Drop the repo `.env` line.** On a system install nothing reads a
   checkout `.env`, which removes a whole class of the "blanked key" trap.
   Keep the comment explaining why the deployed file is the only one.
-- `WantedBy=multi-user.target`.
+- `WantedBy=multi-user.target` (the kiosk too: see `docs/traps.md`).
 - `deploy/kiosk.service`:
   - `User=describer`
   - `XDG_RUNTIME_DIR=/run/user/<describer uid>`, filled in by `install.sh`
@@ -125,7 +125,8 @@ in an `if`, never on a `[ … ] && …` list (CLAUDE.md trap).
   6. Creates an empty `describer.env` (600, `describer`) if absent.
   7. Installs the units, the polkit rules (Phase 3 adds more), the shutdown
      button, and `systemctl enable`s them.
-  8. Sets `graphical.target` as the default.
+  8. Masks `getty@tty1` so the kiosk keeps tty1. (Was: set `graphical.target`
+     as the default. Pi OS's first boot undoes that; see `docs/traps.md`.)
 - **`configure`** runs only on a real system with a terminal. It:
   - asks for the credentials (the current `ask` / `quote` code, unchanged)
     and writes them into `/etc/describer/describer.env`
