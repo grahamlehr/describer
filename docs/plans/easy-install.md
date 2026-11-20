@@ -125,8 +125,9 @@ in an `if`, never on a `[ … ] && …` list (CLAUDE.md trap).
   6. Creates an empty `describer.env` (600, `describer`) if absent.
   7. Installs the units, the polkit rules (Phase 3 adds more), the shutdown
      button, and `systemctl enable`s them.
-  8. Masks `getty@tty1` so the kiosk keeps tty1. (Was: set `graphical.target`
-     as the default. Pi OS's first boot undoes that; see `docs/traps.md`.)
+  8. Installs a `getty@tty1` drop-in so the kiosk keeps tty1. (Was: set
+     `graphical.target` as the default, then a mask. Pi OS's first boot undoes
+     the first and is broken by the second; see `docs/traps.md`.)
 - **`configure`** runs only on a real system with a terminal. It:
   - asks for the credentials (the current `ask` / `quote` code, unchanged)
     and writes them into `/etc/describer/describer.env`

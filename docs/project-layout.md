@@ -51,6 +51,7 @@ describer/
     install.sh             # root-run, two-part: provision (chroot-safe), configure
     describer.service      # systemd *system* unit for the backend, User=describer
     kiosk.service          # systemd *system* unit for cage + chromium, User=describer
+    getty-tty1-kiosk.conf  # drop-in: getty@tty1 is a no-op while the kiosk is enabled
     apply-deploy.sh        # root oneshot body: installs deploy/ from its own GitHub clone
     describer-apply-deploy.service  # systemd *system* unit, oneshot, User=root
     polkit/
