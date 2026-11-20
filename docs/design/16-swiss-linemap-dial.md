@@ -59,6 +59,9 @@ A dark strip map. All the lines leave one vertical station bar on the left.
 
 ### dial — the next hour on a clock
 
+_Superseded by Addendum 17, which redrew it as a real clock with the next
+train in a panel beside it. What follows is the first version._
+
 A clock face per board: a minute hand, and a marker on the rim for each train
 at the minute it leaves, with its platform inside. The gap between hand and
 marker is the wait, and an arc in the accent colour draws it. The middle says

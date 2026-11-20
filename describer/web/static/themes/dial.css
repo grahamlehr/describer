@@ -1,6 +1,7 @@
-/* dial — the next hour on a station clock. Warm black, ivory, signal orange.
-   Everything is flat colour and the only thing that moves is a transform, so
-   the Pi has nothing to repaint but the hand. */
+/* dial — a station clock with the next hour on its rim and the next train
+   spelled out beside it. Warm black, ivory, signal orange. Everything is flat
+   colour and the only things that move are the hands' transforms, so the Pi
+   has nothing to repaint but three hands. */
 
 :root {
   --bg: #121110;
@@ -21,40 +22,46 @@ body {
 }
 
 /* ------------------------------------------------------------- the layout
-   Each board gains one child, .dial. Every child names its own row and
-   column: .stale is display:none most of the day and auto-placement would
-   slide .rows out of its 1fr track, where a size container collapses to
-   nothing (Addendum 3). The rows are always in a minmax(0, 1fr) track.
+   Each board gains two children, .dial (the clock) and .next (the panel that
+   spells out the next train). Every child names its own row and column:
+   .stale is display:none most of the day and auto-placement would slide .rows
+   out of its 1fr track, where a size container collapses to nothing
+   (Addendum 3). The rows are always in a minmax(0, 1fr) track.
 
-   Two boards: the dial above the rows, centred, with about 42% of what the
-   header leaves, and the rows take the rest. */
+   Two boards: a band across the top, the clock square at the left and the
+   panel filling the rest of the band, then the rows. The band's height is its
+   own track, set from the viewport, because the clock's column cannot be
+   sized from the height of its own row: both come from --band. */
 .boards .board {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 42fr) minmax(0, 58fr) auto auto;
+  --band: 41vh;
+  grid-template-columns: var(--band) minmax(0, 1fr);
+  grid-template-rows: auto auto var(--band) minmax(0, 1fr) auto auto;
+  column-gap: 1.8vw;
   position: relative;
 }
 .boards .board-header { grid-row: 1; grid-column: 1 / -1; }
 .boards .stale { grid-row: 2; grid-column: 1 / -1; }
 .boards .dial { grid-row: 3; grid-column: 1; }
-.boards .rows { grid-row: 4; grid-column: 1; }
+.boards .next { grid-row: 3; grid-column: 2; }
+.boards .rows { grid-row: 4; grid-column: 1 / -1; }
 .boards .messages { grid-row: 5; grid-column: 1 / -1; }
 .boards .weather { grid-row: 6; grid-column: 1 / -1; }
 
-/* One board: the dial left of the rows, square and as tall as the rows area
-   lets it be. The column is sized from the viewport because a grid column
-   cannot be sized from its own row's height; the dial then takes the smaller
-   of that width and whatever height the row ends up with, so it can neither
-   overflow the column nor the rows area. */
+/* One board: the clock on top of the panel in a left column, the rows taking
+   the right. The column is as wide as the clock is tall, so the clock's own
+   row (auto, from its aspect ratio) is square and the panel gets whatever
+   height is left under it. */
 .boards[data-count="1"] .board {
-  --dial-col: min(41vw, 88vh);
-  grid-template-columns: var(--dial-col) minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  --band: 50vh;
+  grid-template-columns: var(--band) minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
   column-gap: 2.4vw;
 }
 .boards[data-count="1"] .dial { grid-row: 3; grid-column: 1; }
-.boards[data-count="1"] .rows { grid-row: 3; grid-column: 2; }
-.boards[data-count="1"] .messages { grid-row: 4; grid-column: 1 / -1; }
-.boards[data-count="1"] .weather { grid-row: 5; grid-column: 1 / -1; }
+.boards[data-count="1"] .next { grid-row: 4; grid-column: 1; }
+.boards[data-count="1"] .rows { grid-row: 3 / 5; grid-column: 2; }
+.boards[data-count="1"] .messages { grid-row: 5; grid-column: 1 / -1; }
+.boards[data-count="1"] .weather { grid-row: 6; grid-column: 1 / -1; }
 
 /* --------------------------------------------------------------- the header */
 
@@ -77,24 +84,18 @@ body {
 
 .stale { color: var(--late); }
 
-/* ------------------------------------------------------------------ the dial
-   .dial is the grid cell and a size container; .dial-face is the square that
-   fits it, itself a container, so everything inside is sized in cqmin of the
-   face and the dial reads the same at any size. */
+/* ------------------------------------------------------------------ the clock
+   .dial is the grid cell, square by construction (--band wide and tall, or
+   its aspect ratio with one board); .dial-face fills it. All of the
+   drawing is SVG in the face's own units, so the clock reads the same at any
+   size, and the only things that move are the hands' transforms. */
 .dial {
-  container-type: size;
+  position: relative;
   min-width: 0;
   min-height: 0;
-  display: grid;
-  place-items: center;
-  margin-top: 1vh;
 }
-.dial-face {
-  position: relative;
-  width: min(100cqw, 100cqh);
-  height: min(100cqw, 100cqh);
-  container-type: size;
-}
+.boards[data-count="1"] .dial { aspect-ratio: 1; }
+.dial-face { position: absolute; inset: 0; }
 .dial svg {
   position: absolute;
   inset: 0;
@@ -103,82 +104,111 @@ body {
   overflow: visible;
 }
 
-.dial-tick { fill: none; stroke: var(--muted); stroke-width: 0.9; }
-.dial-tick-major { stroke: var(--fg); stroke-width: 1.8; }
-
-/* The wait itself, drawn along the ring the markers sit on and under them. */
-.dial-arc {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 4;
-  stroke-linecap: round;
-  opacity: 0.5;
+/* The wall: a faint disc and a ring in the same ivory as the ticks. */
+.dial-bezel {
+  fill: color-mix(in srgb, var(--fg) 5%, transparent);
+  stroke: color-mix(in srgb, var(--fg) 45%, transparent);
+  stroke-width: 1.4;
 }
-
-.dial-hand line { stroke: var(--fg); stroke-width: 2.6; stroke-linecap: round; }
-/* Eased over exactly the second between updates, so it sweeps rather than
-   ticks. Not on first placing, or it would spin in from nought. */
-.dial-hand[data-live] { transition: transform 1s linear; }
-
-.dial-marker circle { fill: var(--fg); }
-.dial-marker[data-kind="next"] circle { fill: var(--accent); }
-.dial-marker[data-kind="late"] circle { fill: var(--late); }
-.dial-marker[data-kind="cancelled"] circle { fill: none; stroke: var(--cancelled); stroke-width: 1.8; }
-.dial-plat {
-  fill: var(--bg);
+.dial-tick { fill: none; stroke: var(--muted); stroke-width: 0.8; }
+.dial-tick-major { stroke: var(--fg); stroke-width: 1.7; }
+.dial-numerals text {
+  fill: var(--fg);
   font-weight: 700;
   text-anchor: middle;
   dominant-baseline: central;
 }
-.dial-marker[data-kind="cancelled"] .dial-plat { fill: var(--cancelled); }
 
-/* The middle of the dial. Padded to the width the tick ring leaves it, so the
-   destination ellipsises inside the ring rather than across it. */
-.dial-centre {
-  position: absolute;
-  inset: 0;
+/* The wait itself, hugging the outside of the bezel under the bars. */
+.dial-arc {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+/* Every train in the hour: one size, no text, colour alone. */
+.dial-bar { fill: var(--fg); }
+.dial-bar[data-kind="next"] { fill: var(--accent); }
+.dial-bar[data-kind="late"] { fill: var(--late); }
+.dial-bar[data-kind="cancelled"] { fill: none; stroke: var(--cancelled); stroke-width: 0.9; }
+
+.dial-hand line { stroke: var(--fg); stroke-linecap: round; }
+.dial-hand-hour line { stroke-width: 4.6; }
+.dial-hand-minute line { stroke-width: 3.2; }
+.dial-hand-second line { stroke: var(--accent); stroke-width: 1.2; }
+/* Eased over exactly the second between updates, so a hand sweeps rather than
+   jumps. Not on first placing, or it would spin in from nought. */
+.dial-hand[data-live] { transition: transform 1s linear; }
+.dial-hub { fill: var(--fg); }
+.dial-hub-dot { fill: var(--accent); }
+
+/* ------------------------------------------------------------- the panel
+   The next train, spelled out. The panel is a size container and everything
+   in it is sized in cqmin of its own box, so it fills the room it is given at
+   either resolution; the destination wraps rather than truncates. */
+.next {
+  container-type: size;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  padding: 0 28cqmin;
-  text-align: center;
-  pointer-events: none;
 }
-.dial-centre > * { max-width: 100%; white-space: nowrap; }
-.dial-label {
-  font-size: 3.9cqmin;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
+.next[data-kind="none"] { visibility: hidden; }
+.next > * { min-width: 0; }
+.next-cancel {
+  font-size: 5.4cqmin;
+  font-weight: 700;
   line-height: 1.2;
+  color: var(--cancelled);
+  margin-bottom: 2.4cqmin;
 }
-.dial-centre[data-label-kind="cancelled"] .dial-label { color: var(--cancelled); font-weight: 700; }
-.dial-count {
+.next-label {
+  font-size: 5.8cqmin;
+  line-height: 1.2;
+  color: var(--muted);
+}
+.next-wait {
   display: flex;
   align-items: baseline;
-  justify-content: center;
-  gap: 1cqmin;
-  font-size: 25cqmin;
+  gap: 2cqmin;
+  margin: 0.4cqmin 0 1.6cqmin;
   font-weight: 700;
   line-height: 0.95;
-  margin: 0.8cqmin 0 1.2cqmin;
 }
-.dial-unit { font-size: 6cqmin; font-weight: 400; color: var(--muted); }
-.dial-unit:empty { display: none; }
-.dial-centre[data-kind="due"] .dial-count { font-size: 17cqmin; }
-.dial-centre[data-kind="time"] .dial-count { font-size: 13.5cqmin; }
-.dial-centre[data-kind="cancelled"] .dial-count { font-size: 8.4cqmin; color: var(--cancelled); }
-.dial-centre[data-kind="delayed"] .dial-count { font-size: 10cqmin; color: var(--late); }
-.dial-place {
-  width: 100%;
-  font-size: 6cqmin;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.next-big { font-size: min(38cqmin, 52cqw); }
+.next-unit { font-size: min(10cqmin, 15cqw); font-weight: 400; color: var(--muted); }
+.next[data-kind="due"] .next-big { font-size: min(29cqmin, 42cqw); }
+.next[data-kind="time"] .next-big { font-size: min(25cqmin, 38cqw); }
+.next[data-kind="delayed"] .next-big { font-size: min(22cqmin, 32cqw); color: var(--late); }
+.next[data-kind="cancelled"] .next-big { font-size: min(17cqmin, 26cqw); color: var(--cancelled); }
+.next-place {
+  font-size: min(10cqmin, 10.5cqw);
+  font-weight: 700;
+  line-height: 1.12;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
 }
-.dial-platform { font-size: 4.4cqmin; line-height: 1.3; color: var(--muted); }
-.dial-label:empty, .dial-place:empty, .dial-platform:empty { display: none; }
+.next-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 2.4cqmin;
+  margin-top: 2.2cqmin;
+  font-size: 6.2cqmin;
+  line-height: 1.3;
+}
+.next-exp { color: var(--late); font-weight: 700; }
+.next[data-kind="cancelled"] .next-place { color: var(--cancelled); }
+.next-then {
+  margin-top: 2.2cqmin;
+  font-size: 5.4cqmin;
+  line-height: 1.25;
+  color: var(--muted);
+}
+.next-cancel:empty, .next-label:empty, .next-unit:empty, .next-place:empty,
+.next-facts span:empty, .next-then:empty { display: none; }
 
 /* --------------------------------------------------------------- the list
    time | destination | platform | status, under a gutter for the chip. */
@@ -202,26 +232,25 @@ body {
 .cell.platform { color: var(--muted); }
 .cell.status { color: var(--fg); }
 
-/* The chip pairs a row with its marker on the rim: the same colour, and
-   hollow for a cancelled train. A train further than the dial shows has no
-   marker, so its chip is faint. */
+/* One slim chip per row, the same shape and colour as that train's bar on the
+   rim: accent for the next, amber for late, hollow for cancelled. A train
+   further off than the rim shows has no bar, so its chip is faint. */
 .row::before {
   content: "";
   position: absolute;
-  left: 0.15em;
+  left: 0.3em;
   top: 50%;
-  width: 0.55em;
-  height: 0.55em;
-  margin-top: -0.275em;
-  border-radius: 50%;
+  width: 0.3em;
+  height: 0.75em;
+  margin-top: -0.375em;
+  border-radius: 0.15em;
   background: var(--fg);
-  border: 0.1em solid var(--fg);
+  border: 0.07em solid var(--fg);
 }
-.row[data-status="expected"]::before,
-.row[data-status="delayed"]::before { background: var(--late); border-color: var(--late); }
-.row[data-status="cancelled"]::before { background: transparent; border-color: var(--cancelled); }
-.row[data-dial="next"]:not([data-status="cancelled"])::before { background: var(--accent); border-color: var(--accent); }
-.row[data-dial="off"]::before { opacity: 0.3; }
+.row[data-dial="late"]::before { background: var(--late); border-color: var(--late); }
+.row[data-dial="cancelled"]::before { background: transparent; border-color: var(--cancelled); }
+.row[data-dial="next"]::before { background: var(--accent); border-color: var(--accent); }
+.row[data-rim="off"]:not([data-dial="next"])::before { opacity: 0.3; }
 
 .row[data-status="expected"] .cell.status,
 .row[data-status="delayed"] .cell.status { color: var(--late); }

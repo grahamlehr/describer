@@ -6,7 +6,7 @@
 ## What this is
 A live departure board for one or two UK National Rail stations, shown full-screen on a 16:9
 monitor attached to a Raspberry Pi 4B. It pulls live data from Rail Data Marketplace (Darwin
-LDBWS), falling back to Realtime Trains, renders it in one of ten themes, and can speak
+LDBWS), falling back to Realtime Trains, renders it in one of twelve themes, and can speak
 platform-style announcements (Piper TTS) as trains approach.
 
 Personal project for a single Pi. Optimise for simplicity and reliability over portability or
@@ -45,7 +45,7 @@ Python: use `.venv/bin/python`, never system `python` or pip. Run the tests and 
 ## Invariants
 - **Secrets**: `.env` (gitignored) or `/etc/describer/describer.env` on the Pi. Never commit, print or log them; `.env.example` lists every variable without values. Never write a key into `config.yaml`. Never log an API key or a full raw response at INFO.
 - **Never spend the RTT allowance on local work**: see External APIs and `docs/rtt-allowance.md`. Not optional.
-- **Offline**: the board must work with no internet. Fonts are self-hosted in `web/static/fonts`, never a CDN. The Pi must boot to the kiosk with no network.
+- **Offline**: the board must work with no internet. Fonts are self-hosted in `web/static/fonts`, never a CDN (licences in `OFL.txt` there). The Pi must boot to the kiosk with no network.
 - **Pi-friendly**: no heavy Python deps (no pandas, numpy). Animate transform/opacity only, or draw on a canvas; avoid CSS filters that force full-screen repaints.
 - **Hardware**: 16:9, target 1920x1080 and also right at 1280x720, landscape only. HDMI audio by default, 3.5 mm jack selectable.
 - **Shutdown button** (GPIO21 to GND, six presses in 10 s) lives in `deploy/shutdown_button.py`: its own system service on system Python, outside the app and venv. Any further gesture on that button goes in that script. `gpiozero` is imported only in `main()`. `conftest.py` replaces `Power` with a tripwire so no test can power off the machine.

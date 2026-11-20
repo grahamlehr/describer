@@ -45,8 +45,10 @@ _Moved from the old CLAUDE.md ("Features"): boards, themes, announcements, sched
    black), one red, on-time trains say nothing (`docs/design/16`).
 9. **linemap**: every train a coloured line leaving the station bar, a tick
    per stop, and a labelled strip map for the next train (`/16`).
-10. **dial**: the next hour on a clock face, a marker per train on the rim
-    and the minutes to the next one in the middle (`/16`).
+10. **dial**: a station clock with a mark on the rim for each train, and
+    the next train spelled out beside it (`/16`, redrawn in `/17`).
+11. **deco**: Art Deco picture palace, gold on black lacquer (`/17`).
+12. **victorian**: a letterpress handbill on aged paper (`/17`).
 
 Themes share one DOM structure and one data model; a theme is a CSS file
 plus an optional JS module. Adding a theme touches no backend code except its

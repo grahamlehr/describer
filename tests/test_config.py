@@ -196,7 +196,7 @@ def test_theme_colours_default_to_the_stylesheet():
     assert set(colours.model_dump().values()) == {None}
 
 
-@pytest.mark.parametrize("theme", ["swiss", "linemap", "dial"])
+@pytest.mark.parametrize("theme", ["swiss", "linemap", "dial", "deco", "victorian"])
 def test_the_newer_themes_are_selectable(theme):
     assert Config(stations=[{"crs": "PAD"}], display={"theme": theme}).display.theme == theme
 

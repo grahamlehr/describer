@@ -17,6 +17,8 @@ network at boot), drop the woff2 files here and add the matching
 | swiss      | Helvetica            | none needed; falls back to Nimbus Sans / Liberation Sans on the Pi |
 | linemap    | Helvetica/Arial      | none needed |
 | dial       | Helvetica/Arial      | none needed |
+| deco       | Limelight, Josefin Sans | `limelight.woff2`, `josefin-sans.woff2` (shipped) |
+| victorian  | Abril Fatface, Old Standard TT, Rye | `abril-fatface.woff2`, `old-standard-{regular,bold,italic}.woff2`, `rye.woff2` (shipped) |
 
 Example, added at the top of `themes/modern.css`:
 
@@ -35,3 +37,8 @@ font keeps the character grid aligned.
 `bedstead.woff2` is included: it is Ben Harris's Bedstead, a public-domain
 (CC0) Teletext face from https://bjh21.me.uk/bedstead/, converted from the
 OTF with fontTools. The 1990s theme declares its `@font-face`.
+
+The `deco` and `victorian` faces are shipped too, because neither theme
+survives a fallback to a plain grotesque. They are the Latin subsets Google
+Fonts serves, fetched once and committed, all under the SIL Open Font
+License 1.1; the licence and each font's copyright notice are in `OFL.txt`.
