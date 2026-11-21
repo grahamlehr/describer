@@ -27,6 +27,9 @@ skyline, the chevrons, the moving glint, and Limelight with them.
 
 ## victorian — a train indicator on a brick wall
 
+_The hang, the grain, the two paged lines of stops and the trailing "via"
+described below were changed by Addendum 19 after a day on the Pi._
+
 Asked for: wooden boards with the calling destinations hung on them, hand
 sign-written, Victorian red brick behind, and the name of the station, with
 the Great Western, the Great Northern and the Southern at their height in

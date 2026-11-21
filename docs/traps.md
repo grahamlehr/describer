@@ -96,6 +96,17 @@ the full story.
   mid-alphabet and page turns stop. Keep the pane displayed when checking
   animation. (`03`)
 
+## Fonts and figures
+
+- **Never use `tabular-nums` with Besley** (victorian). Its tabular zero does
+  not follow the weight axis, so every 0 comes out at regular weight. And
+  `base.css` sets `tabular-nums` on `.clock` itself, so changing it on `body`
+  does not change the clock. Josefin Sans (deco) has no tabular figures at
+  all. Both themes size `board.js`'s `.clock-char` cells instead (`/19`).
+- **Do not re-insert a node that is already in place.** `renderRows` used to
+  `append` every row on every frame; the browser repainted the whole list
+  each time, which a heavy theme on the Pi could not afford (`/19`).
+
 ## Values that live in two places
 
 Change every home, or they drift silently.
