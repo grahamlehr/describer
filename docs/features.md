@@ -54,7 +54,9 @@ _Moved from the old CLAUDE.md ("Features"): boards, themes, announcements, sched
     lists three trains and gives the rest to the stops (`/19`). Its clock is
     a mechanical station dial with a stepping seconds hand (`/21`).
 
-A split screen shows one clock, not one per board, in every theme (`/21`).
+A split screen shows one clock, not one per board, unless
+`display.clock_both` (Display tab, "Clock on both boards") asks for both;
+victorian always has one (`/21`, `/22`).
 
 Themes share one DOM structure and one data model; a theme is a CSS file
 plus an optional JS module. Adding a theme touches no backend code except its

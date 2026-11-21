@@ -811,10 +811,12 @@ async function render() {
 
   const boardEls = ensureBoards(state.boards.length);
   state.boards.forEach((board, index) => {
-    // One clock a screen: on a split screen it is the last board's, which
-    // puts it in the screen's own corner. The others are still written every
-    // tick, hidden, for the themes that read the time back from them.
-    const showClock = state.display.clock && index === state.boards.length - 1;
+    // One clock a screen unless display.clock_both asks for one a board: on a
+    // split screen it is the last board's, which puts it in the screen's own
+    // corner. The others are still written every tick, hidden, for the themes
+    // that read the time back from them.
+    const showClock = state.display.clock
+      && (state.display.clock_both || index === state.boards.length - 1);
     renderBoard(boardEls[index], board, state.stations[index], state.display, state.weather?.[index], showClock);
   });
   syncRowShares(boardEls);

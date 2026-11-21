@@ -124,7 +124,7 @@ body {
    long name was always painted. Its height is fixed in vh because the rows
    below are sized from what is left (Addendum 3), and both halves of a split
    screen must agree. */
-:root { --vc-clock: 17vh; }
+:root { --vc-clock: 26vh; }
 .board-header {
   position: relative;
   grid-template-columns: minmax(0, 1fr);
@@ -168,7 +168,7 @@ body {
   overflow-wrap: normal;
   text-overflow: clip;
   text-align: center;
-  font-size: calc(6.2vh * var(--vc-fit, 1));
+  font-size: calc(8vh * var(--vc-fit, 1));
   font-weight: 800;
   line-height: 1.12;
   letter-spacing: 0.04em;

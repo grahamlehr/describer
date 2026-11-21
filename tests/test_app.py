@@ -141,6 +141,16 @@ def test_config_round_trips_through_the_api(client, tmp_path):
     assert client.get("/api/state").json()["display"]["theme"] == "crt"
 
 
+def test_state_carries_clock_both(client):
+    assert client.get("/api/state").json()["display"]["clock_both"] is False
+
+    config = client.get("/api/config").json()
+    config["display"]["clock_both"] = True
+    client.put("/api/config", json=config)
+
+    assert client.get("/api/state").json()["display"]["clock_both"] is True
+
+
 def test_state_carries_show_calling_times(client):
     assert client.get("/api/state").json()["display"]["show_calling_times"] is False
 

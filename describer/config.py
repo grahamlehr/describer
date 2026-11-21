@@ -222,8 +222,11 @@ ThemeName = Literal[
 class DisplayConfig(BaseModel):
     #: Active theme; switchable live from /admin.
     theme: ThemeName = "modern"
-    #: Show the live clock in each board header.
+    #: Show the live clock.
     clock: bool = True
+    #: On a split screen, show the clock on both boards rather than once.
+    #: victorian ignores it: its one station clock hangs between the boards.
+    clock_both: bool = False
     #: Expand the first row to scroll its calling points.
     show_calling_points: bool = True
     #: Show where the top service is now, worked out from the stops behind it.
@@ -405,6 +408,7 @@ class DisplayOverride(BaseModel):
 
     theme: ThemeName | None = None
     clock: bool | None = None
+    clock_both: bool | None = None
     show_calling_points: bool | None = None
     show_position: bool | None = None
     show_formation: bool | None = None

@@ -100,8 +100,8 @@ the full story.
   `boardsEl.children`, so a theme that adds its own element there has it
   removed or counted as a station. Put it after `.boards` as a sibling
   (victorian's clock) and remove it in `detach`. (`21`)
-- **One clock a screen.** On a split screen `board.js` hides every `.clock`
-  but the last board's. A theme that draws its own from `.clock` must keep
+- **One clock a screen**, unless `display.clock_both`. On a split screen
+  `board.js` otherwise hides every `.clock` but the last board's. A theme that draws its own from `.clock` must keep
   the hidden one's room if its halves are to stay level (thameslink), and
   must not read "this clock is hidden" as "the clock is switched off". (`21`)
 - **`requestAnimationFrame` does not run in a hidden browser pane** and
