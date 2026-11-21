@@ -416,6 +416,28 @@ def test_the_script_is_written_in_parts_that_fit_a_paste(tmp_path, tool):
         tool.main(["--dir", str(tmp_path), "script", "--near", "PAD"])
 
 
+def test_a_voice_with_one_reading_records_each_station_once_and_plays_it_in_both_places(
+    tmp_path, tool
+):
+    args = ["--dir", str(tmp_path), "script", "--near", "PAD", "--km", "3", "--one-reading"]
+    assert tool.main(args) == 0
+    parts = sorted((tmp_path / "script").glob("[0-9][0-9]-*.json"))
+    keys = [key for part in parts[1:] for key, _ in json.loads(part.read_text())]
+    stations = [key for key in keys if key.startswith("s.")]
+    assert stations and all(key.endswith(".mid") for key in stations)
+
+    # ...and whichever reading a pack holds serves the list and the sentence end.
+    core = [clip.key for clip in catalogue.core_clips()]
+    pack = VoicePack(write_pack(tmp_path / "p.zip", [*core, "s.penge-west.end", "s.anerley.mid"]))
+    train = service(
+        destination="Anerley",
+        calling_points=[CallingPoint(name="Penge West"), CallingPoint(name="Anerley")],
+    )
+    plan, _ = build_plan(AnnouncementKind.ARRIVING, train, "departures", pack)
+    assert plan.playable
+    assert "s.penge-west.end" in plan.keys and plan.keys[-1] == "s.anerley.mid"
+
+
 def test_a_recording_is_cut_reviewed_by_hand_and_rebuilt(tmp_path, tool, monkeypatch):
     """cut -> move a cut and reject a clip in review -> cut again -> redo -> build."""
     items = [["s.reading.mid", "Reading,"], ["s.slough.mid", "Slough,"], ["p.and", "and,"]]

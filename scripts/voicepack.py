@@ -158,10 +158,11 @@ def cmd_script(args: argparse.Namespace) -> int:
         else:
             rejected = [c for c in load_cuts(args.dir)["clips"].values() if c.get("rejected")]
             clips = [catalogue.Clip(c["key"], c["text"], label) for c in rejected]
-        # A station is worth having both ways once it is being recorded at all.
+        # A station is worth having both ways once it is being recorded at all,
+        # unless this voice reads a name the same way wherever it falls.
         extra = []
         for clip in clips:
-            if args.topup and clip.key.startswith("s."):
+            if args.topup and clip.key.startswith("s.") and not args.one_reading:
                 stem, other = clip.key.rsplit(".", 1)[0], clip.text.rstrip(",.")
                 extra += [
                     catalogue.Clip(f"{stem}.mid", f"{other},", "topup"),
@@ -204,11 +205,14 @@ def cmd_script(args: argparse.Namespace) -> int:
         core = catalogue.core_clips()
         groups = [("pilot", pilot)]
         groups += _parts(core, "core", args.chars, args.items, separator)
-        for inflection in ("mid", "end"):
+        # One reading stands in for both where the voice makes no difference
+        # between them: the board plays whichever a pack holds.
+        inflections = ("mid",) if args.one_reading else ("mid", "end")
+        for inflection in inflections:
             chosen = [c for c in local_clips if c.key.endswith(inflection)]
             groups += _parts(chosen, f"local-{inflection}", args.chars, args.items, separator)
         groups += _parts(catalogue.reason_clips(), "reasons", args.chars, args.items, separator)
-        for inflection in ("mid", "end"):
+        for inflection in inflections:
             chosen = [c for c in rest_clips if c.key.endswith(inflection)]
             groups += _parts(chosen, f"network-{inflection}", args.chars, args.items, separator)
         number = 0
@@ -512,7 +516,9 @@ def cmd_build(args: argparse.Namespace) -> int:
         "rate": RATE,
         "created": date.today().isoformat(),
         "crs": {
-            crs: slug for crs, slug in catalogue.crs_index().items() if f"s.{slug}.mid" in have
+            crs: slug
+            for crs, slug in catalogue.crs_index().items()
+            if f"s.{slug}.mid" in have or f"s.{slug}.end" in have
         },
     }
     target: Path = args.out or args.dir / "voicepack.zip"
@@ -522,7 +528,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         for path in files:
             archive.write(path, member(path.stem))
     pack = VoicePack(target)
-    stations = sum(1 for key in have if key.startswith("s.") and key.endswith(".mid"))
+    stations = len({key.rsplit(".", 1)[0] for key in have if key.startswith("s.")})
     reasons = sum(1 for key in have if key.startswith("r."))
     print(f"{target}: {len(pack)} clips, {target.stat().st_size / 1e6:.1f} MB")
     print(f"  {stations} stations, {reasons} reasons")
@@ -576,6 +582,12 @@ def main(argv: list[str] | None = None) -> int:
     script.add_argument("--km", type=float, default=20, help="how far around them to record")
     script.add_argument("--board", help="a running board, e.g. http://describer.local:8080")
     script.add_argument("--all-stations", action="store_true", help="every station in Britain")
+    script.add_argument(
+        "--one-reading",
+        action="store_true",
+        help="record each station once, for a voice that reads a name the same in a list "
+        "and at the end of a sentence",
+    )
     script.add_argument("--chars", type=int, default=4500, help="most characters in one part")
     script.add_argument("--items", type=int, default=200, help="most items in one part")
     script.add_argument(

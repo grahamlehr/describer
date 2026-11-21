@@ -17,7 +17,10 @@ keys and pauses and joins them into one WAV; `announce/cutter.py` and
   station say all of them. It is also how the real thing sounds.
 - **Two recordings per station** (`.mid`, `.end`): the voice falls at the end
   of a sentence and not inside a list. One inflection is used for the other
-  only when its twin is missing.
+  only when its twin is missing. That makes a pack with one reading per
+  station a whole pack: ElevenLabs v4 read the comma and full-stop scripts so
+  alike that the first pack holds one (`script --one-reading`). The two keys
+  stay, for a voice that does tell them apart.
 - **Fallback is the whole announcement.** One Piper word inside a recorded
   sentence is worse than either voice. Operator and reason are the exception:
   they are left out, because the sentence stands without them. Everything

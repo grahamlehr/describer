@@ -17,7 +17,7 @@ Everything here runs on the Mac. The Pi only receives the finished
 | Numbers | 60 + 10 | "zero" to "fifty nine" (hours, minutes, platforms, minutes late); "hundred hours", "oh one" to "oh nine" |
 | Platform letters | 16 | A to P ("platform four B") |
 | Operators | 36 | as the feeds name them |
-| Stations | 2 each | once as a list item ("Reading,"), once as the end of a sentence ("Reading.") |
+| Stations | 2 each | once as a list item ("Reading,"), once as the end of a sentence ("Reading."); or once, with `--one-reading` |
 | Reasons | 484 | Darwin's delay and cancellation reasons |
 
 The full list with its wording is `describer/announce/catalogue.py`. The whole
@@ -36,6 +36,10 @@ station, number or phrase hands that announcement to Piper.
 - `--board` also takes every station on a running board's screen, spelled as
   the feed spells it, and uses its top train for the pilot.
 - `--all-stations` adds the rest of the network as later parts.
+- `--one-reading` records each station once instead of twice. Use it when the
+  voice reads "Reading," and "Reading." alike (ElevenLabs v4 does): it halves
+  the station recording, and the board plays the one reading in both places.
+  Record the pilot both ways first and listen before deciding.
 
 It writes `voicepack/script/NN-*.txt` (the text to paste), a `.json` beside
 each (which clip each line is) and `INDEX.md` (sizes). Parts come in order of
