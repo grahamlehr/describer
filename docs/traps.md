@@ -88,6 +88,11 @@ the full story.
   the getty a successful no-op while the kiosk is enabled, and the kiosk has no
   `Conflicts=`. A file check in the image build cannot see any of this: it
   happens on first boot.
+- **`Restart=always` only covers Chromium exiting.** A sad tab, a hung page or
+  an error page leaves the process alive; recovery needs the board's heartbeat
+  and `KioskWatchdog`. A stream being open proves nothing, and only a loopback
+  heartbeat counts. The restart needs the polkit grant, which reaches a Pi only
+  with an update that touches `deploy/`. (`20`)
 - **An SSE stream never ends on its own.** Before a restart,
   `Poller.close_streams()` must run or shutdown waits for systemd to kill it.
   (`13`)
@@ -120,4 +125,5 @@ Change every home, or they drift silently.
 | theme options | the Display tab's HTML; `THEME_OPTIONS` in `admin.js` |
 | a stop's time rules | `stopTime` in `board.js`; its copy in `thameslink.js` |
 | the theme names | `ThemeName` in `config.py`; the radios in `admin.html`; the list in `admin.js` |
+| the heartbeat interval (15 s) and the stale limit (90 s) | `setInterval(heartbeat, 15000)` in `board.js`; `HEARTBEAT_SECONDS` and `STALE` in `kiosk.py` |
 | the backend's port (8080) | `PORT` in `setup.py` (the QR code's address); `--port` in the units, the kiosk URL and `.claude/launch.json` |

@@ -29,6 +29,7 @@ over both.
 | 17 | `dial-redrawn-deco-victorian` | The dial as a real clock, two period themes, shipped fonts |
 | 18 | `deco-simplified-victorian-boards` | deco stripped back; victorian as hung boards on brick; what the research found |
 | 19 | `victorian-speed-and-stops` | victorian made cheaper to paint, three trains and the stops given the room; rows moved only when out of place; clocks in fixed-width cells; Besley's broken tabular zero |
+| 20 | `kiosk-watchdog` | Board heartbeat; the backend restarts a hung or crashed kiosk page; Restart display |
 
 A new feature gets the next number. Write it the way the others are: the
 decision, the reason, the numbers measured, the trap found, and how it was

@@ -23,6 +23,7 @@ from . import credentials, setup
 from .announce.scheduler import AnnouncementScheduler
 from .announce.tts import TtsEngine, TtsError
 from .config import Config, ConfigStore, config_path, load_config
+from .kiosk import KioskError, KioskWatchdog
 from .profiles import next_change
 from .rail.models import Board
 from .rail.poller import Poller
@@ -122,16 +123,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     updater.before_restart = poller.close_streams
     app.state.updater = updater
     app.state.power = Power()
+    app.state.kiosk = KioskWatchdog()
 
     await updater.start()
     poller.version = updater.running
     await announcer.start()
     await poller.start()
     await weather.start()
+    await app.state.kiosk.start()
     log.info("Describer %s ready; config at %s", updater.running or "(unversioned)", path)
     try:
         yield
     finally:
+        await app.state.kiosk.stop()
         await app.state.power.stop()
         await updater.stop()
         await poller.stop()
@@ -215,6 +219,7 @@ async def api_status(request: Request) -> dict:
         "config_path": str(store.path),
         "updates": request.app.state.updater.status(),
         "system": request.app.state.power.status(),
+        "kiosk": request.app.state.kiosk.status(),
         "active_profile": profile.name if profile else None,
         "forced_profile": store.forced_profile,
         "next_profile": upcoming[1] if upcoming else None,
@@ -417,6 +422,24 @@ async def api_power(request: Request, action: Literal["poweroff", "reboot"]) -> 
     except PowerError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"ok": True, "action": action}
+
+
+@app.post("/api/kiosk/heartbeat", status_code=204)
+async def api_kiosk_heartbeat(request: Request) -> Response:
+    """The board page saying its main thread is alive. Not logged: one per 15 s."""
+    host = request.client.host if request.client else None
+    request.app.state.kiosk.heartbeat(host)
+    return Response(status_code=204)
+
+
+@app.post("/api/kiosk/restart")
+async def api_kiosk_restart(request: Request) -> dict:
+    """Restart the kiosk browser a second from now. 409 off a Pi."""
+    try:
+        request.app.state.kiosk.restart_now()
+    except KioskError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"ok": True}
 
 
 @app.post("/api/announce/test")

@@ -63,6 +63,22 @@ async def run_command(args: Sequence[str]) -> None:
         raise PowerError(f"{args[-1]} failed: {lines[-1] if lines else f'exit {proc.returncode}'}")
 
 
+async def query_command(args: Sequence[str]) -> str:
+    """Run ``args`` and return its stdout, whatever the exit code.
+
+    For questions like ``systemctl is-active``, where "no" is a non-zero exit
+    and still an answer. A command that cannot be started returns "".
+    """
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL
+        )
+        out, _err = await asyncio.wait_for(proc.communicate(), TIMEOUT)
+    except (OSError, TimeoutError):
+        return ""
+    return out.decode(errors="replace").strip()
+
+
 class Power:
     """Powers off or reboots, once, and only on a Pi."""
 

@@ -55,6 +55,11 @@ _Moved from the old CLAUDE.md ("Hardware and OS" and "Stack"). Rules summarised 
   `/usr/local/share/describer-cursors` and the unit puts that directory first
   on `XCURSOR_PATH`. The board's `cursor: none` alone is not enough, because
   with no input device no pointer ever enters the window.
+  `Restart=always` only covers Chromium exiting, so the backend also watches
+  for a dead page: the board posts a heartbeat every 15 s and
+  `describer/kiosk.py` restarts `kiosk.service` after 90 s without one (only
+  if the unit is active; backing off to every 10 minutes after three
+  failures). The polkit rule grants that restart (`docs/design/19`).
 - **Frontend**: plain HTML/CSS/JS served by FastAPI. No build step, no
   frameworks, no npm. Themes are CSS + small JS modules. Live updates via
   Server-Sent Events from the backend so the page never polls the API

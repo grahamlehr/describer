@@ -5,8 +5,8 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
+from describer import kiosk, system
 from describer import main as main_module
-from describer import system
 from describer.config import Config, save_config
 from describer.rail import sources as sources_module
 from describer.system import Power, PowerError
@@ -100,11 +100,13 @@ async def test_the_default_command_is_the_tripwire_here(power_tripwire):
 
 
 def test_the_real_default_is_the_only_caller_of_systemctl():
-    """Guards the guard: the module has one place that spawns a process."""
+    """Guards the guard: two places spawn a process, both replaced by conftest."""
     import inspect
 
     source = inspect.getsource(system)
-    assert source.count("create_subprocess_exec") == 1
+    # run_command and query_command, and conftest's tripwire replaces both.
+    assert source.count("create_subprocess_exec") == 2
+    assert "create_subprocess_exec" not in inspect.getsource(kiosk)
     assert "systemctl" in system.COMMANDS["poweroff"]
 
 
