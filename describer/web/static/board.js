@@ -45,10 +45,16 @@ let theme = null;
 let themeName = null;
 /** The import of the current theme's module, so concurrent passes wait for it. */
 let themeLoading = null;
-/** Handed to themes so one can repaint on its own schedule. */
-const themeApi = { render: () => { render(); } };
 /** Clock offset so the board follows the Pi's clock, not the browser's. */
 let clockOffsetMs = 0;
+/**
+ * Handed to themes so one can repaint on its own schedule, and so one that
+ * draws its own clock can time it to the second rather than read `.clock` back.
+ */
+const themeApi = {
+  render: () => { render(); },
+  now: () => new Date(Date.now() + clockOffsetMs),
+};
 
 const SETUP_HEADINGS = {
   no_key: 'Set up your departure board',
@@ -767,11 +773,11 @@ function renderWeather(boardEl, forecast, display) {
   rowsEl.style.setProperty('--weather-share', '1.6');
 }
 
-function renderBoard(boardEl, board, station, display, forecast) {
+function renderBoard(boardEl, board, station, display, forecast, showClock) {
   boardEl.dataset.mode = board.mode;
   boardEl.querySelector('.station-name').textContent = board.name;
   boardEl.querySelector('.board-mode').textContent = MODE_LABELS[board.mode] || board.mode;
-  boardEl.querySelector('.clock').hidden = !display.clock;
+  boardEl.querySelector('.clock').hidden = !showClock;
 
   // Which feed this board came from. Themes may style it or hide it.
   const source = boardEl.querySelector('.source');
@@ -805,7 +811,11 @@ async function render() {
 
   const boardEls = ensureBoards(state.boards.length);
   state.boards.forEach((board, index) => {
-    renderBoard(boardEls[index], board, state.stations[index], state.display, state.weather?.[index]);
+    // One clock a screen: on a split screen it is the last board's, which
+    // puts it in the screen's own corner. The others are still written every
+    // tick, hidden, for the themes that read the time back from them.
+    const showClock = state.display.clock && index === state.boards.length - 1;
+    renderBoard(boardEls[index], board, state.stations[index], state.display, state.weather?.[index], showClock);
   });
   syncRowShares(boardEls);
   theme?.afterRender?.(boardsEl);
@@ -875,7 +885,7 @@ function tickClock() {
  * so the clock does not shuffle sideways as the digits change; `data-sep`
  * marks the colons, which want less. Left unstyled the spans are ordinary
  * inline text, and `.clock`'s textContent is still the time for the themes
- * that read it back (dial, led-matrix, nse).
+ * that read it back (dial, led-matrix, nse, thameslink), hidden or not.
  */
 function paintClock(clock, text) {
   while (clock.childNodes.length > text.length) clock.lastChild.remove();

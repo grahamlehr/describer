@@ -2,8 +2,10 @@
  * victorian theme: a station train indicator on a brick wall.
  *
  * The stylesheet draws the wall, the frame and the boards. This module has
- * five jobs the shared DOM cannot do on its own:
+ * six jobs the shared DOM cannot do on its own:
  *
+ *  - the station clock: one mechanical dial however many boards are up, its
+ *    seconds hand stepping on the second by the Pi's time;
  *  - the wording on the slips hung beside a train (nothing at all when it is
  *    on time, as a hung indicator showed nothing for a train that was right);
  *  - a destination with its "via" painted small on a second line;
@@ -16,7 +18,7 @@
  *    when they will not all fit (the block owns them: board.js hands over the
  *    list, as it does to linemap);
  *  - the header rail's wording, the column headings and a station name fitted
- *    to its board.
+ *    to its board, on two lines when it needs them.
  *
  * Everything added to the page is removed in `detach`: rows and `.rows`
  * outlive a theme switch.
@@ -44,8 +46,16 @@ let observer = null;
 let nameObserver = null;
 /** Counts render passes, so a list nobody asked for in the last one is cleared. */
 let pass = 0;
+/** The dial, its three hands, the angle each is at, and the tick's timer. */
+let clockEl = null;
+let hands = null;
+let clockTimer = null;
+/** board.js's clock, corrected to the Pi's; the browser's until it is handed over. */
+let now = () => new Date();
 
-export function attach() {
+export function attach(boardsEl, options, api) {
+  if (api?.now) now = api.now;
+  buildClock(boardsEl);
   pageTimer = setInterval(turnPages, PAGE_MS);
   // The room for the boards is settled by flex while the stylesheet and the
   // font land, so measure again the moment the block moves rather than on the
@@ -56,7 +66,7 @@ export function attach() {
       if (list) layout(list);
     }
   });
-  // The name's room moves when the clock plate or the board does; refit then,
+  // The name's room moves when the clock or the board does; refit then,
   // not only on the next state frame.
   nameObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
@@ -75,6 +85,13 @@ export function detach() {
   observer = null;
   nameObserver?.disconnect();
   nameObserver = null;
+  clearTimeout(clockTimer);
+  clockTimer = null;
+  clockEl?.remove();
+  clockEl = null;
+  hands = null;
+  now = () => new Date();
+  for (const el of document.querySelectorAll('.boards')) delete el.dataset.vcClock;
   stopLists.clear();
   stops = new WeakMap();
   for (const el of document.querySelectorAll('.vc-columns')) el.remove();
@@ -91,6 +108,7 @@ export function detach() {
   for (const name of document.querySelectorAll('.station-name')) {
     name.style.removeProperty('--vc-fit');
     delete name.dataset.vcFit;
+    name.style.removeProperty('white-space');
   }
 }
 
@@ -315,31 +333,174 @@ function turnPages() {
   }
 }
 
-/* -------------------------------------------------------- station and rails */
+/* -------------------------------------------------------------------- clock */
+
+const SVG = 'http://www.w3.org/2000/svg';
+/** IIII, not IV: the dial painter's four. */
+const NUMERALS = ['XII', 'I', 'II', 'III', 'IIII', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
+
+function svg(tag, attrs, parent) {
+  const el = document.createElementNS(SVG, tag);
+  for (const [name, value] of Object.entries(attrs)) el.setAttribute(name, String(value));
+  parent?.append(el);
+  return el;
+}
+
+/** One hand: an SVG of its own over the face, turned as a whole by CSS. */
+function hand(name, build) {
+  const el = svg('svg', { viewBox: '0 0 200 200', class: `vc-hand vc-hand-${name}`, 'aria-hidden': 'true' });
+  build(el);
+  return el;
+}
 
 /**
- * Shrinks the station name just enough to fit its board. The name is painted in
- * heavy capitals at a fixed height, and "London St Pancras International" does
- * not fit half a screen at that size; wrapping would cost a second line of
- * height the rows need, so it is scaled instead, never below a floor where it
+ * The dial is built once and never repainted: case, bezel, enamel, minute
+ * track and numerals in one SVG. The numerals stand on the centre, so those
+ * round the foot of the dial are upside down, as on any Roman dial.
+ */
+function buildClock(boardsEl) {
+  clockEl = document.createElement('div');
+  clockEl.className = 'vc-clock';
+  clockEl.dataset.vcSetting = '';
+
+  const face = svg('svg', { viewBox: '0 0 200 200', 'aria-hidden': 'true' }, clockEl);
+  // Turned mahogany case: three flat rings, then the brass bezel.
+  svg('circle', { cx: 100, cy: 100, r: 100, fill: '#2a170d' }, face);
+  svg('circle', { cx: 100, cy: 100, r: 97, fill: '#5b3a24' }, face);
+  svg('circle', { cx: 100, cy: 100, r: 92.5, fill: '#3b2415' }, face);
+  svg('circle', { cx: 100, cy: 100, r: 90, fill: '#6a4429' }, face);
+  svg('circle', { cx: 100, cy: 100, r: 85.5, fill: '#7d6224' }, face);
+  svg('circle', { cx: 100, cy: 100, r: 84.5, fill: '#b8923f' }, face);
+  svg('circle', { cx: 100, cy: 100, r: 81.5, fill: '#4a3910' }, face);
+  svg('circle', { cx: 100, cy: 100, r: 80.5, fill: '#f6efdc' }, face);
+  // Minute track: two fine rings with a stroke a minute, heavier at the fives.
+  svg('circle', { cx: 100, cy: 100, r: 76, fill: 'none', stroke: '#1a1612', 'stroke-width': 0.9 }, face);
+  svg('circle', { cx: 100, cy: 100, r: 69, fill: 'none', stroke: '#1a1612', 'stroke-width': 0.9 }, face);
+  for (let i = 0; i < 60; i += 1) {
+    const five = i % 5 === 0;
+    svg('line', {
+      x1: 100, y1: 24, x2: 100, y2: 31,
+      stroke: '#1a1612', 'stroke-width': five ? 3 : 0.9,
+      transform: `rotate(${i * 6} 100 100)`,
+    }, face);
+  }
+  NUMERALS.forEach((numeral, i) => {
+    const text = svg('text', {
+      x: 100, y: 52, 'text-anchor': 'middle', 'font-size': 19,
+      // Tall and narrow, as painted numerals are; VIII is the widest.
+      textLength: numeral.length > 3 ? 27 : numeral.length * 6.6 + (/[VX]/.test(numeral) ? 5 : 0),
+      lengthAdjust: 'spacingAndGlyphs',
+      transform: `rotate(${i * 30} 100 100)`,
+    }, face);
+    text.textContent = numeral;
+  });
+  svg('circle', { cx: 100, cy: 100, r: 30, fill: 'none', stroke: '#1a1612', 'stroke-width': 0.6 }, face);
+
+  const blued = '#141c2c';
+  const hour = hand('hour', (el) => {
+    svg('path', { fill: blued, d: 'M97.4 112 L97.9 71 C86 71 85 60 100 46 C115 60 114 71 102.1 71 L102.6 112 Z' }, el);
+  });
+  const minute = hand('minute', (el) => {
+    svg('path', { fill: blued, d: 'M98.1 114 L98.7 50 C92.5 50 92 42 100 25 C108 42 107.5 50 101.3 50 L101.9 114 Z' }, el);
+  });
+  const second = hand('second', (el) => {
+    svg('path', { fill: '#1a1612', d: 'M99.3 100 L99.75 25 L100.25 25 L100.7 100 L101.2 124 L98.8 124 Z' }, el);
+    svg('circle', { cx: 100, cy: 118, r: 3.6, fill: '#1a1612' }, el);
+    // The brass boss the hands turn on.
+    svg('circle', { cx: 100, cy: 100, r: 4.2, fill: '#7d6224' }, el);
+    svg('circle', { cx: 100, cy: 100, r: 2.6, fill: '#b8923f' }, el);
+  });
+  clockEl.append(hour, minute, second);
+  hands = { hour: { el: hour, angle: 0 }, minute: { el: minute, angle: 0 }, second: { el: second, angle: 0 } };
+
+  // After .boards, not in it: board.js counts .boards' children as boards.
+  boardsEl.after(clockEl);
+  tick();
+}
+
+/** Turn a hand to an angle by the shorter way round, so it never runs back. */
+function turn(part, degrees) {
+  const delta = ((((degrees - part.angle) % 360) + 540) % 360) - 180;
+  if (Math.abs(delta) < 0.01 && part.el.style.transform) return;
+  part.angle += delta;
+  part.el.style.transform = `rotate(${part.angle.toFixed(2)}deg)`;
+}
+
+/**
+ * One beat. The seconds hand steps on the second; the minute hand creeps, a
+ * tenth of a degree a second, and the hour hand with it, as a going train
+ * moves them. Timed from the clock itself rather than an interval, so the
+ * step lands on the second and does not drift.
+ */
+function tick() {
+  if (!clockEl || !hands) return;
+  const time = now();
+  const seconds = time.getSeconds();
+  const minutes = time.getMinutes() + seconds / 60;
+  const hours = (time.getHours() % 12) + minutes / 60;
+  turn(hands.second, seconds * 6);
+  turn(hands.minute, minutes * 6);
+  turn(hands.hour, hours * 30);
+  if ('vcSetting' in clockEl.dataset) {
+    // Placed without a transition; the next beat is the first to swing.
+    void clockEl.offsetWidth;
+    delete clockEl.dataset.vcSetting;
+  }
+  clockTimer = setTimeout(tick, 1000 - time.getMilliseconds() + 4);
+}
+
+/* -------------------------------------------------------- station and rails */
+
+/** No name is painted smaller than this share of the full size. */
+const NAME_FLOOR = 0.4;
+/** A name that fits one line at this share of full size or more is not wrapped. */
+const ONE_LINE_FLOOR = 0.85;
+
+/**
+ * Fits the station name to its board. It is painted in heavy capitals, on one
+ * line if a squeeze of no more than 15% gets it there, and otherwise
+ * takes a second line ("London St Pancras / International"),
+ * as a running-in board did. Only when two lines at full size are still not
+ * enough is it scaled down, a step at a time, never below a floor where it
  * would stop being a headline. --vc-fit is a multiplier read by victorian.css.
- * Measured again only when the name, the width or the font changes.
+ * Measured again only when the name, its room or the font changes.
  */
 function fitStationName(board) {
   const name = board.querySelector('.station-name');
-  if (!name) return;
-  const key = `${name.textContent}|${name.clientWidth}|${document.fonts?.status}`;
+  const header = board.querySelector('.board-header');
+  if (!name || !header) return;
+  const key = `${name.textContent}|${header.clientWidth}|${header.clientHeight}|${document.fonts?.status}`;
   if (name.dataset.vcFit === key) return;
+  const fits = () => {
+    const lineHeight = parseFloat(getComputedStyle(name).lineHeight) || 1;
+    // clientHeight, not scrollHeight: Besley's ink overhangs its line box.
+    return name.clientHeight <= lineHeight * 2 + 1 && name.scrollWidth <= name.clientWidth + 1;
+  };
+  let fit = 1;
   name.style.setProperty('--vc-fit', '1');
-  const room = name.clientWidth;
-  const need = name.scrollWidth;
-  if (room > 0 && need > room) {
-    name.style.setProperty('--vc-fit', String(Math.max(0.3, (room / need) * 0.97)));
+  // One line is better than two where a small squeeze gets it: measure the
+  // name unwrapped first.
+  name.style.whiteSpace = 'nowrap';
+  const squeeze = name.scrollWidth > name.clientWidth ? (name.clientWidth / name.scrollWidth) * 0.98 : 1;
+  if (squeeze >= ONE_LINE_FLOOR) {
+    name.style.setProperty('--vc-fit', Math.min(1, squeeze).toFixed(2));
+    name.dataset.vcFit = key;
+    return;
+  }
+  name.style.removeProperty('white-space');
+  while (name.clientWidth > 0 && !fits() && fit > NAME_FLOOR) {
+    fit = Math.max(NAME_FLOOR, fit - 0.05);
+    name.style.setProperty('--vc-fit', fit.toFixed(2));
   }
   name.dataset.vcFit = key;
 }
 
 export function afterRender(boardsEl) {
+  // board.js hides its own clock when display.clock is off; the dial follows,
+  // and the nameboards take back the room they left for it.
+  const clockOn = boardsEl.querySelector('.clock:not([hidden])') ? '1' : '0';
+  if (boardsEl.dataset.vcClock !== clockOn) boardsEl.dataset.vcClock = clockOn;
+
   for (const board of boardsEl.querySelectorAll('.board')) {
     const rows = board.querySelector('.rows');
     if (!rows) continue;
@@ -373,8 +534,8 @@ export function afterRender(boardsEl) {
       if (cell.textContent !== labels[i]) cell.textContent = labels[i];
     });
     fitStationName(board);
-    const name = board.querySelector('.station-name');
-    if (name) nameObserver?.observe(name);
+    const header = board.querySelector('.board-header');
+    if (header) nameObserver?.observe(header);
   }
 
   // board.js does not say when the top train has no stops: it empties the list
