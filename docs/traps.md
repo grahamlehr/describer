@@ -124,6 +124,7 @@ Change every home, or they drift silently.
 | profile time windows | `in_window` in `profiles.py`; `coversMinute` in `admin.js` |
 | theme options | the Display tab's HTML; `THEME_OPTIONS` in `admin.js` |
 | a stop's time rules | `stopTime` in `board.js`; its copy in `thameslink.js` |
+| announcement wording | `phrasing.py` (Piper's text); `PHRASES` in `catalogue.py` and `build_plan` in `clips.py` (recorded clips). `test_clips.py` fails when they part |
 | the theme names | `ThemeName` in `config.py`; the radios in `admin.html`; the list in `admin.js` |
 | the heartbeat interval (15 s) and the stale limit (90 s) | `setInterval(heartbeat, 15000)` in `board.js`; `HEARTBEAT_SECONDS` and `STALE` in `kiosk.py` |
 | the backend's port (8080) | `PORT` in `setup.py` (the QR code's address); `--port` in the units, the kiosk URL and `.claude/launch.json` |

@@ -1114,6 +1114,68 @@ function showKiosk(kiosk) {
   el.textContent = `Display: ${beat}${restarts}${kiosk.error ? `. ${kiosk.error}` : ''}`;
 }
 
+function renderVoicePack(pack) {
+  const box = document.getElementById('voice-pack-status');
+  const remove = document.getElementById('voice-pack-remove');
+  if (!box || !pack) return;
+  const parts = [];
+  parts.push(pack.installed
+    ? `${escapeHtml(pack.name || 'Voice pack')}: ${pack.clips} clips, made ${escapeHtml(pack.created || 'at an unknown date')}`
+    : 'No voice pack installed. Piper speaks.');
+  if (pack.error) parts.push(bad(escapeHtml(pack.error)));
+  const missing = pack.missing || [];
+  if (missing.length) {
+    parts.push(`<details><summary>${missing.length} clips were wanted and not in the pack</summary>
+      <ul>${missing.map((m) => `<li>${escapeHtml(m.text)}</li>`).join('')}</ul>
+      <p>Record them with: <code>scripts/voicepack.py script --topup ${escapeHtml(location.origin)}</code></p></details>`);
+  }
+  box.innerHTML = parts.join('<br>');
+  remove.hidden = !pack.installed;
+}
+
+async function voicePackRequest(method, body, button, busyLabel) {
+  const label = button.textContent;
+  button.disabled = true;
+  if (busyLabel) button.textContent = busyLabel;
+  try {
+    const response = await fetch('/api/voicepack', {
+      method,
+      headers: body ? { 'Content-Type': 'application/zip' } : {},
+      body,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      showMessage(formatErrors(data.detail || `Voice pack request failed (${response.status}).`), false);
+    } else {
+      showMessage(method === 'PUT' ? 'Voice pack installed.' : 'Voice pack removed.', true);
+    }
+  } catch (error) {
+    showMessage(`Voice pack request failed: ${error}`, false);
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+    loadStatus();
+  }
+}
+
+const voicePackFile = document.getElementById('voice-pack-file');
+// Choosing a file changes nothing the main Save writes: keep it from marking the form unsaved.
+for (const type of ['input', 'change']) {
+  voicePackFile.addEventListener(type, (event) => event.stopPropagation());
+}
+document.getElementById('voice-pack-install').addEventListener('click', (event) => {
+  const file = voicePackFile.files[0];
+  if (!file) {
+    showMessage('Choose a voice pack .zip first.', false);
+    return;
+  }
+  voicePackRequest('PUT', file, event.currentTarget, 'Uploading…').then(() => { voicePackFile.value = ''; });
+});
+document.getElementById('voice-pack-remove').addEventListener('click', (event) => {
+  if (!confirm('Remove the installed voice pack? Piper will speak instead.')) return;
+  voicePackRequest('DELETE', null, event.currentTarget);
+});
+
 async function loadStatus() {
   try {
     const status = await (await fetch('/api/status')).json();
@@ -1144,6 +1206,9 @@ async function loadStatus() {
       <dt>Piper</dt><dd>${flag(status.tts.piper, status.tts.piper ? 'found' : 'not found')}
         ${flag(status.tts.voice, status.tts.voice ? 'voice ok' : 'voice missing')}
         ${flag(Boolean(status.tts.player), status.tts.player || 'no player')}</dd>
+      <dt>Recorded voice</dt><dd>${status.voice_pack && status.voice_pack.installed
+        ? ok(`${escapeHtml(status.voice_pack.name || 'voice pack')}, ${status.voice_pack.clips} clips`)
+        : pill('', 'none')}</dd>
       <dt>Last announcement</dt><dd>${status.last_announcement || '—'}</dd>
       <dt>Boards</dt><dd>${boards || '—'}</dd>
       <dt>Config file</dt><dd><code>${status.config_path}</code></dd>`;
@@ -1152,6 +1217,7 @@ async function loadStatus() {
         ${status.weather.locations} location${status.weather.locations === 1 ? '' : 's'} tracked</dd>
       <dt>Last forecast fetch</dt><dd>${formatTime(status.weather.last_fetch)}</dd>
       <dt>Last weather error</dt><dd>${status.weather.last_error ? bad(status.weather.last_error) : ok('none')}</dd>`;
+    renderVoicePack(status.voice_pack);
     document.getElementById('force-source').value = status.forced_source || 'auto';
     document.getElementById('force-profile').value = status.forced_profile || '';
 

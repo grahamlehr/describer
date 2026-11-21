@@ -17,6 +17,7 @@ import wave
 from pathlib import Path
 
 from ..config import AnnouncementsConfig
+from .clips import Part, RecordedVoice, VoicePackError
 
 log = logging.getLogger(__name__)
 
@@ -84,9 +85,12 @@ class TtsEngine:
     def __init__(self, config: AnnouncementsConfig) -> None:
         self._config = config
         self._lock = asyncio.Lock()
+        #: The recorded voice, when a pack is installed. Piper is the fallback.
+        self.recorded = RecordedVoice(config)
 
     def update_config(self, config: AnnouncementsConfig) -> None:
         self._config = config
+        self.recorded.update_config(config)
 
     # -- availability ------------------------------------------------------
 
@@ -172,16 +176,38 @@ class TtsEngine:
         if process.returncode:
             raise TtsError(f"Playback failed: {stderr.decode(errors='replace').strip()[:200]}")
 
+    async def _chime(self, audio_device: str | None) -> None:
+        if not self._config.chime:
+            return
+        chime = Path(self._config.cache_dir) / f"chime-{self._config.volume:.2f}.wav"
+        if not chime.exists():
+            write_chime(chime, self._config.volume)
+        try:
+            await self.play_file(chime, audio_device)
+        except TtsError as exc:
+            log.warning("Chime failed: %s", exc)
+
     async def speak(self, text: str, audio_device: str | None = None) -> None:
         """Chime (if enabled) then speak. Serialised against other calls."""
         async with self._lock:
-            if self._config.chime:
-                chime = Path(self._config.cache_dir) / f"chime-{self._config.volume:.2f}.wav"
-                if not chime.exists():
-                    write_chime(chime, self._config.volume)
-                try:
-                    await self.play_file(chime, audio_device)
-                except TtsError as exc:
-                    log.warning("Chime failed: %s", exc)
+            await self._chime(audio_device)
             clip = await self.synthesize(text)
+            await self.play_file(clip, audio_device)
+
+    async def speak_clips(self, parts: list[Part], audio_device: str | None = None) -> None:
+        """Chime, then a plan in the recorded voice. Serialised with ``speak``.
+
+        One file, overwritten each time: a joined announcement is cheap to
+        make again and every one is different, so there is nothing to cache.
+        """
+        pack = self.recorded.pack()
+        if pack is None:
+            raise TtsError("No voice pack installed")
+        async with self._lock:
+            await self._chime(audio_device)
+            target = Path(self._config.cache_dir) / "recorded-announcement.wav"
+            try:
+                clip = await asyncio.to_thread(pack.render, parts, target, self._config.volume)
+            except (VoicePackError, OSError, KeyError, wave.Error) as exc:
+                raise TtsError(f"Voice pack failed: {exc}") from exc
             await self.play_file(clip, audio_device)

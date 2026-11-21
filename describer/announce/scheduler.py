@@ -9,10 +9,12 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from ..config import Config, StationConfig
 from ..rail.models import Board, Service, ServiceStatus
+from .clips import Part
 from .phrasing import AnnouncementKind, build_text
 from .tts import TtsEngine, TtsError
 
@@ -31,12 +33,31 @@ MAX_QUEUE = 8
 FORGET_AFTER = timedelta(minutes=30)
 
 
+#: The /admin test button's words, which a voice pack carries as one clip.
+TEST_TEXT = "This is a test announcement from the departure board."
+
+
+@dataclass(frozen=True)
+class Announcement:
+    """One thing to say: the words, and what they were made from.
+
+    The service rides along so the recorded voice can plan its clips when the
+    announcement is spoken, against whichever pack is installed by then.
+    """
+
+    text: str
+    kind: AnnouncementKind | None = None
+    service: Service | None = None
+    mode: str = "departures"
+    max_calling_points: int = 8
+
+
 class AnnouncementScheduler:
     def __init__(self, engine: TtsEngine) -> None:
         self._engine = engine
         #: (train, event) -> when that train was last seen on a board.
         self._announced: dict[tuple[str, str], datetime] = {}
-        self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=MAX_QUEUE)
+        self._queue: asyncio.Queue[Announcement] = asyncio.Queue(maxsize=MAX_QUEUE)
         self._worker: asyncio.Task[None] | None = None
         self.last_spoken: str | None = None
         self.last_spoken_at: datetime | None = None
@@ -114,16 +135,24 @@ class AnnouncementScheduler:
                         board.mode,
                         max_calling_points=config.announcements.max_calling_points,
                     )
-                    self._enqueue(text)
+                    self._enqueue(
+                        Announcement(
+                            text,
+                            kind,
+                            service,
+                            board.mode,
+                            config.announcements.max_calling_points,
+                        )
+                    )
 
         self._prune(now)
 
-    def _enqueue(self, text: str) -> None:
+    def _enqueue(self, announcement: Announcement) -> None:
         try:
-            self._queue.put_nowait(text)
-            log.info("Queued announcement: %s", text[:80])
+            self._queue.put_nowait(announcement)
+            log.info("Queued announcement: %s", announcement.text[:80])
         except asyncio.QueueFull:
-            log.warning("Announcement queue full; dropping: %s", text[:60])
+            log.warning("Announcement queue full; dropping: %s", announcement.text[:60])
 
     def _prune(self, now: datetime) -> None:
         """Forget services no board has shown for a while.
@@ -137,10 +166,42 @@ class AnnouncementScheduler:
 
     # -- speaking ----------------------------------------------------------
 
-    async def say(self, text: str, audio_device: str | None = None) -> None:
-        """Speak immediately (used by the test buttons on /admin and /setup)."""
-        await self._engine.speak(text, audio_device)
-        self.last_spoken = text
+    def _clips(self, announcement: Announcement) -> list[Part] | None:
+        """The announcement as recorded clips, or None when Piper should speak it."""
+        recorded = getattr(self._engine, "recorded", None)
+        if recorded is None:
+            return None
+        if announcement.kind is None or announcement.service is None:
+            pack = recorded.pack()
+            if pack is not None and announcement.text == TEST_TEXT and pack.has("p.test"):
+                return ["p.test"]
+            return None
+        plan = recorded.plan(
+            announcement.kind,
+            announcement.service,
+            announcement.mode,
+            announcement.max_calling_points,
+        )
+        return plan.parts if plan else None
+
+    async def say(self, what: str | Announcement, audio_device: str | None = None) -> None:
+        """Speak immediately (used by the test buttons on /admin and /setup).
+
+        The recorded voice speaks when it has every clip the announcement
+        needs; otherwise, or if it fails, Piper does.
+        """
+        announcement = what if isinstance(what, Announcement) else Announcement(what)
+        parts = self._clips(announcement)
+        spoken = False
+        if parts:
+            try:
+                await self._engine.speak_clips(parts, audio_device)
+                spoken = True
+            except TtsError as exc:
+                log.warning("%s; Piper speaks this one", exc)
+        if not spoken:
+            await self._engine.speak(announcement.text, audio_device)
+        self.last_spoken = announcement.text
         self.last_spoken_at = datetime.now().astimezone()
 
     async def _run(self) -> None:

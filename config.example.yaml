@@ -114,6 +114,8 @@ announcements:
   chime: true               # two-tone chime before each announcement
   announce_delays: true     # announce delays as they appear
   announce_cancellations: true  # announce cancellations with the standard apology
+  use_voice_pack: true      # speak in the recorded voice when a voice pack is installed
+  voice_pack: voicepack.zip # the voice pack (recorded clips); Piper speaks when it is absent
   max_calling_points: 8     # calling points read out before the final destination
 
 schedule:
