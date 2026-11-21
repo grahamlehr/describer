@@ -27,6 +27,7 @@ over both.
 | 15 | `weather` | Open-Meteo strip on modern and thameslink |
 | 16 | `swiss-linemap-dial` | Three more themes, the `renderRow` hook, the mock board |
 | 17 | `dial-redrawn-deco-victorian` | The dial as a real clock, two period themes, shipped fonts |
+| 18 | `deco-simplified-victorian-boards` | deco stripped back; victorian as hung boards on brick; what the research found |
 
 A new feature gets the next number. Write it the way the others are: the
 decision, the reason, the numbers measured, the trap found, and how it was

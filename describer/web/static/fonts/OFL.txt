@@ -2,26 +2,14 @@ The fonts in this directory other than bedstead.woff2 are licensed under the
 SIL Open Font License, Version 1.1. They are the Latin subsets Google Fonts
 serves, unmodified. Their copyright notices:
 
-Limelight (limelight.woff2)
-  Copyright (c) 2011 by Sorkin Type Co (www.sorkintype.com),
-  with Reserved Font Name "Limelight".
-
 Josefin Sans (josefin-sans.woff2)
   Copyright 2010 The Josefin Sans Project Authors
   (https://github.com/ThomasJockin/JosefinSansFont-master),
   with Reserved Font Name "Josefin Sans".
 
-Abril Fatface (abril-fatface.woff2)
-  Copyright (c) 2011, TypeTogether (www.type-together.com),
-  with Reserved Font Names "Abril" and "Abril Fatface".
-
-Old Standard TT (old-standard-regular.woff2, old-standard-bold.woff2,
-old-standard-italic.woff2)
-  Copyright 2011 The Old Standard Project Authors.
-
-Rye (rye.woff2)
-  Copyright (c) 2011 by Sorkin Type Co (www.sorkintype.com),
-  with Reserved Font Name "Rye".
+Besley (besley.woff2)
+  Copyright 2020 The Besley Project Authors
+  (https://github.com/indestructible-type/Besley)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

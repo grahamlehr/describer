@@ -17,8 +17,8 @@ network at boot), drop the woff2 files here and add the matching
 | swiss      | Helvetica            | none needed; falls back to Nimbus Sans / Liberation Sans on the Pi |
 | linemap    | Helvetica/Arial      | none needed |
 | dial       | Helvetica/Arial      | none needed |
-| deco       | Limelight, Josefin Sans | `limelight.woff2`, `josefin-sans.woff2` (shipped) |
-| victorian  | Abril Fatface, Old Standard TT, Rye | `abril-fatface.woff2`, `old-standard-{regular,bold,italic}.woff2`, `rye.woff2` (shipped) |
+| deco       | Josefin Sans         | `josefin-sans.woff2` (shipped) |
+| victorian  | Besley (a Clarendon) | `besley.woff2` (shipped) |
 
 Example, added at the top of `themes/modern.css`:
 

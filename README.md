@@ -449,8 +449,8 @@ Weather data by [Open-Meteo.com](https://open-meteo.com/), licensed
 | `swiss`     | International Typographic Style: one grotesque in two weights, black on white with a single red, hairline rules. An on-time train says nothing; a late one says `+4′`. |
 | `linemap`   | Every train drawn as a line on a map: a coloured route leaves the station bar with a tick for each stop, as long as the journey is, and the next train gets a labelled strip map with the train's own position on it. |
 | `dial`      | A station clock that tells the time, with a mark on its rim for each train at the minute it leaves, and the next train spelled out beside it. |
-| `deco`      | A 1930s picture palace: black lacquer and gold, a sunburst marquee, stepped frames, Limelight numerals. |
-| `victorian` | A letterpress railway handbill: aged paper, a different typeface on every line, dotted leaders, a pointing hand at the next train, and trains that are "Punctual". |
+| `deco`      | Art Deco by restraint: ivory geometric type on soft black, generous spacing and one fine double gold rule. Only trouble takes colour. |
+| `victorian` | A station train indicator on a red brick wall: each train a sign-written black board hung in a timber frame, the next train's calling points hung beneath it as little boards of their own, under the station's nameboard. |
 
 `swiss` has one option, `display.themes.swiss.ground` (`light` or `dark`): white on
 black for a room that is dark. `linemap`, `dial`, `deco` and `victorian` have none.

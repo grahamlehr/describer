@@ -70,13 +70,8 @@ def test_the_fonts_a_theme_cannot_do_without_are_shipped(client):
     """The board must work offline, so a theme's faces come from the Pi itself."""
     fonts = (
         "bedstead",
-        "limelight",
         "josefin-sans",
-        "abril-fatface",
-        "old-standard-regular",
-        "old-standard-bold",
-        "old-standard-italic",
-        "rye",
+        "besley",
     )
     for font in fonts:
         assert client.get(f"/static/fonts/{font}.woff2").status_code == 200, font
