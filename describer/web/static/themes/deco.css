@@ -103,9 +103,16 @@ body {
   font-size: 3.6vh;
   font-weight: 300;
   line-height: 1.2;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
+  white-space: nowrap;
   color: var(--fg);
 }
+/* Josefin Sans has no fixed-width figures (its 1 is half as wide as its 0),
+   so tabular-nums does nothing and the clock used to shuffle sideways every
+   second. board.js writes one span per character; each gets the width of the
+   widest digit, and the colons less. */
+.clock .clock-char { display: inline-block; width: 0.68em; text-align: center; }
+.clock .clock-char[data-sep] { width: 0.3em; }
 .boards[data-count="1"] .clock { font-size: 4.4vh; }
 .clock[hidden] { display: none; }
 

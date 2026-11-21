@@ -3,16 +3,19 @@
    The board is drawn as the thing a station joiner and a signwriter made: a
    timber frame fixed to a red-brick wall, a black running-in board above it
    carrying the station name, and in the frame one painted finger board hung
-   on brass hooks for every train. The porter changed the boards by hand, so
-   each hangs a hair off true, and a delay is a slip he has tacked on beside
-   it. Calling points are small boards of their own on a rail under the next
-   train. Colours follow the Great Western's light and dark stone for the
-   woodwork, black boards with cream lettering, and a little enamel blue.
+   on brass hooks for every train. Each board is a hair off black, and a delay
+   is a slip tacked on beside it. Calling points are small boards of their own
+   on a rail under the next train. Colours follow the Great Western's light and
+   dark stone for the woodwork, black boards with cream lettering, and a
+   little enamel blue.
 
-   Everything is flat colour, static gradients and hard shadows: no filters,
-   no blur, no blend modes, nothing that forces a full-screen repaint on the
-   Pi. The only image is the brick tile, an SVG data URI used as a background
-   (base.css draws its weather icons the same way); nothing is a file.
+   Built to be cheap to paint on the Pi: flat colour and hard, unblurred
+   shadows, no rotation, no filters, no blur, no blend modes and no animation.
+   The wall is one flat colour under a brick tile (an SVG data URI used as a
+   background, as base.css draws its weather icons), the frame is flat stone
+   with plank seams, and the only gradients left are the brass pins, the
+   plank seams, the rail under the stops and the small, static iron column.
+   The clock ticks every second, so it has a compositor layer of its own.
 
    All the texture lives behind the boards. Nothing is ever lettered on brick
    or on grain: every word sits on a black board, a stone slip or enamel. */
@@ -62,7 +65,10 @@ body {
   color: var(--cream);
   font-family: Besley, Georgia, "DejaVu Serif", serif;
   font-weight: 700;
-  font-variant-numeric: lining-nums tabular-nums;
+  /* Never turn on tabular figures with Besley: its tabular zero ignores the weight axis
+     and is drawn at regular weight among bold digits. The clock gets a fixed
+     width from per-character boxes instead (see .clock-char). */
+  font-variant-numeric: lining-nums;
 }
 
 /* ------------------------------------------------------------------- wall */
@@ -74,15 +80,13 @@ body {
    57px high on a 1080p screen. Mortar is pale lime at half strength over the
    base brick colour, so the joints are quiet. The tile lives in the SVG, where
    a custom property cannot reach, so the six clay colours are written there.
-   Two gradients over it darken alternate courses a touch and the foot of the
-   wall, so the brick has some depth without any contrast to fight a board. */
+   The wall is the tile over one flat colour and nothing else: any gradient
+   over a full-screen area is repainted by the Pi's raster. */
 .board {
   --board-pad-x: 1.3vw;
   --board-pad-y: 1.4vh;
   position: relative;
   background:
-    linear-gradient(to bottom, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.28)),
-    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.07) 0 3.2vh, rgba(0, 0, 0, 0) 3.2vh 6.4vh),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 480 64' preserveAspectRatio='none'%3E%3Crect width='480' height='64' fill='%23c8b89c' fill-opacity='.5'/%3E%3Cg%3E%3Crect x='1.6' y='1.6' width='92.8' height='28.8' rx='1.5' fill='%238a3b2a'/%3E%3Crect x='97.6' y='1.6' width='92.8' height='28.8' rx='1.5' fill='%237a3224'/%3E%3Crect x='193.6' y='1.6' width='92.8' height='28.8' rx='1.5' fill='%2396452f'/%3E%3Crect x='289.6' y='1.6' width='92.8' height='28.8' rx='1.5' fill='%23833626'/%3E%3Crect x='385.6' y='1.6' width='92.8' height='28.8' rx='1.5' fill='%238f3f2c'/%3E%3Crect x='-46.4' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%23823527'/%3E%3Crect x='49.6' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%239a4a33'/%3E%3Crect x='145.6' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%237a3224'/%3E%3Crect x='241.6' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%238a3b2a'/%3E%3Crect x='337.6' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%23702d20'/%3E%3Crect x='433.6' y='33.6' width='92.8' height='28.8' rx='1.5' fill='%23823527'/%3E%3C/g%3E%3C/svg%3E")
       0 0 / 48vh 6.4vh repeat,
     var(--brick-b);
@@ -160,15 +164,25 @@ body {
   grid-row: 1;
   align-self: center;
   justify-self: end;
-  /* A fixed width, so the station name's room does not move as the digits
-     change (or before the first tick has filled it). */
-  min-width: 17vh;
+  /* A fixed box, so the station name's room does not move as the digits
+     change (or before the first tick has filled it). It ticks every second,
+     so it gets its own compositor layer and the wall and nameboard under it
+     are never re-rastered. */
+  width: 19vh;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  contain: layout paint;
+  will-change: transform;
   text-align: center;
   padding: 0.5vh 1vh;
   font-size: 3vh;
   font-weight: 800;
   line-height: 1.1;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
+  /* base.css asks for tabular figures on every clock; Besley's are broken
+     (see body), and the cells below hold the width instead. */
+  font-variant-numeric: lining-nums;
   color: #fff;
   background: var(--enamel);
   border: 0.3vh solid var(--cream);
@@ -176,6 +190,10 @@ body {
   box-shadow: inset 0 0 0 0.2vh #14295a;
 }
 .clock[hidden] { display: none; }
+/* board.js fills the clock with one span per character, so the clock never
+   changes width as the digits do. The colons also carry data-sep. */
+.clock .clock-char { display: inline-block; width: 0.7em; text-align: center; }
+.clock .clock-char[data-sep] { width: 0.3em; }
 
 /* Which feed it came from: tiny, painted on the board's own lower edge. */
 .source {
@@ -193,11 +211,9 @@ body {
 
 /* ---------------------------------------------------------------- frame */
 
-/* The indicator: a big timber frame. Dark stone ground with grain from three
-   static repeating gradients at awkward periods (so the streaks do not line up
-   into a pattern), plank seams every 9vw, a light-stone bevel round the edge.
-   The top padding is the header rail; the heading row is inside the content
-   box, counted in --slot. */
+/* The indicator: a big timber frame. Flat dark stone with plank seams every
+   9vw and a light-stone bevel round the edge. The top padding is the header
+   rail; the heading row is inside the content box, counted in --slot. */
 .rows {
   position: relative;
   margin-top: 1vh;
@@ -206,22 +222,32 @@ body {
   border-color: #dcbd84 #a07c47 #8a6a3a #c9a66b;
   border-radius: 0.5vh;
   background:
-    linear-gradient(to bottom, rgba(255, 235, 190, 0.07), rgba(0, 0, 0, 0) 22%, rgba(0, 0, 0, 0.2)),
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.32) 0 0.18vh, rgba(0, 0, 0, 0) 0.18vh 9vw),
-    repeating-linear-gradient(90deg, rgba(255, 225, 170, 0.045) 0 1px, rgba(0, 0, 0, 0) 1px 5px, rgba(0, 0, 0, 0.07) 5px 6px, rgba(0, 0, 0, 0) 6px 13px),
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.05) 0 0.4vh, rgba(0, 0, 0, 0) 0.4vh 1.7vh),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.32) 0 0.18vh, transparent 0.18vh 9vw),
     var(--stone-dark);
   box-shadow: inset 0 0 0 0.3vh #3b2415, 0 0.8vh 0 rgba(0, 0, 0, 0.35);
 
-  /* --heading-share is the column headings, --stops-share the two rails of
-     calling-point boards. The base --slot knows about neither, and nor about
-     --detail-share and --weather-share, which this theme does not opt in to. */
+  /* --heading-share is the column headings, --stops-share the slots given to
+     the next train's calling points. The base --slot knows about neither, and
+     nor about --detail-share and --weather-share, which this theme does not
+     opt in to. By default there are no stops and every configured row shows;
+     victorian.js sets data-vc-stops="1" when board.js is showing calling
+     points, and the rule below then shows three trains and six slots of
+     stops, so the stops normally all fit without paging. --row-font is
+     re-declared with --slot, because a var() inside a custom property
+     resolves where the property is declared. */
   --char-budget: 30;
   --heading-share: 0.5;
-  --stops-share: calc(var(--calling-share) / 0.9 * 2);
+  --stops-share: 0;
   --slot: calc(100cqh / (var(--rows) + var(--heading-share) + var(--stops-share) + var(--reason-share)));
   --row-font: min(calc(100cqw / var(--char-budget)), calc(var(--slot) * 0.6));
 }
+.rows[data-vc-stops="1"] {
+  --stops-share: 6;
+  --slot: calc(100cqh / (3 + var(--heading-share) + var(--stops-share) + var(--reason-share)));
+  --row-font: min(calc(100cqw / var(--char-budget)), calc(var(--slot) * 0.6));
+}
+/* Only the first three trains are shown beside the stops. */
+.rows[data-vc-stops="1"] > .row ~ .row ~ .row ~ .row { display: none; }
 
 /* The header rail, sign-written across the top of the frame. victorian.js puts
    the mode ("DEPARTURES") in data-vc-mode, because a pseudo-element can read an
@@ -244,7 +270,7 @@ body {
   color: var(--cream);
   text-shadow: 0.08em 0.08em 0 rgba(0, 0, 0, 0.55);
   border-bottom: 0.3vh solid #3b2415;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.05));
+  background: rgba(0, 0, 0, 0.14);
 }
 
 /* Column headings, small and painted on the frame. */
@@ -277,9 +303,9 @@ body {
 /* A train: a black board hung from the frame on two brass hooks. The visible
    board is the padding box; a transparent border above and below leaves the
    2-3px of frame showing between boards. The hooks are the row's ::after and
-   the slip saying NEXT TRAIN its ::before. --vc-tilt and --vc-tint are set per
-   row by victorian.js from a hash of its id, so each board hangs a little
-   differently and keeps doing so as it moves up. */
+   the slip saying NEXT TRAIN its ::before. --vc-tint is set per row by
+   victorian.js from a hash of its id, so each board is a slightly different
+   black and keeps it as it moves up. */
 .row {
   position: relative;
   grid-template-columns: var(--vc-cols);
@@ -293,14 +319,12 @@ body {
   background-color: var(--vc-tint, var(--board-black));
   background-image:
     radial-gradient(circle at 1.05em 0.42em, var(--brass) 0 0.1em, #4a3910 0.11em 0.17em, transparent 0.18em),
-    radial-gradient(circle at calc(100% - 1.05em) 0.42em, var(--brass) 0 0.1em, #4a3910 0.11em 0.17em, transparent 0.18em),
-    linear-gradient(to bottom, rgba(255, 245, 220, 0.07), rgba(0, 0, 0, 0) 12%, rgba(0, 0, 0, 0) 88%, rgba(0, 0, 0, 0.35));
+    radial-gradient(circle at calc(100% - 1.05em) 0.42em, var(--brass) 0 0.1em, #4a3910 0.11em 0.17em, transparent 0.18em);
   box-shadow: inset 0 0 0 0.05em rgba(243, 234, 210, 0.16), inset 0.05em 0.05em 0 0.04em rgba(255, 240, 200, 0.12);
   line-height: 1.15;
   font-weight: 800;
   text-transform: uppercase;
   text-shadow: 0.05em 0.05em 0 var(--shade);
-  transform: rotate(var(--vc-tilt, 0deg));
 }
 /* The brass hooks: two pins crossing the gap from the frame to the board. */
 .row::after {
@@ -332,12 +356,24 @@ body {
   font-weight: 800;
   letter-spacing: 0;
 }
-/* "via Whitechapel" is how it gets there, not where it goes: painted small
-   after the name, in a buff paint. */
+/* "via Whitechapel" is how it gets there, not where it goes: painted small on
+   a second line under the name, in a buff paint. victorian.js adds
+   vc-two-line to the cell. The pair must fit the row (about 1.6em of row
+   type): 1em + 0.12em + 0.46em. Each line is cut with an ellipsis only as a
+   last resort. */
+.cell.destination.vc-two-line { line-height: 1; }
+.vc-dest,
 .vc-via {
-  margin-left: 0.5em;
-  font-size: 0.5em;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vc-via {
+  margin: 0.04em 0 0;
+  font-size: 0.48em;
   font-weight: 700;
+  line-height: 1;
   letter-spacing: 0.08em;
   color: #d9c79a;
   text-shadow: none;
@@ -369,7 +405,7 @@ body {
 
 /* The status is a slip tacked on beside the board, and an on-time train has
    none: the cell is empty and its column holds the space. A slip hangs a
-   little crooked the other way from its board. */
+   little proud of its board. */
 .cell.status {
   justify-self: end;
   align-self: center;
@@ -389,7 +425,6 @@ body {
   border-radius: 0.25em;
   box-shadow: inset 0 0 0 0.1em rgba(255, 255, 255, 0.22), 0.1em 0.1em 0 rgba(0, 0, 0, 0.45);
   text-shadow: none;
-  transform: rotate(calc(var(--vc-tilt, 0deg) * -5));
 }
 .cell.status:empty { display: none; }
 /* The hole the slip hangs from. */
@@ -462,48 +497,59 @@ body {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-shadow: 0.05em 0.05em 0 var(--shade);
-  transform: rotate(-0.15deg);
 }
 
 /* ------------------------------------------------------------ calling points */
 
-/* The next train's stops, as small boards hung on a rail: two lines of them,
-   --stops-share slots high. victorian.js builds the boards and pages whole
-   boards when they will not all fit. The type is the row's, scaled down, and
-   the board height comes from the block, capped so a roomy block does not
-   make tall thin planks. The rail is a repeating gradient on the list with
-   the same pitch as a line of boards. */
+/* The next train's stops, as small boards hung on a rail under a one-line
+   label. The block is --stops-share (six) slots high: the label takes a line
+   at the top, and the track under it holds as many lines of boards as fit, so
+   the stops normally all show without paging. victorian.js builds the boards
+   and pages whole boards when they will not all fit. The type is the row's,
+   scaled down. The block's own size comes from its flex-basis alone and
+   nothing inside it may change it: victorian.js watches it. */
 .calling-points {
   --vc-stop-line: 0.26em;
-  align-items: center;
-  gap: 0.7em;
+  --vc-label-h: calc(var(--row-font) * 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   flex: 0 0 calc(var(--slot) * var(--stops-share));
   padding: 0 0.55em;
-  font-size: calc(var(--row-font) * 0.72);
+  padding-top: 0;
+  /* victorian.js picks the scale: the largest that gets every stop on. */
+  /* Capped, so on one wide board a stop is never lettered larger than the
+     train it belongs to. */
+  font-size: min(calc(var(--row-font) * var(--vc-stop-scale, 0.8)), 4.2vh);
   line-height: 1.1;
   position: relative;
   /* the block sits in the frame, not on the wall, so no ground of its own */
 }
 .calling-points[hidden] { display: none; }
 
-/* "CALLING AT" is signwritten on the frame in cream, two lines in a narrow
-   column. */
+/* "CALLING AT" is signwritten on the frame in cream, on one line above the
+   boards. */
 .calling-points-label {
-  flex: 0 0 4.4em;
-  align-self: center;
-  white-space: normal;
-  font-size: 0.78em;
+  flex: 0 0 auto;
+  height: var(--vc-label-h);
+  white-space: nowrap;
+  overflow: hidden;
+  text-align: left;
+  /* In the row's type, not the block's: the block's size moves with the stops. */
+  font-size: calc(var(--row-font) * 0.62);
   font-weight: 800;
-  line-height: 1.15;
+  line-height: var(--vc-label-h);
   letter-spacing: 0.12em;
   opacity: 1;
   color: var(--cream);
   text-shadow: 0.08em 0.08em 0 rgba(0, 0, 0, 0.55);
 }
 .calling-points-track {
-  align-self: stretch;
+  flex: 0 0 auto;
+  height: calc(var(--slot) * var(--stops-share) - var(--vc-label-h));
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   overflow: hidden;
   white-space: normal;
 }
@@ -515,16 +561,17 @@ body {
 }
 
 .vc-stops {
-  --vc-stop-h: min(2.3em, calc((var(--slot) * var(--stops-share) - 2 * var(--vc-stop-line)) / 2));
+  --vc-stop-h: 2em;
   display: flex;
   flex-wrap: wrap;
   align-content: flex-start;
   align-items: flex-start;
   gap: 0 0.55em;
-  /* Exactly two lines of boards, centred in the block by the track. Explicit,
+  /* As many lines of boards as the busiest page has (victorian.js sets
+     --vc-lines), so the height does not change between pages. Explicit,
      because a percentage would resolve against an auto-height track and grow
      with the boards, and the paging would never see a full block. */
-  height: calc(2 * (var(--vc-stop-h) + var(--vc-stop-line)));
+  height: calc(var(--vc-lines, 1) * (var(--vc-stop-h) + var(--vc-stop-line)));
   /* The rail: a thin light-stone bar above every line of boards. */
   background: repeating-linear-gradient(to bottom, #b9955a 0 0.12em, #7a5a30 0.12em 0.2em, transparent 0.2em calc(var(--vc-stop-h) + var(--vc-stop-line)));
 }
@@ -540,7 +587,7 @@ body {
   align-items: center;
   box-sizing: border-box;
   color: var(--cream);
-  background: linear-gradient(to bottom, rgba(255, 245, 220, 0.07), rgba(0, 0, 0, 0) 15%), var(--vc-tint, var(--board-black));
+  background: var(--vc-tint, var(--board-black));
   border-radius: 0.14em;
   box-shadow: inset 0 0 0 0.05em rgba(243, 234, 210, 0.2), 0.08em 0.1em 0 rgba(0, 0, 0, 0.35);
   font-weight: 800;
@@ -548,7 +595,6 @@ body {
   text-transform: uppercase;
   white-space: nowrap;
   text-shadow: 0.06em 0.06em 0 var(--shade);
-  transform: rotate(var(--vc-tilt, 0deg));
 }
 .vc-stop[hidden] { display: none; }
 /* Its hook: a brass pin from the rail down to the board. */
@@ -592,7 +638,6 @@ body {
   border-radius: 0.2em;
   background-clip: padding-box;
   background-color: var(--buff);
-  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.18), rgba(0, 0, 0, 0) 40%, rgba(90, 60, 20, 0.14));
   box-shadow: inset 0 0 0 0.08em rgba(60, 36, 20, 0.4);
   font-size: calc(var(--row-font) * 0.68);
   font-weight: 600;
