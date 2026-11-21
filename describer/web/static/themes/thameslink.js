@@ -524,12 +524,16 @@ function stopScroll(list) {
 
 function paintClocks() {
   if (!root) return;
+  // display.clock off: board.js hides every original, so the panels go too.
+  // On a split screen it shows one clock, on the last board; the other board's
+  // panel keeps its room, empty, so the two halves stay level.
+  const anyClock = Boolean(root.querySelector('.clock:not([hidden])'));
   for (const board of root.querySelectorAll('.board')) {
     const source = board.querySelector('.clock');
     const panel = board.querySelector('.tl-clock');
     if (!source || !panel) continue;
-    // display.clock off: board.js hides the original, so the panel goes too.
-    panel.hidden = source.hidden;
+    panel.hidden = !anyClock;
+    panel.style.visibility = source.hidden ? 'hidden' : '';
     const [hhmm, seconds] = splitClock(source.textContent);
     const [time, secs] = panel.children;
     if (time.textContent !== hhmm) time.textContent = hhmm;
