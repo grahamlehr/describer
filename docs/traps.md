@@ -93,6 +93,11 @@ the full story.
   and `KioskWatchdog`. A stream being open proves nothing, and only a loopback
   heartbeat counts. The restart needs the polkit grant, which reaches a Pi only
   with an update that touches `deploy/`. (`20`)
+- **The blank cursor theme must cover every cursor name, and `XCURSOR_PATH`
+  must hold nothing else.** The Xcursor loader scans every directory on the
+  path for the theme and follows the first `Inherits=` it finds, so with
+  `/usr/share/icons` on the path any name the blank theme lacked came from
+  Adwaita and a real cursor sat on the board. (`24`)
 - **An SSE stream never ends on its own.** Before a restart,
   `Poller.close_streams()` must run or shutdown waits for systemd to kill it.
   (`13`)
