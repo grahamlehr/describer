@@ -1,4 +1,4 @@
-# Addendum 21 — recorded voice (voice packs)
+# Addendum 23 — recorded voice (voice packs)
 
 ## Decision
 

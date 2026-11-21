@@ -5,7 +5,7 @@ _Updated 2026-11-21 · branch `claude/train-announcements-audio-gen-bb01c5` · P
 Announcements in an ElevenLabs voice: recorded clips joined on the Pi, Piper as fallback.
 
 ## Done
-- Clip catalogue, clip plan, voice pack, `/admin` install and remove, docs (`docs/voice-pack.md`, `docs/design/21`).
+- Clip catalogue, clip plan, voice pack, `/admin` install and remove, docs (`docs/voice-pack.md`, `docs/design/23`).
 - `scripts/voicepack.py`: script / cut / review / build / demo. The cutter aligns the script to the recording (no pause tags needed); `review` is a local page with waveform and draggable in/out markers.
 - Graham's script (no tags, 35 parts) is in `~/Projects/describer/voicepack/script/`. His Eleven v4 pilot (`audio/00.mp3`) is cut: 18 clips, 2 marked to check.
 
@@ -24,4 +24,4 @@ Announcements in an ElevenLabs voice: recorded clips joined on the Pi, Piper as 
 - Only the 18-item pilot has been cut from real ElevenLabs audio; not run on the Pi.
 
 ## Prompt for the next session
-"I've saved more ElevenLabs parts in ~/Projects/describer/voicepack/audio/. Run `scripts/voicepack.py --dir ~/Projects/describer/voicepack cut`, tell me what it reported, open the review page for me, then `build` (see docs/voice-pack.md and docs/design/21)." Sonnet is enough unless the cutter needs redesigning.
+"I've saved more ElevenLabs parts in ~/Projects/describer/voicepack/audio/. Run `scripts/voicepack.py --dir ~/Projects/describer/voicepack cut`, tell me what it reported, open the review page for me, then `build` (see docs/voice-pack.md and docs/design/23)." Sonnet is enough unless the cutter needs redesigning.

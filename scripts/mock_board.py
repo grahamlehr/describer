@@ -19,6 +19,9 @@ Change what is on screen while it runs (every open board follows at once):
     /mock?empty=1                no services at all
     /mock?times=1                display.show_calling_times
     /mock?messages=1             an NRCC message on the first board
+    /mock?name=London+St+Pancras+International   the first board's station name
+    /mock?clock=0                display.clock off
+    /mock?both=1                 display.clock_both
     /mock?opt.ground=dark        an option for the current theme
 
 The trains roll: one every few minutes, for ever, with the names that break
@@ -294,6 +297,9 @@ settings: dict[str, object] = {
     "empty": False,
     "times": False,
     "messages": False,
+    "name": "",
+    "clock": True,
+    "both": False,
     "options": {},
 }
 changed = threading.Condition()
@@ -403,6 +409,8 @@ def service(slot: int, routes: list, here: str, mode: str, now: datetime, top: b
 
 def board(index: int, now: datetime) -> dict:
     crs, name, routes = STATIONS[index]
+    if index == 0 and settings["name"]:
+        name = str(settings["name"])
     mode = str(settings["mode"]) if index == 1 else "departures"
     if mode == "arrivals":
         # A train that starts here never arrives here.
@@ -443,7 +451,8 @@ def state() -> dict:
         "active_profile": None,
         "display": {
             "theme": theme,
-            "clock": True,
+            "clock": bool(settings["clock"]),
+            "clock_both": bool(settings["both"]),
             "show_calling_points": True,
             "show_position": True,
             "show_formation": True,
@@ -485,9 +494,9 @@ def apply(query: list[tuple[str, str]]) -> None:
             settings["options"] = {}
         elif key in ("boards", "rows"):
             settings[key] = int(value)
-        elif key in ("mode", "source"):
+        elif key in ("mode", "source", "name"):
             settings[key] = value
-        elif key in ("stale", "empty", "times", "messages"):
+        elif key in ("stale", "empty", "times", "messages", "clock", "both"):
             settings[key] = value not in ("0", "false", "")
 
 

@@ -10,12 +10,13 @@
    little enamel blue.
 
    Built to be cheap to paint on the Pi: flat colour and hard, unblurred
-   shadows, no rotation, no filters, no blur, no blend modes and no animation.
+   shadows, no filters, no blur, no blend modes, and nothing rotated or
+   animated but the three hands of the station clock.
    The wall is one flat colour under a brick tile (an SVG data URI used as a
    background, as base.css draws its weather icons), the frame is flat stone
    with plank seams, and the only gradients left are the brass pins, the
    plank seams, the rail under the stops and the small, static iron column.
-   The clock ticks every second, so it has a compositor layer of its own.
+   The clock's hands each have a compositor layer, so a tick repaints nothing.
 
    All the texture lives behind the boards. Nothing is ever lettered on brick
    or on grain: every word sits on a black board, a stone slip or enamel. */
@@ -65,9 +66,8 @@ body {
   color: var(--cream);
   font-family: Besley, Georgia, "DejaVu Serif", serif;
   font-weight: 700;
-  /* Never turn on tabular figures with Besley: its tabular zero ignores the weight axis
-     and is drawn at regular weight among bold digits. The clock gets a fixed
-     width from per-character boxes instead (see .clock-char). */
+  /* Never turn on tabular figures with Besley: its tabular zero ignores the
+     weight axis and is drawn at regular weight among bold digits. */
   font-variant-numeric: lining-nums;
 }
 
@@ -119,17 +119,20 @@ body {
 /* -------------------------------------------------------------- nameboard */
 
 /* The running-in board: black, with a dark-stone frame and a light-stone
-   bead inside it, fixed to the wall at the top. Its height is fixed in vh
-   because the rows below are sized from what is left (Addendum 3), and the
-   figure is the one that keeps the row type above 19px at 1280x720 with two
-   boards on screen. */
+   bead inside it, fixed to the wall at the top. It is as tall as the station
+   clock hung beside it, which leaves it room for a name on two lines, as a
+   long name was always painted. Its height is fixed in vh because the rows
+   below are sized from what is left (Addendum 3), and both halves of a split
+   screen must agree. */
+:root { --vc-clock: 26vh; }
 .board-header {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   align-items: center;
-  column-gap: 1.2vw;
-  row-gap: 0;
-  height: 9.6vh;
+  gap: 0;
+  height: var(--vc-clock);
+  overflow: hidden;
   padding: 0 1.2vw;
   background: var(--board-black);
   border: 0.6vh solid var(--stone-dark);
@@ -140,13 +143,34 @@ body {
     0 0.7vh 0 rgba(0, 0, 0, 0.38);
 }
 
+/* Room on the wall for the clock (victorian.js sets data-vc-clock while one
+   is up). One board: the clock hangs at the right-hand end of the nameboard.
+   Two: there is still only one clock, on the iron column between them, and
+   each nameboard stops short of it. The column's centre is 0.7vw into the
+   second board; 0.9vw of brick shows each side of the case. */
+.boards[data-vc-clock="1"][data-count="1"] .board-header { margin-right: calc(var(--vc-clock) + 1.2vw); }
+.boards[data-vc-clock="1"][data-count="2"] .board:first-child .board-header {
+  margin-right: calc(var(--vc-clock) / 2 - 0.7vw - var(--board-pad-x) + 0.9vw);
+}
+.boards[data-vc-clock="1"][data-count="2"] .board + .board .board-header {
+  margin-left: calc(var(--vc-clock) / 2 - 0.9vw - var(--board-pad-x) + 0.9vw);
+}
+
 .station-name {
   grid-column: 1;
-  grid-row: 1 / 3;
-  /* victorian.js sets --vc-fit (0.3 to 1) when a long name will not fit. */
-  font-size: calc(5.6vh * var(--vc-fit, 1));
+  grid-row: 1;
+  align-self: center;
+  /* No max-height: victorian.js counts the lines from the height.
+     Two lines if it needs them, split evenly; victorian.js sets --vc-fit
+     (0.4 to 1) only when two lines at full size are still not enough. */
+  white-space: normal;
+  text-wrap: balance;
+  overflow-wrap: normal;
+  text-overflow: clip;
+  text-align: center;
+  font-size: calc(8vh * var(--vc-fit, 1));
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.12;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--cream);
@@ -157,50 +181,14 @@ body {
    from here. */
 .board-mode { display: none; }
 
-/* The clock is a small enamel plate screwed to the right-hand end of the
-   board: white on blue, as the surviving indicator in the Science Museum is. */
-.clock {
-  grid-column: 2;
-  grid-row: 1;
-  align-self: center;
-  justify-self: end;
-  /* A fixed box, so the station name's room does not move as the digits
-     change (or before the first tick has filled it). It ticks every second,
-     so it gets its own compositor layer and the wall and nameboard under it
-     are never re-rastered. */
-  width: 19vh;
-  box-sizing: border-box;
-  white-space: nowrap;
-  overflow: hidden;
-  contain: layout paint;
-  will-change: transform;
-  text-align: center;
-  padding: 0.5vh 1vh;
-  font-size: 3vh;
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: 0;
-  /* base.css asks for tabular figures on every clock; Besley's are broken
-     (see body), and the cells below hold the width instead. */
-  font-variant-numeric: lining-nums;
-  color: #fff;
-  background: var(--enamel);
-  border: 0.3vh solid var(--cream);
-  border-radius: 0.7vh;
-  box-shadow: inset 0 0 0 0.2vh #14295a;
-}
-.clock[hidden] { display: none; }
-/* board.js fills the clock with one span per character, so the clock never
-   changes width as the digits do. The colons also carry data-sep. */
-.clock .clock-char { display: inline-block; width: 0.7em; text-align: center; }
-.clock .clock-char[data-sep] { width: 0.3em; }
+/* board.js's digital clock is not shown: the time is on the dial below. */
+.clock { display: none; }
 
-/* Which feed it came from: tiny, painted on the board's own lower edge. */
+/* Which feed it came from: tiny, painted in the board's lower corner. */
 .source {
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: end;
-  margin-top: 0.3vh;
+  position: absolute;
+  right: 1vh;
+  bottom: 0.7vh;
   font-size: 1.3vh;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -208,6 +196,58 @@ body {
   opacity: 0.6;
 }
 .source[hidden] { display: none; }
+
+/* ------------------------------------------------------------------ clock */
+
+/* The station clock: a round dial in a turned mahogany case with a brass
+   bezel, a white enamel face, Roman numerals read from the centre (IIII for
+   four, as dial painters wrote it), a minute track and blued spade hands.
+   victorian.js builds it once, as a sibling after .boards (board.js counts
+   .boards' children), and there is one however many boards are up.
+
+   Cheap on the Pi: the case and face are one static SVG, painted once. Each
+   hand is a small element of its own with a compositor layer, so a tick is a
+   transform on a layer and repaints nothing. The seconds hand steps once a
+   second and recoils a little, as a deadbeat escapement lets it. */
+.vc-clock {
+  position: fixed;
+  z-index: 1;
+  top: 2.2vh;
+  right: 3.2vw;
+  width: var(--vc-clock);
+  height: var(--vc-clock);
+  border-radius: 50%;
+  /* The case's hard shadow on the brick. */
+  box-shadow: 0.5vh 0.7vh 0 rgba(0, 0, 0, 0.4);
+  contain: layout style;
+}
+.boards[data-count="2"] ~ .vc-clock {
+  top: 1.4vh;
+  right: auto;
+  left: calc(50% + 0.7vw - var(--vc-clock) / 2);
+}
+.boards[hidden] ~ .vc-clock,
+.boards[data-vc-clock="0"] ~ .vc-clock,
+.vc-clock[hidden] { display: none; }
+.vc-clock svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.vc-hand {
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.vc-hand-second { transition: transform 0.22s cubic-bezier(0.3, 2.6, 0.5, 0.8); }
+/* Set for the first placing, so the hands do not swing round from twelve. */
+.vc-clock[data-vc-setting] .vc-hand { transition: none; }
+.vc-clock text {
+  font-family: Besley, Georgia, "DejaVu Serif", serif;
+  font-weight: 800;
+  fill: #1a1612;
+}
 
 /* ---------------------------------------------------------------- frame */
 

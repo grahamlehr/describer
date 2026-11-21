@@ -406,6 +406,8 @@ function renderProfileEditor() {
           </label>
           <label class="check"><input type="checkbox" data-profile="clock"
             ${(display.clock ?? config.display.clock) ? 'checked' : ''}> Show clock</label>
+          <label class="check"><input type="checkbox" data-profile="clock-both"
+            ${(display.clock_both ?? config.display.clock_both) ? 'checked' : ''}> Clock on both boards</label>
           <label class="check"><input type="checkbox" data-profile="calling"
             ${(display.show_calling_points ?? config.display.show_calling_points) ? 'checked' : ''}> Show calling points</label>
           <label class="check"><input type="checkbox" data-profile="position"
@@ -494,6 +496,7 @@ function commitProfileEditor() {
     entry.display = {
       theme,
       clock: field('clock').checked,
+      clock_both: field('clock-both').checked,
       show_calling_points: field('calling').checked,
       show_position: field('position').checked,
       show_formation: field('formation').checked,
@@ -574,6 +577,7 @@ function newProfile() {
     display: {
       theme: config.display.theme,
       clock: config.display.clock,
+      clock_both: config.display.clock_both,
       show_calling_points: config.display.show_calling_points,
       show_position: config.display.show_position,
       show_formation: config.display.show_formation,

@@ -96,6 +96,14 @@ the full story.
 - **An SSE stream never ends on its own.** Before a restart,
   `Poller.close_streams()` must run or shutdown waits for systemd to kill it.
   (`13`)
+- **Every child of `.boards` is a board.** `ensureBoards` counts
+  `boardsEl.children`, so a theme that adds its own element there has it
+  removed or counted as a station. Put it after `.boards` as a sibling
+  (victorian's clock) and remove it in `detach`. (`21`)
+- **One clock a screen**, unless `display.clock_both`. On a split screen
+  `board.js` otherwise hides every `.clock` but the last board's. A theme that draws its own from `.clock` must keep
+  the hidden one's room if its halves are to stay level (thameslink), and
+  must not read "this clock is hidden" as "the clock is switched off". (`21`)
 - **`requestAnimationFrame` does not run in a hidden browser pane** and
   `setInterval` is throttled in a background tab: splitflap freezes
   mid-alphabet and page turns stop. Keep the pane displayed when checking
@@ -107,7 +115,11 @@ the full story.
   not follow the weight axis, so every 0 comes out at regular weight. And
   `base.css` sets `tabular-nums` on `.clock` itself, so changing it on `body`
   does not change the clock. Josefin Sans (deco) has no tabular figures at
-  all. Both themes size `board.js`'s `.clock-char` cells instead (`/19`).
+  all; deco sizes `board.js`'s `.clock-char` cells instead (`/19`).
+  victorian no longer shows the digits at all (`/21`).
+- **`scrollHeight` over-reads a line of Besley.** Its ink overhangs the line
+  box, so two lines measured 168px against a `clientHeight` of 150. Count
+  lines from `clientHeight` (`/21`).
 - **Do not re-insert a node that is already in place.** `renderRows` used to
   `append` every row on every frame; the browser repainted the whole list
   each time, which a heavy theme on the Pi could not afford (`/19`).

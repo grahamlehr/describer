@@ -36,7 +36,8 @@ stations:
 
 display:
   theme: modern             # modern | crt | splitflap | 1990s | nse | led-matrix | thameslink | swiss | linemap | dial | deco | victorian
-  clock: true               # show the live clock in the board header
+  clock: true               # show the live clock
+  clock_both: false         # two boards: a clock on each, not just one (victorian always has one)
   show_calling_points: true # expand the first row to page through its calling points
   # Where the top service is now, and its formation — modern and thameslink
   # only, worked out from RDM's own data. Always absent on an RTT board.

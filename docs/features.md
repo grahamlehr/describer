@@ -51,7 +51,12 @@ _Moved from the old CLAUDE.md ("Features"): boards, themes, announcements, sched
     (`/17`, simplified in `/18`).
 12. **victorian**: a timber train indicator on a brick wall, every train and
     calling point a hung, sign-written board (`/18`). With stops to show it
-    lists three trains and gives the rest to the stops (`/19`).
+    lists three trains and gives the rest to the stops (`/19`). Its clock is
+    a mechanical station dial with a stepping seconds hand (`/21`).
+
+A split screen shows one clock, not one per board, unless
+`display.clock_both` (Display tab, "Clock on both boards") asks for both;
+victorian always has one (`/21`, `/22`).
 
 Themes share one DOM structure and one data model; a theme is a CSS file
 plus an optional JS module. Adding a theme touches no backend code except its
@@ -65,7 +70,7 @@ specifics are in `docs/design/03`; the palette roles in `/05` and `/11`.
   the standard apology wording. Classic phrasing: "The next train to arrive
   at platform 2 will be the 14:32 Great Western Railway service to London
   Paddington, calling at Reading, Slough and London Paddington."
-- **Recorded voice** (`docs/voice-pack.md`, `docs/design/21`): with a voice
+- **Recorded voice** (`docs/voice-pack.md`, `docs/design/23`): with a voice
   pack installed (`/admin` → Announcements), announcements are joined from
   recorded clips. Piper speaks any announcement the pack cannot say in full,
   and everything when there is no pack. `scripts/voicepack.py` makes one.
