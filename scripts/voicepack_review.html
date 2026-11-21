@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice pack review</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --panel: #ffffff; --ink: #1c1d1f; --soft: #6a6d73; --line: #dcdad3;
+    --accent: #0b5cad; --accent-ink: #ffffff; --wave: #3b4a5c; --select: rgba(11, 92, 173, .16);
+    --warn: #a35a00; --warn-bg: #fdf0d9; --bad: #a3231c; --bad-bg: #fbe3e1; --good: #1d6b3a; --good-bg: #e0f1e5;
+    --neighbour: rgba(0, 0, 0, .05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171a; --panel: #1e2125; --ink: #ecebe7; --soft: #9a9da3; --line: #33373d;
+      --accent: #6cb0f5; --accent-ink: #0d1114; --wave: #a9bdd4; --select: rgba(108, 176, 245, .2);
+      --warn: #f0b45a; --warn-bg: #3a2c12; --bad: #f08a83; --bad-bg: #3d1b19; --good: #7fd49b; --good-bg: #17301f;
+      --neighbour: rgba(255, 255, 255, .05);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }
+  header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+  h1 { font-size: 16px; margin: 0 8px 0 0; }
+  button, select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--soft); }
+  button:focus-visible, select:focus-visible, li:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  button:disabled { opacity: .45; cursor: default; }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .count { color: var(--soft); font-variant-numeric: tabular-nums; }
+  main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(260px, 380px) 1fr; }
+  ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; border-right: 1px solid var(--line); }
+  li { padding: 8px 14px; border-bottom: 1px solid var(--line); cursor: pointer; display: flex; gap: 8px; align-items: baseline; }
+  li[aria-selected="true"] { background: var(--select); }
+  li .text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  li .part { color: var(--soft); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .chip { font-size: 12px; padding: 1px 7px; border-radius: 10px; white-space: nowrap; }
+  .chip.check { color: var(--warn); background: var(--warn-bg); }
+  .chip.rejected { color: var(--bad); background: var(--bad-bg); }
+  .chip.manual { color: var(--good); background: var(--good-bg); }
+  section { padding: 20px 24px; overflow-y: auto; min-width: 0; }
+  .say { font-size: 28px; font-weight: 600; margin: 0 0 4px; overflow-wrap: anywhere; }
+  .meta { color: var(--soft); margin: 0 0 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .wave { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; touch-action: none; }
+  canvas { display: block; width: 100%; height: 200px; cursor: ew-resize; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+  .spacer { flex: 1; }
+  .help { color: var(--soft); font-size: 13px; margin-top: 18px; max-width: 70ch; }
+  kbd { color: var(--ink); font: 12px ui-monospace, monospace; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--panel); }
+  .empty { color: var(--soft); padding: 40px 24px; }
+  @media (max-width: 720px) {
+    main { grid-template-columns: 1fr; grid-template-rows: 38vh 1fr; }
+    ul { border-right: 0; border-bottom: 1px solid var(--line); }
+    section { padding: 16px; }
+    .say { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Voice pack review</h1>
+  <div class="filters" id="filters">
+    <button data-filter="check" aria-pressed="true">To check</button>
+    <button data-filter="all" aria-pressed="false">All</button>
+    <button data-filter="rejected" aria-pressed="false">Rejected</button>
+    <button data-filter="manual" aria-pressed="false">Cut by hand</button>
+  </div>
+  <select id="part" aria-label="Part"></select>
+  <button id="play-all">Play through</button>
+  <span class="count" id="count"></span>
+</header>
+<main>
+  <ul id="list" role="listbox" aria-label="Clips"></ul>
+  <section id="editor"><p class="empty">Nothing here. Try another filter.</p></section>
+</main>
+
+<template id="editor-template">
+  <p class="say" data-el="text"></p>
+  <p class="meta"><span data-el="key"></span><span data-el="chips"></span><span data-el="length"></span></p>
+  <div class="wave"><canvas data-el="canvas" height="200"></canvas></div>
+  <div class="row">
+    <button data-do="play-clip">Play clip <kbd>Space</kbd></button>
+    <button data-do="play-selection">Play between markers <kbd>P</kbd></button>
+    <button data-do="zoom-out">Wider</button>
+    <button data-do="zoom-in">Closer</button>
+    <span class="spacer"></span>
+    <button data-do="reset" disabled>Undo move</button>
+    <button data-do="save" class="primary" disabled>Save cut <kbd>S</kbd></button>
+  </div>
+  <div class="row">
+    <button data-do="ok">Sounds right <kbd>Enter</kbd></button>
+    <button data-do="reject">Reject <kbd>X</kbd></button>
+  </div>
+  <p class="help">Drag either marker to where the words start and end; what lies between them plays
+    when you let go. The shaded bands either side are the neighbouring clips. <strong>Save cut</strong>
+    writes the clip again from the recording. <strong>Reject</strong> leaves it out of the pack and puts it on the
+    list to record again. <kbd>↑</kbd> <kbd>↓</kbd> move through the list.</p>
+</template>
+
+<script>
+const state = { cuts: null, rate: 22050, filter: 'check', part: '', visible: [], selected: null,
+  context: 1.0, buffer: null, windowStart: 0, windowEnd: 0, marks: null, saved: null, playing: null,
+  playhead: null, through: false, audio: null };
+const list = document.getElementById('list');
+const editor = document.getElementById('editor');
+let ui = null;
+let audioContext = null;
+
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const clips = () => Object.values(state.cuts.clips).sort((a, b) => a.part.localeCompare(b.part) || a.index - b.index);
+const matches = (clip) => (!state.part || clip.part === state.part) && (
+  state.filter === 'all' || (state.filter === 'check' && clip.doubtful && !clip.rejected) ||
+  (state.filter === 'rejected' && clip.rejected) || (state.filter === 'manual' && clip.manual));
+
+async function load() {
+  state.cuts = await (await fetch('/cuts')).json();
+  state.rate = state.cuts.rate;
+  const select = document.getElementById('part');
+  select.replaceChildren(new Option('Every part', ''));
+  for (const [number, part] of Object.entries(state.cuts.parts).sort()) select.add(new Option(part.name, number));
+  if (!clips().some((clip) => clip.doubtful && !clip.rejected)) setFilter('all');
+  renderList();
+}
+
+function chipsFor(clip) {
+  const chips = [];
+  if (clip.rejected) chips.push(['rejected', 'rejected']);
+  else if (clip.doubtful) chips.push(['check', 'to check']);
+  if (clip.manual) chips.push(['manual', 'cut by hand']);
+  return chips.map(([kind, label]) => {
+    const chip = document.createElement('span');
+    chip.className = `chip ${kind}`;
+    chip.textContent = label;
+    return chip;
+  });
+}
+
+function renderList() {
+  state.visible = clips().filter(matches);
+  const all = clips();
+  document.getElementById('count').textContent =
+    `${state.visible.length} shown · ${all.filter((c) => c.doubtful && !c.rejected).length} to check · ` +
+    `${all.filter((c) => c.rejected).length} rejected · ${all.length} clips`;
+  list.replaceChildren(...state.visible.map((clip) => {
+    const item = document.createElement('li');
+    item.dataset.key = clip.key;
+    item.tabIndex = -1;
+    item.setAttribute('role', 'option');
+    const text = document.createElement('span');
+    text.className = 'text';
+    text.textContent = clip.text;
+    const part = document.createElement('span');
+    part.className = 'part';
+    part.textContent = clip.part;
+    item.append(text, ...chipsFor(clip), part);
+    return item;
+  }));
+  const keep = state.visible.find((clip) => clip.key === state.selected);
+  select(keep ? keep.key : state.visible[0]?.key, false);
+}
+
+function setFilter(name) {
+  state.filter = name;
+  for (const button of document.querySelectorAll('#filters button')) {
+    button.setAttribute('aria-pressed', String(button.dataset.filter === name));
+  }
+}
+
+async function select(key, play = true) {
+  stop();
+  state.selected = key || null;
+  for (const item of list.children) item.setAttribute('aria-selected', String(item.dataset.key === key));
+  const row = list.querySelector(`[data-key="${CSS.escape(key || '')}"]`);
+  if (!key || !row) {
+    editor.innerHTML = '<p class="empty">Nothing here. Try another filter.</p>';
+    ui = null;
+    return;
+  }
+  row.scrollIntoView({ block: 'nearest' });
+  const clip = state.cuts.clips[key];
+  editor.replaceChildren(document.getElementById('editor-template').content.cloneNode(true));
+  ui = Object.fromEntries([...editor.querySelectorAll('[data-el]')].map((el) => [el.dataset.el, el]));
+  ui.buttons = Object.fromEntries([...editor.querySelectorAll('[data-do]')].map((el) => [el.dataset.do, el]));
+  ui.text.textContent = clip.text;
+  ui.key.textContent = `${clip.key} · part ${clip.part}, item ${clip.index + 1}`;
+  ui.buttons.reject.textContent = clip.rejected ? 'Restore' : 'Reject';
+  ui.buttons.reject.append(' ', Object.assign(document.createElement('kbd'), { textContent: 'X' }));
+  ui.chips.replaceChildren(...chipsFor(clip));
+  state.marks = { start: clip.start, end: clip.end };
+  state.saved = { ...state.marks };
+  ui.canvas.addEventListener('pointerdown', startDrag);
+  await loadWindow();
+  if (play && state.selected === key) playClip();
+}
+
+async function loadWindow() {
+  const key = state.selected;
+  const clip = state.cuts.clips[key];
+  const margin = Math.round(state.context * state.rate);
+  const length = Math.round(state.cuts.parts[clip.part].seconds * state.rate);
+  state.windowStart = Math.max(0, Math.min(clip.start, state.marks.start) - margin);
+  state.windowEnd = Math.min(length, Math.max(clip.end, state.marks.end) + margin);
+  const response = await fetch(`/window?part=${clip.part}&start=${state.windowStart}&end=${state.windowEnd}`);
+  audioContext ||= new AudioContext();
+  const buffer = await audioContext.decodeAudioData(await response.arrayBuffer());
+  if (state.selected !== key) return;
+  state.buffer = buffer;
+  draw();
+}
+
+// -- drawing ---------------------------------------------------------------
+
+const toX = (sample, width) => (sample - state.windowStart) / (state.windowEnd - state.windowStart) * width;
+const toSample = (x, width) => Math.round(state.windowStart + x / width * (state.windowEnd - state.windowStart));
+
+function draw() {
+  if (!ui || !state.buffer) return;
+  const canvas = ui.canvas;
+  const ratio = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth, height = canvas.clientHeight;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  const g = canvas.getContext('2d');
+  g.scale(ratio, ratio);
+  g.clearRect(0, 0, width, height);
+  const clip = state.cuts.clips[state.selected];
+
+  // Neighbouring clips, so a cut is never dragged into the next word unseen.
+  g.font = '12px system-ui, sans-serif';
+  for (const other of clips()) {
+    if (other.part !== clip.part || other.key === clip.key) continue;
+    if (other.end < state.windowStart || other.start > state.windowEnd) continue;
+    const left = Math.max(0, toX(other.start, width)), right = Math.min(width, toX(other.end, width));
+    g.fillStyle = css('--neighbour');
+    g.fillRect(left, 0, right - left, height);
+    g.fillStyle = css('--soft');
+    g.fillText(other.text, left + 4, height - 8, Math.max(0, right - left - 8));
+  }
+
+  const startX = toX(state.marks.start, width), endX = toX(state.marks.end, width);
+  g.fillStyle = css('--select');
+  g.fillRect(startX, 0, endX - startX, height);
+
+  const data = state.buffer.getChannelData(0);
+  const per = data.length / width;
+  let peak = 0.05;
+  for (let i = 0; i < data.length; i += 16) peak = Math.max(peak, Math.abs(data[i]));
+  g.fillStyle = css('--wave');
+  for (let x = 0; x < width; x++) {
+    let low = 0, high = 0;
+    const from = Math.floor(x * per), to = Math.min(data.length, Math.ceil((x + 1) * per));
+    for (let i = from; i < to; i++) { if (data[i] < low) low = data[i]; if (data[i] > high) high = data[i]; }
+    const top = height / 2 - (high / peak) * (height / 2 - 14);
+    const bottom = height / 2 - (low / peak) * (height / 2 - 14);
+    g.fillRect(x, top, 1, Math.max(1, bottom - top));
+  }
+
+  g.fillStyle = css('--accent');
+  for (const [x, label] of [[startX, 'in'], [endX, 'out']]) {
+    g.fillRect(x - 1, 0, 2, height);
+    g.fillRect(label === 'in' ? x : x - 26, 0, 26, 16);
+    g.fillStyle = css('--accent-ink');
+    g.fillText(label, (label === 'in' ? x : x - 26) + 6, 12);
+    g.fillStyle = css('--accent');
+  }
+  if (state.playhead !== null) {
+    g.fillStyle = css('--ink');
+    g.fillRect(toX(state.playhead, width), 0, 1, height);
+  }
+  const moved = state.marks.start !== state.saved.start || state.marks.end !== state.saved.end;
+  ui.buttons.save.disabled = ui.buttons.reset.disabled = !moved;
+  ui.length.textContent = `${((state.marks.end - state.marks.start) / state.rate).toFixed(2)} s`;
+}
+
+// -- dragging the markers --------------------------------------------------
+
+function startDrag(event) {
+  const canvas = ui.canvas;
+  const width = canvas.clientWidth;
+  const x = event.clientX - canvas.getBoundingClientRect().left;
+  const which = Math.abs(x - toX(state.marks.start, width)) <= Math.abs(x - toX(state.marks.end, width)) ? 'start' : 'end';
+  const gap = Math.round(0.02 * state.rate);
+  const move = (e) => {
+    const sample = toSample(Math.max(0, Math.min(width, e.clientX - canvas.getBoundingClientRect().left)), width);
+    if (which === 'start') state.marks.start = Math.min(sample, state.marks.end - gap);
+    else state.marks.end = Math.max(sample, state.marks.start + gap);
+    draw();
+  };
+  const done = () => {
+    canvas.removeEventListener('pointermove', move);
+    canvas.removeEventListener('pointerup', done);
+    canvas.removeEventListener('pointercancel', done);
+    playSelection();
+  };
+  stop();
+  canvas.setPointerCapture(event.pointerId);
+  canvas.addEventListener('pointermove', move);
+  canvas.addEventListener('pointerup', done);
+  canvas.addEventListener('pointercancel', done);
+  move(event);
+}
+
+// -- playing ---------------------------------------------------------------
+
+function stop() {
+  if (state.playing) { state.playing.onended = null; try { state.playing.stop(); } catch { /* already over */ } }
+  if (state.audio) { state.audio.onended = null; state.audio.pause(); }
+  state.playing = state.audio = null;
+  state.playhead = null;
+}
+
+function playSelection() {
+  if (!state.buffer) return;
+  stop();
+  audioContext.resume();
+  const source = audioContext.createBufferSource();
+  source.buffer = state.buffer;
+  source.connect(audioContext.destination);
+  const offset = (state.marks.start - state.windowStart) / state.rate;
+  const seconds = (state.marks.end - state.marks.start) / state.rate;
+  const began = audioContext.currentTime;
+  source.start(0, offset, seconds);
+  state.playing = source;
+  const tick = () => {
+    if (state.playing !== source) return;
+    state.playhead = state.marks.start + (audioContext.currentTime - began) * state.rate;
+    draw();
+    requestAnimationFrame(tick);
+  };
+  source.onended = () => { if (state.playing === source) { state.playing = null; state.playhead = null; draw(); } };
+  tick();
+}
+
+function playClip(then) {
+  stop();
+  const audio = new Audio(`/clip?key=${encodeURIComponent(state.selected)}&v=${Date.now()}`);
+  state.audio = audio;
+  audio.onended = () => { state.audio = null; then?.(); };
+  audio.play().catch(() => {});
+}
+
+function step(by) {
+  const at = state.visible.findIndex((clip) => clip.key === state.selected);
+  const next = state.visible[at + by];
+  if (next) select(next.key);
+  return Boolean(next);
+}
+
+function playThrough() {
+  state.through = !state.through;
+  document.getElementById('play-all').textContent = state.through ? 'Stop' : 'Play through';
+  const go = () => {
+    if (!state.through) return;
+    playClip(() => setTimeout(async () => {
+      if (!state.through) return;
+      const at = state.visible.findIndex((clip) => clip.key === state.selected);
+      const next = state.visible[at + 1];
+      if (!next) { playThrough(); return; }
+      await select(next.key, false);
+      go();
+    }, 350));
+  };
+  if (state.through) go(); else stop();
+}
+
+// -- saving ----------------------------------------------------------------
+
+async function update(change, advance) {
+  const key = state.selected;
+  const response = await fetch('/', { method: 'POST', body: JSON.stringify({ key, ...change }) });
+  if (!response.ok) { alert('Could not save that change.'); return; }
+  state.cuts.clips[key] = await response.json();
+  const at = state.visible.findIndex((clip) => clip.key === key);
+  const next = state.visible[at + 1]?.key;
+  const stays = matches(state.cuts.clips[key]);
+  renderList();
+  if (advance && next) select(next); else if (stays) select(key, 'start' in change);
+}
+
+const actions = {
+  'play-clip': () => playClip(),
+  'play-selection': playSelection,
+  'zoom-out': () => { state.context = Math.min(8, state.context * 2); loadWindow(); },
+  'zoom-in': () => { state.context = Math.max(0.25, state.context / 2); loadWindow(); },
+  reset: () => { state.marks = { ...state.saved }; draw(); },
+  save: () => { if (!ui.buttons.save.disabled) update({ start: state.marks.start, end: state.marks.end }, false); },
+  ok: () => update({ checked: true }, true),
+  reject: () => update({ rejected: !state.cuts.clips[state.selected].rejected }, true),
+};
+
+editor.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-do]');
+  if (button && !button.disabled) actions[button.dataset.do]();
+});
+list.addEventListener('click', (event) => {
+  const item = event.target.closest('li');
+  if (item) select(item.dataset.key);
+});
+document.getElementById('filters').addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (button) { setFilter(button.dataset.filter); renderList(); }
+});
+document.getElementById('part').addEventListener('change', (event) => { state.part = event.target.value; renderList(); });
+document.getElementById('play-all').addEventListener('click', playThrough);
+window.addEventListener('resize', draw);
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+document.addEventListener('keydown', (event) => {
+  if (event.target.matches('select') || event.metaKey || event.ctrlKey || event.altKey || !state.selected) return;
+  const keys = { ' ': 'play-clip', p: 'play-selection', s: 'save', Enter: 'ok', x: 'reject' };
+  if (state.through) { playThrough(); event.preventDefault(); return; }
+  if (event.key === 'ArrowDown') { step(1); event.preventDefault(); }
+  else if (event.key === 'ArrowUp') { step(-1); event.preventDefault(); }
+  else if (keys[event.key.length === 1 ? event.key.toLowerCase() : event.key]) {
+    event.preventDefault();
+    if (event.target.matches('button')) event.target.blur();
+    actions[keys[event.key.length === 1 ? event.key.toLowerCase() : event.key]]();
+  }
+});
+
+load();
+</script>
+</body>
+</html>

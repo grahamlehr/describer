@@ -46,44 +46,56 @@ recording**; `--topup` (below) adds parts without disturbing it.
 
 ## 2. Record it (ElevenLabs)
 
-1. Text to Speech, model **Eleven Multilingual v2**. Pick the voice. Set
-   stability high (about 75%) so it reads every item the same way, speed 1.0,
-   and do not change voice or settings between parts.
+1. Text to Speech. Pick the model and voice you like the sound of and keep
+   both, and the settings, the same for every part. **Eleven v4 sounds best and
+   is what the pack was proved with.** It ignores pause tags, which is fine:
+   the script does not use them.
 2. Paste **`00-pilot.txt`** only. Generate, download, save as
    `voicepack/audio/00.mp3`.
-3. Run steps 3 to 5 below on the pilot alone and listen. This costs about 300
-   characters and tells you whether the voice, the pacing and the cutting work
-   before you spend the rest.
+3. Run steps 3 to 5 on the pilot alone and listen. It costs about 300
+   characters and shows whether the voice and the pacing are right before you
+   spend the rest.
 4. Then each remaining part: paste, generate, save as `audio/<number>.mp3`
    (`03 take 2.mp3` is fine; the newest name wins).
 
-Each part fits the web page's 5,000-character limit. If a name is said wrongly,
-respell it in the `.txt` and generate that part again; only the order of the
-lines matters.
+Each part fits the 5,000 characters most models take in one go. If a name is
+said wrongly, respell it in the `.txt` and generate that part again; only the
+order of the lines matters.
 
-**If the pilot will not cut** (the voice runs items together), write the
-script again with explicit pauses and start over from the pilot:
+`script --breaks 1.0` writes `<break time="1.0s" />` after every item, for
+models that obey it (Multilingual v2, Flash). It roughly triples the characters
+and is not needed.
 
-```bash
-.venv/bin/python scripts/voicepack.py script --force --breaks 1.0 --near ... 
-```
-
-That puts `<break time="1.0s" />` after every item. It works on Multilingual
-v2 and Flash, not on Eleven v3. It roughly triples the characters pasted, and
-ElevenLabs warns that many breaks in one generation can upset the voice, which
-is why it is not the default.
-
-## 3. Cut
+## 3. Cut, then check
 
 ```bash
 .venv/bin/python scripts/voicepack.py cut
+.venv/bin/python scripts/voicepack.py review
 ```
 
-Needs `ffmpeg`. Each recording is cut at its longest silences into exactly as
-many clips as its script has lines, levelled, and written to
-`voicepack/clips/` as 22,050 Hz mono WAV. A part whose pauses are ambiguous is
-refused, not guessed. `listen to …` lines name clips whose length does not suit
-their words; play those before trusting the part.
+`cut` needs `ffmpeg`. It lays each part's script against its recording and
+cuts where the pauses are longest and every piece is about as long as its
+words, then writes one levelled 22,050 Hz WAV per item to `voicepack/clips/`.
+The voice does not pause evenly (a tenth of a second between "platform," and
+"one,", nearly as long inside "Honor Oak Park"), so the cutter marks the cuts
+it is unsure of as **to check** rather than pretending.
+
+`review` opens a page at `http://localhost:8091` (Claude: `preview_start`
+`voicepack-review`). It lists the clips, the doubtful ones first:
+
+- **Play** a clip (Space), or Play through to hear them one after another.
+- **Move a cut**: the waveform shows the clip in its recording with the
+  neighbouring clips shaded. Drag the *in* and *out* markers, listen, Save cut.
+  The clip is written again from the recording, and `cut` keeps a hand cut
+  for as long as the recording is the same file.
+- **Sounds right** (Enter) clears the mark. **Reject** (X) leaves the clip out
+  of the pack.
+
+Rejected clips are recorded again as a short extra part:
+
+```bash
+.venv/bin/python scripts/voicepack.py script --redo
+```
 
 ## 4. Build and listen
 
@@ -111,7 +123,7 @@ panel; `voice_pack.missing` in `/api/status`). To record just those:
 .venv/bin/python scripts/voicepack.py script --topup http://describer.local:8080
 ```
 
-It adds parts numbered from 90. Record, `cut`, `build`, install again.
+It adds parts numbered from 90, as `--redo` does. Record, `cut`, `review`, `build`, install again.
 
 ## Notes
 

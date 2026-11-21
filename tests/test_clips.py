@@ -321,41 +321,68 @@ def recording(*pieces: array.array) -> array.array:
     return joined
 
 
-def test_items_are_found_by_the_longest_pauses_not_a_fixed_one():
+def test_items_are_found_by_their_pauses():
     # The second item pauses inside itself for longer than "a consonant".
     two_words = recording(tone(0.3), silence(0.15), tone(0.3))
     audio = recording(
         silence(0.2), tone(0.4), silence(0.5), two_words, silence(0.45), tone(0.6), silence(0.3)
     )
 
-    cut = cutter.find_items(audio, RATE, 3)
+    cut = cutter.find_items(audio, RATE, ["Reading,", "Honor Oak Park,", "Paddington,"])
 
     lengths = [(end - start) / RATE for start, end in cut.segments]
     assert lengths == pytest.approx([0.55, 0.9, 0.75], abs=0.05)
-    assert cut.margin == pytest.approx(3.0, abs=0.3)
+    assert cut.doubtful == []
     assert cut.shortest_pause_ms == pytest.approx(450, abs=20)
+
+
+def test_a_short_pause_in_the_right_place_beats_a_longer_one_in_the_wrong_place():
+    """What a voice that takes no pause instructions does: "platform," runs
+    straight into "one,", and "Honor Oak Park" pauses longer inside itself."""
+    phrase = recording(tone(1.6), silence(0.1), tone(0.5))
+    park = recording(tone(0.35), silence(0.16), tone(0.5))
+    audio = recording(
+        silence(0.1), phrase, silence(0.35), tone(0.6), silence(0.35), park, silence(0.35)
+    )
+    audio.extend(recording(tone(0.55), silence(0.35), tone(0.6), silence(0.2)))
+    texts = [
+        "The next train to arrive at platform,",
+        "one,",
+        "Brockley,",
+        "Honor Oak Park,",
+        "Rotherhithe,",
+        "Forest Hill,",
+    ]
+
+    cut = cutter.find_items(audio, RATE, texts)
+
+    lengths = [(end - start) / RATE for start, end in cut.segments]
+    assert lengths == pytest.approx([1.7, 0.6, 0.72, 1.13, 0.67, 0.72], abs=0.17)
+    # The cut it had to make at a tenth of a second is the one to listen to.
+    assert set(cut.doubtful) == {0, 1}
 
 
 def test_a_recording_with_too_few_items_is_refused():
     audio = recording(tone(0.4), silence(0.5), tone(0.4))
 
     with pytest.raises(cutter.CutError, match="only 2"):
-        cutter.find_items(audio, RATE, 3)
+        cutter.find_items(audio, RATE, ["Reading,", "Slough,", "Didcot,"])
 
 
-def test_an_item_far_too_long_for_its_words_is_pointed_out():
+def test_an_item_far_too_long_for_its_words_is_marked_doubtful():
     audio = recording()
     for seconds in (0.5, 0.5, 0.5, 0.5, 3.0, 0.5):
         audio.extend(tone(seconds))
         audio.extend(silence(0.5))
-    cut = cutter.find_items(audio, RATE, 6)
 
-    assert cutter.odd_ones_out(cut, ["Reading,"] * 6, RATE) == [4]
+    cut = cutter.find_items(audio, RATE, ["Reading,"] * 6)
+
+    assert cut.doubtful == [4]
 
 
 def test_a_clip_is_levelled_and_faded_at_both_ends():
     audio = recording(silence(0.2), tone(0.5, level=2000), silence(0.2))
-    cut = cutter.find_items(audio, RATE, 1)
+    cut = cutter.find_items(audio, RATE, ["Reading,"])
 
     clip = cutter.extract(audio, cut.segments[0], RATE, cutter.gain_for(audio, RATE))
 
@@ -367,11 +394,15 @@ def test_a_clip_is_levelled_and_faded_at_both_ends():
 # -- the tool -----------------------------------------------------------------
 
 
-def test_the_script_is_written_in_parts_that_fit_a_paste(tmp_path):
+@pytest.fixture(scope="module")
+def tool():
     spec = importlib.util.spec_from_file_location("voicepack", ROOT / "scripts" / "voicepack.py")
-    tool = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(tool)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
+
+def test_the_script_is_written_in_parts_that_fit_a_paste(tmp_path, tool):
     assert tool.main(["--dir", str(tmp_path), "script", "--near", "PAD", "--km", "3"]) == 0
 
     parts = sorted((tmp_path / "script").glob("[0-9][0-9]-*.json"))
@@ -383,6 +414,43 @@ def test_the_script_is_written_in_parts_that_fit_a_paste(tmp_path):
         assert [line for line in text.split("\n") if line] == [words for _, words in items]
     with pytest.raises(SystemExit, match="already holds a script"):
         tool.main(["--dir", str(tmp_path), "script", "--near", "PAD"])
+
+
+def test_a_recording_is_cut_reviewed_by_hand_and_rebuilt(tmp_path, tool, monkeypatch):
+    """cut -> move a cut and reject a clip in review -> cut again -> redo -> build."""
+    items = [["s.reading.mid", "Reading,"], ["s.slough.mid", "Slough,"], ["p.and", "and,"]]
+    (tmp_path / "script").mkdir()
+    (tmp_path / "script" / "01-core.json").write_text(json.dumps(items))
+    (tmp_path / "audio").mkdir()
+    take = recording(
+        silence(0.2), tone(0.5), silence(0.4), tone(0.5), silence(0.4), tone(0.3), silence(0.2)
+    )
+    tool.write_wav(tmp_path / "audio" / "01.wav", take)
+    # The test recording is already a WAV at the pack's rate: no ffmpeg needed.
+    monkeypatch.setattr(tool, "decode", lambda path: take)
+
+    assert tool.main(["--dir", str(tmp_path), "cut"]) == 0
+    review = tool.Review(tmp_path)
+    moved = review.update("s.slough.mid", {"start": RATE, "end": RATE + RATE // 4})
+    review.update("p.and", {"rejected": True})
+
+    assert (moved["manual"], moved["doubtful"]) == (True, False)
+    with wave.open(str(tmp_path / "clips" / "s.slough.mid.wav")) as clip:
+        assert clip.getnframes() == RATE // 4
+    assert len(review.window("01", 0, RATE)) == 44 + 2 * RATE
+
+    # Cutting the same take again keeps what was decided by hand.
+    assert tool.main(["--dir", str(tmp_path), "cut"]) == 0
+    cuts = tool.load_cuts(tmp_path)["clips"]
+    assert cuts["s.slough.mid"]["start"] == RATE and cuts["s.slough.mid"]["manual"]
+    assert cuts["p.and"]["rejected"]
+
+    assert tool.main(["--dir", str(tmp_path), "script", "--redo"]) == 0
+    assert json.loads((tmp_path / "script" / "90-redo.json").read_text()) == [["p.and", "and,"]]
+
+    assert tool.main(["--dir", str(tmp_path), "build"]) == 0
+    pack = VoicePack(tmp_path / "voicepack.zip")
+    assert pack.has("s.slough.mid") and not pack.has("p.and")
 
 
 # -- the API ------------------------------------------------------------------

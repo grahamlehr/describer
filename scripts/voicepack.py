@@ -5,6 +5,7 @@ Four steps, run on the Mac, in a working folder (default ``voicepack/``):
 
     script   write the recording script, in parts small enough to paste
     cut      cut the audio that came back into one clip per item
+    review   listen to the clips in a browser; move a cut, or reject a clip
     build    zip the clips into voicepack.zip for the board
     demo     play a sample announcement from the pack
 
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import array
+import io
 import json
 import math
 import re
@@ -29,9 +31,13 @@ import urllib.request
 import wave
 import zipfile
 from datetime import date
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import contextlib
 
 from describer.announce import catalogue, cutter  # noqa: E402
 from describer.announce.clips import (  # noqa: E402
@@ -48,6 +54,9 @@ from describer.rail.models import CallingPoint, Service, ServiceStatus  # noqa: 
 
 AUDIO_TYPES = (".mp3", ".wav", ".m4a", ".flac", ".ogg", ".opus", ".aiff")
 SAMPLE = "sample-service.json"
+#: Where every clip was cut from, and what has been decided about it.
+CUTS = "cuts.json"
+REVIEW_PAGE = Path(__file__).with_name("voicepack_review.html")
 
 
 # -- script ------------------------------------------------------------------
@@ -131,22 +140,28 @@ def _parts(clips: list[catalogue.Clip], label: str, chars: int, items: int, sepa
 
 def cmd_script(args: argparse.Namespace) -> int:
     out: Path = args.dir / "script"
-    if out.exists() and any(out.glob("*.json")) and not args.force:
+    adding = bool(args.topup or args.redo)
+    if out.exists() and any(out.glob("*.json")) and not args.force and not adding:
         raise SystemExit(
             f"{out} already holds a script. Audio is matched to it line by line, so it is "
             "not overwritten; use --force to replace it (and record everything again), "
-            "or --topup to add to it."
+            "or --topup / --redo to add to it."
         )
     separator = f' <break time="{args.breaks}s" />\n' if args.breaks else "\n\n"
 
-    if args.topup:
-        status = _fetch(args.topup.rstrip("/") + "/api/status")
-        wanted = (status.get("voice_pack") or {}).get("missing") or []
-        clips = [catalogue.Clip(item["key"], item["text"], "topup") for item in wanted]
+    if adding:
+        label = "topup" if args.topup else "redo"
+        if args.topup:
+            status = _fetch(args.topup.rstrip("/") + "/api/status")
+            wanted = (status.get("voice_pack") or {}).get("missing") or []
+            clips = [catalogue.Clip(item["key"], item["text"], label) for item in wanted]
+        else:
+            rejected = [c for c in load_cuts(args.dir)["clips"].values() if c.get("rejected")]
+            clips = [catalogue.Clip(c["key"], c["text"], label) for c in rejected]
         # A station is worth having both ways once it is being recorded at all.
         extra = []
         for clip in clips:
-            if clip.key.startswith("s."):
+            if args.topup and clip.key.startswith("s."):
                 stem, other = clip.key.rsplit(".", 1)[0], clip.text.rstrip(",.")
                 extra += [
                     catalogue.Clip(f"{stem}.mid", f"{other},", "topup"),
@@ -154,12 +169,12 @@ def cmd_script(args: argparse.Namespace) -> int:
                 ]
         clips = list({clip.key: clip for clip in [*clips, *extra]}.values())
         if not clips:
-            print("The board has not been short of any clip. Nothing to record.")
+            print("Nothing to record: no clip is missing or rejected.")
             return 0
         existing = [int(path.name[:2]) for path in out.glob("[0-9][0-9]-*.json")]
         number = max([89, *existing]) + 1
         groups = list(
-            _parts(sorted(clips, key=lambda c: c.key), "topup", args.chars, args.items, separator)
+            _parts(sorted(clips, key=lambda c: c.key), label, args.chars, args.items, separator)
         )
         sample = None
     else:
@@ -277,6 +292,20 @@ def audio_for(audio_dir: Path, number: str) -> Path | None:
     return found[-1] if found else None
 
 
+def load_cuts(folder: Path) -> dict:
+    """``cuts.json``: each part's recording, and each clip's place in it."""
+    try:
+        return json.loads((folder / CUTS).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"parts": {}, "clips": {}}
+
+
+def save_cuts(folder: Path, cuts: dict) -> None:
+    partial = folder / (CUTS + ".partial")
+    partial.write_text(json.dumps(cuts, ensure_ascii=False, indent=1), encoding="utf-8")
+    partial.replace(folder / CUTS)
+
+
 def cmd_cut(args: argparse.Namespace) -> int:
     script, audio, clips_dir = args.dir / "script", args.dir / "audio", args.dir / "clips"
     audio.mkdir(parents=True, exist_ok=True)
@@ -284,7 +313,8 @@ def cmd_cut(args: argparse.Namespace) -> int:
     parts = sorted(script.glob("[0-9][0-9]-*.json"))
     if not parts:
         raise SystemExit(f"No script in {script}. Run `voicepack.py script` first.")
-    cut_count = waiting = failed = 0
+    cuts = load_cuts(args.dir)
+    cut_count = waiting = failed = doubts = 0
     for part in parts:
         number = part.name[:2]
         if args.only and number not in args.only:
@@ -294,34 +324,173 @@ def cmd_cut(args: argparse.Namespace) -> int:
         if source is None:
             waiting += 1
             continue
+        stamp = source.stat().st_mtime
+        same_take = (cuts["parts"].get(number) or {}).get("mtime") == stamp
         try:
             samples = decode(source)
-            cut = cutter.find_items(samples, RATE, len(items))
-            if cut.margin < cutter.CLEAR_MARGIN and number not in args.accept:
-                raise cutter.CutError(
-                    f"the pauses between items are not clearly longer than the pauses inside "
-                    f"them (shortest cut {cut.shortest_pause_ms} ms, margin {cut.margin:.2f}). "
-                    f"Record it again with --breaks, or pass --accept {number} after listening."
-                )
+            cut = cutter.find_items(samples, RATE, [text for _, text in items])
         except cutter.CutError as exc:
             failed += 1
             print(f"✗ {part.stem}  {source.name}: {exc}")
             continue
         gain = cutter.gain_for(samples, RATE)
-        for (key, _), segment in zip(items, cut.segments, strict=True):
+        cuts["parts"][number] = {
+            "name": part.stem,
+            "source": source.name,
+            "mtime": stamp,
+            "gain": gain,
+            "seconds": len(samples) / RATE,
+        }
+        kept = 0
+        for index, ((key, text), segment) in enumerate(zip(items, cut.segments, strict=True)):
+            old = cuts["clips"].get(key) or {}
+            # A cut moved by hand is kept for as long as the recording is the same one.
+            by_hand = same_take and old.get("part") == number and old.get("manual")
+            if by_hand:
+                segment = (old["start"], old["end"])
+                kept += 1
+            cuts["clips"][key] = {
+                "key": key,
+                "text": text,
+                "part": number,
+                "index": index,
+                "start": segment[0],
+                "end": segment[1],
+                "doubtful": index in cut.doubtful and not by_hand,
+                "manual": bool(by_hand),
+                "rejected": bool(same_take and old.get("part") == number and old.get("rejected")),
+            }
             write_wav(clips_dir / f"{key}.wav", cutter.extract(samples, segment, RATE, gain))
-        odd = cutter.odd_ones_out(cut, [text for _, text in items], RATE)
         cut_count += 1
+        doubts += len(cut.doubtful)
         print(
-            f"✓ {part.stem}  {len(items)} clips from {source.name} "
-            f"(shortest pause {cut.shortest_pause_ms} ms)"
+            f"✓ {part.stem}  {len(items)} clips from {source.name}: usual pause "
+            f"{cut.usual_pause_ms} ms, shortest {cut.shortest_pause_ms} ms, "
+            f"{len(cut.doubtful)} to check" + (f", {kept} hand cuts kept" if kept else "")
         )
-        for index in odd:
-            key, text = items[index]
-            seconds = (cut.segments[index][1] - cut.segments[index][0]) / RATE
-            print(f"    listen to {key}.wav: {seconds:.1f} s for “{text}”")
+    save_cuts(args.dir, cuts)
     print(f"\n{cut_count} cut, {failed} refused, {waiting} still to record. Clips in {clips_dir}")
+    if doubts:
+        print(f"{doubts} clips to check: run `voicepack.py review`.")
     return 1 if failed else 0
+
+
+# -- review ------------------------------------------------------------------
+
+
+class Review:
+    """The working folder as the review page sees it."""
+
+    def __init__(self, folder: Path) -> None:
+        self.folder = folder
+        self._decoded: dict[str, tuple[float, array.array]] = {}
+
+    def samples(self, part: str) -> array.array:
+        """A part's recording, decoded once and again only if the file changes."""
+        info = load_cuts(self.folder)["parts"][part]
+        source = self.folder / "audio" / info["source"]
+        stamp = source.stat().st_mtime
+        held = self._decoded.get(part)
+        if held is None or held[0] != stamp:
+            held = (stamp, decode(source))
+            self._decoded = {part: held}
+        return held[1]
+
+    def window(self, part: str, start: int, end: int) -> bytes:
+        """Part of a recording as a WAV, for the page to draw and play."""
+        samples = self.samples(part)
+        start, end = max(0, start), min(len(samples), end)
+        buffer = io.BytesIO()
+        with wave.open(buffer, "wb") as sink:
+            sink.setnchannels(1)
+            sink.setsampwidth(2)
+            sink.setframerate(RATE)
+            sink.writeframes(samples[start:end].tobytes())
+        return buffer.getvalue()
+
+    def update(self, key: str, change: dict) -> dict:
+        """Reject or restore a clip, or move its cut and write the clip again."""
+        cuts = load_cuts(self.folder)
+        clip = cuts["clips"][key]
+        if "rejected" in change:
+            clip["rejected"] = bool(change["rejected"])
+        if "start" in change and "end" in change:
+            samples = self.samples(clip["part"])
+            start = max(0, min(int(change["start"]), len(samples) - 1))
+            end = max(start + 1, min(int(change["end"]), len(samples)))
+            clip.update(start=start, end=end, manual=True, doubtful=False, rejected=False)
+            gain = cuts["parts"][clip["part"]]["gain"]
+            write_wav(
+                self.folder / "clips" / f"{key}.wav",
+                cutter.extract(samples, (start, end), RATE, gain),
+            )
+        if change.get("checked"):
+            clip["doubtful"] = False
+        save_cuts(self.folder, cuts)
+        return clip
+
+
+def review_handler(review: Review) -> type[BaseHTTPRequestHandler]:
+    class Handler(BaseHTTPRequestHandler):
+        def _send(self, body: bytes, kind: str, status: int = 200) -> None:
+            self.send_response(status)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _json(self, data: object, status: int = 200) -> None:
+            self._send(json.dumps(data).encode(), "application/json", status)
+
+        def do_GET(self) -> None:  # noqa: N802
+            url = urlparse(self.path)
+            query = parse_qs(url.query)
+            try:
+                if url.path == "/":
+                    self._send(REVIEW_PAGE.read_bytes(), "text/html; charset=utf-8")
+                elif url.path == "/cuts":
+                    self._json({**load_cuts(review.folder), "rate": RATE})
+                elif url.path == "/clip":
+                    key = query["key"][0]
+                    if key not in load_cuts(review.folder)["clips"]:
+                        raise KeyError(key)
+                    self._send((review.folder / "clips" / f"{key}.wav").read_bytes(), "audio/wav")
+                elif url.path == "/window":
+                    part, start, end = (
+                        query["part"][0],
+                        int(query["start"][0]),
+                        int(query["end"][0]),
+                    )
+                    self._send(review.window(part, start, end), "audio/wav")
+                else:
+                    self._json({"error": "not found"}, 404)
+            except (KeyError, ValueError, OSError) as exc:
+                self._json({"error": str(exc)}, 404)
+
+        def do_POST(self) -> None:  # noqa: N802
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                change = json.loads(self.rfile.read(length) or b"{}")
+                self._json(review.update(change.pop("key"), change))
+            except (KeyError, ValueError, OSError) as exc:
+                self._json({"error": str(exc)}, 400)
+
+        def log_message(self, *_args: object) -> None:
+            pass
+
+    return Handler
+
+
+def cmd_review(args: argparse.Namespace) -> int:
+    if not load_cuts(args.dir)["clips"]:
+        raise SystemExit("Nothing has been cut yet. Run `voicepack.py cut` first.")
+    # This machine only: the page can rewrite clips.
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), review_handler(Review(args.dir)))
+    print(f"Review the clips at http://localhost:{args.port}  (Ctrl-C to stop)")
+    with contextlib.suppress(KeyboardInterrupt):
+        server.serve_forever()
+    return 0
 
 
 # -- build -------------------------------------------------------------------
@@ -329,7 +498,10 @@ def cmd_cut(args: argparse.Namespace) -> int:
 
 def cmd_build(args: argparse.Namespace) -> int:
     clips_dir = args.dir / "clips"
-    files = sorted(clips_dir.glob("*.wav"))
+    known = load_cuts(args.dir)["clips"]
+    rejected = {key for key, clip in known.items() if clip.get("rejected")}
+    unchecked = sum(1 for clip in known.values() if clip.get("doubtful"))
+    files = sorted(path for path in clips_dir.glob("*.wav") if path.stem not in rejected)
     if not files:
         raise SystemExit(f"No clips in {clips_dir}. Run `voicepack.py cut` first.")
     have = {path.stem for path in files}
@@ -357,6 +529,10 @@ def cmd_build(args: argparse.Namespace) -> int:
     if core_missing:
         print(f"  {len(core_missing)} core clips missing; announcements needing them use Piper:")
         print("   ", ", ".join(clip.key for clip in core_missing[:20]))
+    if rejected:
+        print(f"  {len(rejected)} rejected clips left out; `script --redo` lists them to record")
+    if unchecked:
+        print(f"  {unchecked} clips are still marked to check (`voicepack.py review`)")
     print("Install it from /admin → Announcements → Recorded voice.")
     return 0
 
@@ -406,13 +582,17 @@ def main(argv: list[str] | None = None) -> int:
         "--breaks", type=float, default=0, help="seconds of <break> after each item"
     )
     script.add_argument("--topup", metavar="URL", help="only what a running board found missing")
+    script.add_argument("--redo", action="store_true", help="only the clips rejected in review")
     script.add_argument("--force", action="store_true", help="replace an existing script")
     script.set_defaults(run=cmd_script)
 
     cut = commands.add_parser("cut", help="cut recorded audio into clips")
     cut.add_argument("--only", nargs="*", default=[], help="part numbers to cut (default: all)")
-    cut.add_argument("--accept", nargs="*", default=[], help="parts to cut despite unclear pauses")
     cut.set_defaults(run=cmd_cut)
+
+    review = commands.add_parser("review", help="check the clips in a browser")
+    review.add_argument("--port", type=int, default=8091)
+    review.set_defaults(run=cmd_review)
 
     build = commands.add_parser("build", help="zip the clips into a voice pack")
     build.add_argument("--name", default="Recorded voice")

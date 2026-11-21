@@ -28,10 +28,19 @@ keys and pauses and joins them into one WAV; `announce/cutter.py` and
   the planner tries both. Brackets are dropped: both Bramleys share a clip.
 - **One zip, read in place.** No unpacking on the Pi, one file to upload,
   replace or delete; stored uncompressed (speech barely deflates).
-- **Cut by count, not by threshold.** The script says how many items a
-  recording holds; the cutter takes the N-1 longest silences and refuses when
-  they are not clearly longer (x1.4) than the next one. A fixed "silence longer
-  than X" cannot work when the voice chooses X.
+- **Cut by aligning the script, not by a silence threshold.** The model that
+  sounds best (Eleven v4) ignores `<break>` tags, and its pauses between items
+  ran from 100 to 430 ms in the first real take, against 90 ms inside a phrase.
+  "The N-1 longest silences" was right on that take by 10 ms. So the cutter
+  knows what each item says, estimates its length from its letters (0.2 s plus
+  a pace taken from the recording's median item), and a dynamic programme
+  picks the cuts that best trade three costs: a piece the wrong length, a
+  pause left inside a piece, a cut at a short pause.
+- **Doubt is reported, not refused.** An item 1.7x off its expected length, or
+  cut at under 0.4 of the usual pause, is marked to check. `voicepack.py
+  review` is a local page (127.0.0.1 only: it rewrites clips) that plays each
+  clip and shows its waveform in the recording with draggable in and out
+  markers; `cuts.json` holds every clip's place, hand cuts and rejections.
 - **Not committed.** The repo is public, the audio is licensed to whoever
   generated it, and a script written for `--near` says where the board is.
 
@@ -51,10 +60,14 @@ keys and pauses and joins them into one WAV; `announce/cutter.py` and
 
 ## Traps
 
-- **Not yet heard in an ElevenLabs voice.** Everything was proved with `say`.
-  Whether a comma-ended item gets a carrying inflection, and whether blank
-  lines give pauses clearly longer than those inside a name, is what the pilot
-  part (`00-pilot`) is for. `--breaks` is the fallback.
+- **One real take so far**: the 18-item pilot in Eleven v4, cut correctly with
+  two items marked to check (either side of the 100 ms pause). The 200-item
+  parts are proved only with `say`, whose pauses are even. Two items read with
+  no gap at all cannot be separated by anything here; they show up as doubtful
+  and are fixed by hand or re-recorded.
+- The weights (`FIT_WEIGHT` 1.5, `INSIDE_WEIGHT` 2, `SHORT_CUT_WEIGHT` 0.2)
+  were set on that take and one synthetic case. With the short-cut penalty at
+  0.5 the cutter preferred splitting "Honor Oak Park" to cutting at 100 ms.
 - Re-running `script` reorders or re-chunks the parts and silently mismatches
   any audio already recorded; it refuses without `--force`.
 - `spell_number` used to raise on 60 and over, so a train an hour late crashed
@@ -66,6 +79,7 @@ keys and pauses and joins them into one WAV; `announce/cutter.py` and
 
 `tests/test_clips.py`: the plan's words equal `build_text`'s for twenty
 service shapes; missing-clip behaviour; pack validation; cutter on synthetic
-tone; upload, bad upload and removal through the API. End to end by hand with
+tone, including a short pause in the right place against a longer one in the
+wrong place; cut, hand cut, reject, redo and build through the tool; upload, bad upload and removal through the API. End to end by hand with
 the `say` stand-in, and the pack uploaded to a local server and seen on
 `/admin` (local only; not on the Pi).

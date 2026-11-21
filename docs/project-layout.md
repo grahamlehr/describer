@@ -34,7 +34,7 @@ describer/
       phrasing.py          # builds announcement text from Service
       catalogue.py         # every recorded clip and its wording (data/ holds operators, reasons)
       clips.py             # voice pack, clip plan, joining clips into a WAV
-      cutter.py            # cuts one long recording into its clips (used by scripts/voicepack.py)
+      cutter.py            # aligns a recording to its script and cuts it into clips (scripts/voicepack.py)
       tts.py               # Piper wrapper + cache + playback
       scheduler.py         # decides what to announce and when
     web/static/

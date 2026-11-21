@@ -18,6 +18,6 @@ tts-cache/
 .claude/settings.local.json
 
 # Voice pack working folder and the pack itself (scripts/voicepack.py)
-voicepack/
+voicepack
 voicepack.zip
 voicepack.zip.upload
