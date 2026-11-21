@@ -3,7 +3,7 @@
 // past the 0.106 that introduced JS rules, so this loads as-is. (Bookworm's 122
 // used the same engine.)
 //
-// Four grants, each as narrow as polkit lets it be:
+// Five grants, each as narrow as polkit lets it be:
 //
 //   1. restart describer.service    the updater, when no deploy/ files changed
 //   2. start describer-apply-deploy.service
@@ -12,6 +12,8 @@
 //                                   deploy/apply-deploy.sh for what it trusts.
 //   3. power off                    the Shut down button in /admin
 //   4. reboot                       the Restart button in /admin
+//   5. restart kiosk.service        the display watchdog (describer/kiosk.py) and
+//                                   the Restart display button in /admin
 //
 // Not granted: another unit, another verb (stop, enable, edit), or root.
 polkit.addRule(function (action, subject) {
@@ -23,6 +25,9 @@ polkit.addRule(function (action, subject) {
         var unit = action.lookup("unit");
         var verb = action.lookup("verb");
         if (unit == "describer.service" && verb == "restart") {
+            return polkit.Result.YES;
+        }
+        if (unit == "kiosk.service" && verb == "restart") {
             return polkit.Result.YES;
         }
         if (unit == "describer-apply-deploy.service" && verb == "start") {

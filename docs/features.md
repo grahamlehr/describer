@@ -118,7 +118,8 @@ specifics are in `docs/design/03`; the palette roles in `/05` and `/11`.
   fetch, a test announcement button, Force source / Force profile (memory
   only), credentials (write-only), updates from GitHub (a release that touches
   `deploy/` is applied by a root oneshot, no re-running `install.sh`) and
-  Shut down / Restart. LAN-only; no login.
+  Shut down / Restart, and Restart display (the kiosk browser only; the board
+  also does this by itself if its page stops responding). LAN-only; no login.
 - Tabs: Stations, Display, Profiles, Data sources, Announcements, Schedule,
   Status; one visible at a time, current tab in the URL hash. Save, Discard
   and a live health chip sit in a sticky bar.

@@ -887,7 +887,19 @@ function connect() {
   });
 }
 
+/**
+ * Tell the backend this page's main thread is running. An open SSE stream
+ * proves nothing: a hung renderer keeps its socket. If these stop for 90 s the
+ * backend restarts the kiosk browser (describer/kiosk.py). Keep 15 s in step
+ * with HEARTBEAT_SECONDS there.
+ */
+function heartbeat() {
+  fetch('/api/kiosk/heartbeat', { method: 'POST' }).catch(() => {});
+}
+
 connect();
+heartbeat();
+setInterval(heartbeat, 15000);
 setInterval(tickClock, 250);
 tickClock();
 // Anything measured before a theme's stylesheet or web font arrived is wrong;

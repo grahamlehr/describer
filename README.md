@@ -99,7 +99,8 @@ pulling the power. There is no abort once the sixth press lands, and testing
 it means cycling power to bring the Pi back.
 
 **No button? Use the page.** **/admin → Status → Power** has **Shut down** and
-**Restart**, each behind a confirmation. It does the same clean poweroff (or
+**Restart** (and **Restart display**, which only restarts the browser if the
+board is frozen or showing an error; it also does that by itself), each behind a confirmation. It does the same clean poweroff (or
 reboot), and needs no wiring. Anyone on your network who can open `/admin` can
 press them, the same trust as the rest of that page. On a development machine
 they answer "Only on the Pi" and do nothing. The button on GPIO21 is

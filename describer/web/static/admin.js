@@ -1098,6 +1098,22 @@ function setGlance(kind, text) {
   document.getElementById('glance-text').textContent = text;
 }
 
+/** The display watchdog's state, small, under the power buttons. */
+function showKiosk(kiosk) {
+  const el = document.getElementById('kiosk-status');
+  if (!el || !kiosk) return;
+  if (!kiosk.available) {
+    el.textContent = '';
+    return;
+  }
+  const age = kiosk.last_heartbeat_age;
+  const beat = age === null ? 'no heartbeat from the board yet' : `last heartbeat ${Math.round(age)} s ago`;
+  const restarts = kiosk.restarts
+    ? `, restarted ${kiosk.restarts} time${kiosk.restarts === 1 ? '' : 's'} (last: ${kiosk.last_restart_reason})`
+    : '';
+  el.textContent = `Display: ${beat}${restarts}${kiosk.error ? `. ${kiosk.error}` : ''}`;
+}
+
 async function loadStatus() {
   try {
     const status = await (await fetch('/api/status')).json();
@@ -1111,6 +1127,7 @@ async function loadStatus() {
     const handover = status.profile_changes_at
       ? ` &rarr; ${status.next_profile || 'base config'} at ${formatTime(status.profile_changes_at)}`
       : '';
+    showKiosk(status.kiosk);
     statusList.innerHTML = `
       <dt>Profile</dt><dd>${status.active_profile ? ok(status.active_profile) : pill('', 'base config')}
         ${status.forced_profile ? bad(`forced: ${status.forced_profile}`) : ''}${handover}</dd>
@@ -1493,6 +1510,14 @@ applyUpdateButton.addEventListener('click', async () => {
 // Pi" on a dev machine and does nothing.
 const powerMessage = document.getElementById('power-message');
 const POWER = {
+  display: {
+    button: document.getElementById('restart-display'),
+    url: '/api/kiosk/restart',
+    // Only the board restarts: this page, and its unsaved changes, carry on.
+    keepsPage: true,
+    confirm: 'Restart the display? The board will go blank for about half a minute.',
+    done: 'Restarting the display. The board will be back in about half a minute.',
+  },
   poweroff: {
     button: document.getElementById('poweroff'),
     confirm: 'Shut the Pi down? The screen will go blank. Wait for the green light to stop flashing before unplugging.',
@@ -1506,20 +1531,21 @@ const POWER = {
   },
 };
 
-for (const [action, { button, confirm: question, done }] of Object.entries(POWER)) {
+for (const [action, { button, confirm: question, done, url, keepsPage }] of Object.entries(POWER)) {
   button.addEventListener('click', async () => {
-    if (dirty && !confirm('You have unsaved changes, and they will be lost. Carry on?')) return;
+    if (!keepsPage && dirty && !confirm('You have unsaved changes, and they will be lost. Carry on?')) return;
     if (!confirm(question)) return;
     for (const other of Object.values(POWER)) other.button.disabled = true;
     powerMessage.textContent = 'Asking the Pi…';
     try {
-      const response = await fetch(`/api/system/${action}`, { method: 'POST' });
+      const response = await fetch(url || `/api/system/${action}`, { method: 'POST' });
       const body = await response.json().catch(() => ({}));
       if (response.ok) {
         powerMessage.textContent = done;
-        return;
+        if (!keepsPage) return;
+      } else {
+        powerMessage.textContent = body.detail || response.statusText;
       }
-      powerMessage.textContent = body.detail || response.statusText;
     } catch {
       powerMessage.textContent = 'Could not reach the Pi.';
     }

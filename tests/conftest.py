@@ -100,9 +100,9 @@ def no_weather_network(monkeypatch) -> None:
 def power_tripwire(monkeypatch) -> list[list[str]]:
     """A test must never power off or reboot the machine it runs on.
 
-    ``system.run_command`` is the only thing that reaches ``systemctl
-    poweroff|reboot``; it is replaced for every test with one that records the
-    call and refuses. Tests of the power controls hand ``Power`` their own fake
+    ``system.run_command`` and ``system.query_command`` are the only things
+    that reach ``systemctl``; both are replaced for every test with one that
+    records the call and refuses. Tests of the power controls hand ``Power`` their own fake
     runner, and ``test_system.py`` asserts this list is still empty.
     """
     from describer import system
@@ -113,7 +113,12 @@ def power_tripwire(monkeypatch) -> list[list[str]]:
         calls.append(list(args))
         raise AssertionError(f"a test tried to run {list(args)}")
 
+    async def query_tripwire(args) -> str:
+        calls.append(list(args))
+        raise AssertionError(f"a test tried to run {list(args)}")
+
     monkeypatch.setattr(system, "run_command", tripwire)
+    monkeypatch.setattr(system, "query_command", query_tripwire)
     return calls
 
 

@@ -111,9 +111,10 @@ def test_polkit_grants_exactly_the_agreed_actions():
     text = RULES.read_text()
 
     assert 'subject.user != "describer"' in text
-    # systemd: restart one unit, start one unit.
+    # systemd: restart two units, start one unit.
     assert text.count("org.freedesktop.systemd1.manage-units") == 1
     assert 'unit == "describer.service" && verb == "restart"' in text
+    assert 'unit == "kiosk.service" && verb == "restart"' in text
     assert 'unit == "describer-apply-deploy.service" && verb == "start"' in text
     # logind: power off and reboot, with and without other sessions.
     granted = set(re.findall(r'"(org\.freedesktop\.login1\.[a-z-]+)"', text))
@@ -125,7 +126,7 @@ def test_polkit_grants_exactly_the_agreed_actions():
     }
     # Nothing is granted by a wildcard, and nothing is a bare YES for any action.
     assert "startsWith" not in text
-    assert text.count("polkit.Result.YES") == 3
+    assert text.count("polkit.Result.YES") == 4
 
 
 # -- run against a fake GitHub -------------------------------------------------
