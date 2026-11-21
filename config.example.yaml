@@ -117,6 +117,8 @@ announcements:
   announce_cancellations: true  # announce cancellations with the standard apology
   use_voice_pack: true      # speak in the recorded voice when a voice pack is installed
   voice_pack: voicepack.zip # the voice pack (recorded clips); Piper speaks when it is absent
+  voice_packs_dir: voicepacks # where voices made on the board are kept, one folder each
+  recorded_voice: ""         # the made voice in use (its folder name); empty uses voice_pack
   max_calling_points: 8     # calling points read out before the final destination
 
 schedule:

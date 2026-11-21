@@ -10,9 +10,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
-from describer import main as main_module
 from describer.announce import catalogue, cutter
 from describer.announce.clips import (
     FORMAT,
@@ -27,9 +25,7 @@ from describer.announce.clips import (
 )
 from describer.announce.phrasing import AnnouncementKind, build_text
 from describer.announce.scheduler import TEST_TEXT, Announcement, AnnouncementScheduler
-from describer.config import AnnouncementsConfig, Config, save_config
-from describer.rail import sources as sources_module
-from describer.rail.ldbws import parse_board
+from describer.config import AnnouncementsConfig
 from describer.rail.models import CallingPoint, Service, ServiceStatus
 
 ROOT = Path(__file__).parent.parent
@@ -438,7 +434,7 @@ def test_a_voice_with_one_reading_records_each_station_once_and_plays_it_in_both
     assert "s.penge-west.end" in plan.keys and plan.keys[-1] == "s.anerley.mid"
 
 
-def test_a_recording_is_cut_reviewed_by_hand_and_rebuilt(tmp_path, tool, monkeypatch):
+def test_a_recording_is_cut_reviewed_by_hand_and_rebuilt(tmp_path, tool):
     """cut -> move a cut and reject a clip in review -> cut again -> redo -> build."""
     items = [["s.reading.mid", "Reading,"], ["s.slough.mid", "Slough,"], ["p.and", "and,"]]
     (tmp_path / "script").mkdir()
@@ -448,8 +444,7 @@ def test_a_recording_is_cut_reviewed_by_hand_and_rebuilt(tmp_path, tool, monkeyp
         silence(0.2), tone(0.5), silence(0.4), tone(0.5), silence(0.4), tone(0.3), silence(0.2)
     )
     tool.write_wav(tmp_path / "audio" / "01.wav", take)
-    # The test recording is already a WAV at the pack's rate: no ffmpeg needed.
-    monkeypatch.setattr(tool, "decode", lambda path: take)
+    # A WAV at the pack's rate is read directly: no ffmpeg needed.
 
     assert tool.main(["--dir", str(tmp_path), "cut"]) == 0
     review = tool.Review(tmp_path)
@@ -475,57 +470,24 @@ def test_a_recording_is_cut_reviewed_by_hand_and_rebuilt(tmp_path, tool, monkeyp
     assert pack.has("s.slough.mid") and not pack.has("p.and")
 
 
-# -- the API ------------------------------------------------------------------
+# -- where the pack lives -----------------------------------------------------
 
 
-@pytest.fixture
-def client(monkeypatch, tmp_path, rdm_credentials, departures_payload):
-    board = parse_board(departures_payload, "PAD", "departures")
+def test_a_made_voice_is_found_in_its_folder_and_else_the_single_pack(tmp_path):
+    plain = RecordedVoice(AnnouncementsConfig(voice_pack="one.zip", voice_packs_dir="made"))
+    assert plain.path == Path("one.zip")
 
-    class FakeClient:
-        def __init__(self, *_args, **_kwargs):
-            pass
+    made = AnnouncementsConfig(voice_pack="one.zip", voice_packs_dir="made", recorded_voice="kate")
+    voice = RecordedVoice(made)
+    assert voice.path == Path("made/kate/pack.zip")
 
-        async def fetch_board(self, crs, mode="departures"):
-            return board.model_copy(deep=True)
-
-        async def aclose(self):
-            pass
-
-    monkeypatch.setattr(sources_module, "LdbwsClient", FakeClient)
-    monkeypatch.setattr(main_module, "load_dotenv", lambda *a, **k: None)
-    path = tmp_path / "config.yaml"
-    config = Config(
-        stations=[{"crs": "PAD", "announce": False}],
-        announcements={"voice_pack": str(tmp_path / "pack" / "voicepack.zip")},
-    )
-    save_config(config, path)
-    monkeypatch.setenv("DESCRIBER_CONFIG", str(path))
-
-    with TestClient(main_module.app) as test_client:
-        yield test_client
+    write_pack(tmp_path / "pack.zip", ["p.test"])
+    (tmp_path / "kate").mkdir()
+    (tmp_path / "pack.zip").replace(tmp_path / "kate" / "pack.zip")
+    voice.update_config(made.model_copy(update={"voice_packs_dir": str(tmp_path)}))
+    assert voice.status()["installed"] is True
 
 
-def test_a_voice_pack_is_installed_reported_and_removed(client, tmp_path):
-    assert client.get("/api/status").json()["voice_pack"]["installed"] is False
-    upload = write_pack(tmp_path / "upload.zip", ["p.test", "p.and"]).read_bytes()
-
-    installed = client.put("/api/voicepack", content=upload)
-
-    assert installed.status_code == 200
-    assert installed.json()["clips"] == 2
-    status = client.get("/api/status").json()["voice_pack"]
-    assert (status["installed"], status["name"]) == (True, "Test voice")
-
-    assert client.delete("/api/voicepack").json()["installed"] is False
-    assert not (tmp_path / "pack" / "voicepack.zip").exists()
-
-
-def test_a_bad_upload_leaves_the_installed_pack_alone(client, tmp_path):
-    client.put("/api/voicepack", content=write_pack(tmp_path / "a.zip", ["p.test"]).read_bytes())
-
-    refused = client.put("/api/voicepack", content=b"this is not a zip")
-
-    assert refused.status_code == 422
-    assert client.get("/api/status").json()["voice_pack"]["clips"] == 1
-    assert list((tmp_path / "pack").iterdir()) == [tmp_path / "pack" / "voicepack.zip"]
+def test_a_voice_name_in_the_config_cannot_leave_its_folder():
+    with pytest.raises(ValueError):
+        AnnouncementsConfig(recorded_voice="../etc")

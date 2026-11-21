@@ -1,27 +1,31 @@
 # Handoff
-_Updated 2026-11-21 · branch `claude/train-announcements-audio-gen-bb01c5` · PR not opened yet (public repo: needs Graham's OK to push)_
+_Updated 2026-11-21 · branch `claude/voice-maker-on-pi`, stacked on PR 35 (`claude/train-announcements-audio-gen-bb01c5`) · uncommitted · not verified on the Pi_
 
 ## Goal
-Announcements in an ElevenLabs voice: recorded clips joined on the Pi, Piper as fallback.
+Make a recorded voice on the board itself (`/admin` → Announcements → Recorded voices), so an owner needs no Mac. Announcements stay Piper-backed for anything the voice cannot say.
 
 ## Done
-- Clip catalogue, clip plan, voice pack, `/admin` install and remove, docs (`docs/voice-pack.md`, `docs/design/23`).
-- `scripts/voicepack.py`: script / cut / review / build / demo. The cutter aligns the script to the recording (no pause tags needed); `review` is a local page with waveform and draggable in/out markers.
-- Graham's script (no tags, 35 parts) is in `~/Projects/describer/voicepack/script/`. His Eleven v4 pilot (`audio/00.mp3`) is cut: 18 clips, 2 marked to check.
+- Voice maker (note `docs/design/25-voice-maker.md`, how-to `docs/voice-pack.md`): several named voices under `announcements.voice_packs_dir`; create, download script, upload audio, background cut, review page, build, use, free up space, delete, import a ready-made pack. `announcements.recorded_voice` holds the one in use.
+- Code: `describer/announce/workshop.py`, `describer/announce/voices.py`, `/api/voices` routes in `main.py`, `web/static/voices.js`, `web/static/voice-review.html` (moved from `scripts/`), `tests/test_voices.py`. `scripts/voicepack.py` is a thin CLI over `workshop.py`. `ffmpeg` added to `deploy/install.sh`.
+- Checked in a browser on the Mac with real ElevenLabs recordings: upload, cut, review, build, use, free, delete; phone width.
+- The earlier pilot work (PR 35, note 23) is unchanged.
 
 ## Next
-1. Graham checks the pilot's two doubtful clips in `review` (`preview_start` `voicepack-review`; in a new worktree first `ln -s ~/Projects/describer/voicepack voicepack`).
-2. He records parts 01 onwards in Eleven v4 as `audio/NN.mp3`. Then `cut`, `review`, `build`, install from `/admin` on the Pi.
-3. Tune `GAP`, `LIST_GAP`, `SENTENCE_GAP` in `clips.py` by ear once a full pack exists.
+1. Try it on the Pi: update the board (so `ffmpeg` installs), make a voice, upload the pilot (`00`), and time the cut and watch memory (`top`) while the board keeps running.
+2. Record and upload the remaining parts, check, build, use.
+3. Tune `GAP`, `LIST_GAP`, `SENTENCE_GAP` in `clips.py` by ear once a full voice exists.
+4. Commit, push and open the PR (public repo: needs Graham's OK). It stacks on PR 35, so merge that first or retarget.
 
 ## Open decisions (need Graham)
 - OK to push the branch and open the PR (public repo).
 - How far to record: core + local stations (11k characters), + reasons (33k), or the whole network (95k).
 
 ## Gotchas
-- Do not re-run `voicepack.py script` without `--topup` once recording has started: audio is matched to the script by line.
-- Never commit `voicepack/` or a pack.
-- Only the 18-item pilot has been cut from real ElevenLabs audio; not run on the Pi.
+- Not run on a Pi: cut time and memory there are unmeasured (a 24-minute part took about 10 s on the Mac).
+- Queued jobs are lost on restart; the part shows "The cut did not finish" with a retry button.
+- A review save made while the same voice is being cut could be lost (no lock).
+- "Stop using" with an older `voicepack.zip` still in place falls back to that zip, not Piper.
+- Never commit `voicepacks/`, `voicepack/` or a pack.
 
 ## Prompt for the next session
-"I've saved more ElevenLabs parts in ~/Projects/describer/voicepack/audio/. Run `scripts/voicepack.py --dir ~/Projects/describer/voicepack cut`, tell me what it reported, open the review page for me, then `build` (see docs/voice-pack.md and docs/design/23)." Sonnet is enough unless the cutter needs redesigning.
+"On the branch claude/voice-maker-on-pi, I've updated the Pi. Help me try the voice maker on it: read docs/voice-pack.md and docs/design/25-voice-maker.md, check `/api/status` over HTTP for what is running, and tell me what to look for while a part cuts." Sonnet is enough.

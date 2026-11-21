@@ -21,3 +21,5 @@ tts-cache/
 voicepack
 voicepack.zip
 voicepack.zip.upload
+# Voices made on the board (announcements.voice_packs_dir)
+voicepacks

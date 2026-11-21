@@ -6,6 +6,8 @@ import asyncio
 import json
 import logging
 import os
+import re
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,20 +15,23 @@ from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from starlette.responses import Response
 from starlette.types import Scope
 
 from . import credentials, setup
-from .announce.clips import MAX_PACK_BYTES, VoicePack, VoicePackError
+from .announce.clips import MAX_PACK_BYTES
+from .announce.cutter import CutError
 from .announce.scheduler import TEST_TEXT, AnnouncementScheduler
 from .announce.tts import TtsEngine, TtsError
+from .announce.voices import MAX_AUDIO_BYTES, MIN_FREE_BYTES, VoiceError, VoiceStore
+from .announce.workshop import WorkshopError, has_ffmpeg
 from .config import Config, ConfigStore, config_path, load_config
 from .kiosk import KioskError, KioskWatchdog
 from .profiles import next_change
-from .rail.models import Board
+from .rail.models import Board, Service
 from .rail.poller import Poller
 from .schedule import is_display_on
 from .system import Power, PowerError
@@ -117,6 +122,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.announcer = announcer
     app.state.poller = poller
     app.state.weather = weather
+    app.state.voices = VoiceStore(Path(config.announcements.voice_packs_dir))
 
     updater = Updater(REPO_DIR, config.updates, config_path=path)
     # Open SSE streams never end on their own and would hold the restart up
@@ -142,6 +148,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await poller.stop()
         await announcer.stop()
         await weather.stop()
+        await app.state.voices.close()
 
 
 class RevalidatedStaticFiles(StaticFiles):
@@ -454,48 +461,326 @@ async def api_test_announcement(request: Request, payload: TestAnnouncement) -> 
     return {"spoken": payload.text}
 
 
-@app.put("/api/voicepack")
-async def api_install_voice_pack(request: Request) -> dict:
-    """Install a voice pack: the zip itself is the request body.
+# -- voices made on the board -------------------------------------------------
 
-    Streamed to a file beside the pack and checked before it replaces
-    anything, so a broken upload leaves the old voice in place.
-    """
-    recorded = request.app.state.engine.recorded
-    target: Path = recorded.path
-    if not str(target) or str(target) == ".":
-        raise HTTPException(status_code=409, detail="No voice pack path is configured")
-    partial = target.with_name(target.name + ".upload")
+#: Parts of the paste a voice maker takes in one go.
+PASTE_LIMITS = (5000, 100000)
+
+
+class VoiceCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    near: list[str] = []
+    km: float = Field(default=20, ge=0, le=100)
+    #: Also record every station on the trains the board is showing now.
+    board_stations: bool = False
+    all_stations: bool = False
+    one_reading: bool = False
+    paste_limit: Literal[5000, 100000] = 5000
+
+    @field_validator("near")
+    @classmethod
+    def _codes(cls, codes: list[str]) -> list[str]:
+        cleaned = [code.strip().upper() for code in codes if code.strip()]
+        if any(not re.fullmatch(r"[A-Z]{3}", code) for code in cleaned) or len(cleaned) > 20:
+            raise ValueError("Stations are given by their three-letter codes, such as PAD")
+        return cleaned
+
+
+class VoiceUse(BaseModel):
+    slug: str = Field(default="", max_length=40)
+
+
+class ReviewChange(BaseModel):
+    key: str
+    start: int | None = None
+    end: int | None = None
+    rejected: bool | None = None
+    checked: bool | None = None
+
+
+class VoiceExtra(BaseModel):
+    kind: Literal["redo", "topup"]
+
+
+@app.exception_handler(VoiceError)
+async def voice_error_handler(_request: Request, exc: VoiceError) -> JSONResponse:
+    return JSONResponse({"detail": str(exc)}, status_code=exc.status)
+
+
+def _voices(request: Request) -> VoiceStore:
+    return request.app.state.voices
+
+
+def _in_use(request: Request) -> str:
+    return request.app.state.store.get().announcements.recorded_voice
+
+
+def _voice_detail(request: Request, slug: str) -> dict:
+    return _voices(request).detail(slug, _in_use(request))
+
+
+def _voice_overview(request: Request) -> dict:
+    store: ConfigStore = request.app.state.store
+    config = store.get()
+    voices = _voices(request)
+    announcements = config.announcements
+    # A pack put in place by hand (announcements.voice_pack) still speaks when
+    # no made voice is chosen: say so, rather than show Piper as in use.
+    legacy = bool(
+        not announcements.recorded_voice
+        and announcements.use_voice_pack
+        and announcements.voice_pack
+        and Path(announcements.voice_pack).is_file()
+    )
+    return {
+        "voices": voices.list(announcements.recorded_voice),
+        "in_use": announcements.recorded_voice,
+        "enabled": announcements.use_voice_pack,
+        "legacy_pack": legacy,
+        "ffmpeg": has_ffmpeg(),
+        "free_bytes": voices.free_bytes(),
+        "defaults": {"near": [station.crs for station in config.stations], "km": 20},
+    }
+
+
+def _set_recorded_voice(request: Request, slug: str) -> None:
+    """Write the voice in use to the base config and put it to work now."""
+    store: ConfigStore = request.app.state.store
+    config = store.get()  # the raw file, never active(): this is written back
+    changes: dict[str, object] = {"recorded_voice": slug}
+    if slug:
+        changes["use_voice_pack"] = True
+    updated = config.model_copy(
+        update={"announcements": config.announcements.model_copy(update=changes)}
+    )
+    try:
+        store.set(updated)
+    except OSError as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Could not save the choice of voice: {exc}"
+        ) from exc
+    _apply_live(request.app, updated)
+
+
+async def _receive(request: Request, partial: Path, limit: int, voices: VoiceStore) -> int:
+    """Stream the request body to ``partial``, refusing what is too big or would fill the disk."""
+    declared = int(request.headers.get("content-length") or 0)
+    if declared > limit:
+        raise HTTPException(status_code=413, detail="That file is too large.")
+    free = voices.free_bytes()
+    if free - declared < MIN_FREE_BYTES:
+        raise HTTPException(
+            status_code=507,
+            detail="There is not enough free space on the board for that file. "
+            "Free some space (remove working files from a voice) and try again.",
+        )
     received = 0
     try:
-        target.parent.mkdir(parents=True, exist_ok=True)
         with partial.open("wb") as sink:
             async for chunk in request.stream():
                 received += len(chunk)
-                if received > MAX_PACK_BYTES:
-                    raise HTTPException(status_code=413, detail="Voice pack is too large")
+                if received > limit:
+                    raise HTTPException(status_code=413, detail="That file is too large.")
+                if free - received < MIN_FREE_BYTES:
+                    raise HTTPException(
+                        status_code=507,
+                        detail="The board ran out of space for that file. "
+                        "Free some space and try again.",
+                    )
                 sink.write(chunk)
-        pack = await asyncio.to_thread(VoicePack, partial)
-        partial.replace(target)
-    except VoicePackError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Could not save the pack: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"Could not save the file: {exc}") from exc
+    return received
+
+
+@app.get("/api/voices")
+async def api_voices(request: Request) -> dict:
+    return await asyncio.to_thread(_voice_overview, request)
+
+
+@app.post("/api/voices", status_code=201)
+async def api_create_voice(request: Request, payload: VoiceCreate) -> dict:
+    """Name a voice and write its recording script."""
+    seen: list[tuple[str, Service]] = []
+    if payload.board_stations:
+        poller: Poller = request.app.state.poller
+        seen = [(board.mode, service) for board in poller.boards() for service in board.services]
+    voices = _voices(request)
+    slug = await asyncio.to_thread(
+        voices.create,
+        payload.name,
+        near=payload.near,
+        km=payload.km,
+        seen=seen,
+        all_stations=payload.all_stations,
+        one_reading=payload.one_reading,
+        paste_limit=payload.paste_limit,
+        options={"board_stations": payload.board_stations},
+    )
+    return _voice_detail(request, slug)
+
+
+@app.post("/api/voices/use")
+async def api_use_voice(request: Request, payload: VoiceUse) -> dict:
+    """Switch the board to a made voice (or back to Piper with an empty slug)."""
+    voices = _voices(request)
+    if payload.slug and not voices.pack_path(payload.slug).is_file():
+        raise HTTPException(
+            status_code=409,
+            detail="That voice has not been built yet. Build it first, then switch to it.",
+        )
+    _set_recorded_voice(request, payload.slug)
+    log.info("Voice in use: %s", payload.slug or "(none: Piper)")
+    return await asyncio.to_thread(_voice_overview, request)
+
+
+@app.put("/api/voices/import", status_code=201)
+async def api_import_voice(request: Request) -> dict:
+    """Keep a ready-made voice pack zip (the request body) as a voice."""
+    voices = _voices(request)
+    voices.root.mkdir(parents=True, exist_ok=True)
+    partial = voices.root / f".import-{uuid.uuid4().hex[:8]}.partial"
+    try:
+        await _receive(request, partial, MAX_PACK_BYTES, voices)
+        slug = await asyncio.to_thread(voices.import_pack, partial)
     finally:
         partial.unlink(missing_ok=True)
-    log.info("Installed voice pack %s (%d clips, %d bytes)", pack.name, len(pack), received)
-    return recorded.status()
+    return _voice_detail(request, slug)
 
 
-@app.delete("/api/voicepack")
-async def api_remove_voice_pack(request: Request) -> dict:
-    """Remove the voice pack; Piper speaks again."""
-    recorded = request.app.state.engine.recorded
+@app.get("/api/voices/{slug}")
+async def api_voice(request: Request, slug: str) -> dict:
+    return await asyncio.to_thread(_voice_detail, request, slug)
+
+
+@app.delete("/api/voices/{slug}")
+async def api_delete_voice(request: Request, slug: str) -> dict:
+    voices = _voices(request)
+    voices.folder(slug)
+    if _in_use(request) == slug:
+        _set_recorded_voice(request, "")
+    await asyncio.to_thread(voices.delete, slug)
+    return await asyncio.to_thread(_voice_overview, request)
+
+
+@app.get("/api/voices/{slug}/script.zip")
+async def api_voice_script_zip(request: Request, slug: str) -> Response:
+    body = await asyncio.to_thread(_voices(request).script_zip, slug)
+    return Response(
+        body,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{slug}-script.zip"'},
+    )
+
+
+@app.get("/api/voices/{slug}/script/{number}")
+async def api_voice_script(request: Request, slug: str, number: str) -> Response:
+    stem, text = _voices(request).script_text(slug, number)
+    return Response(
+        text,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{stem}.txt"'},
+    )
+
+
+@app.put("/api/voices/{slug}/audio/{number}", status_code=202)
+async def api_voice_audio(request: Request, slug: str, number: str, name: str = "") -> dict:
+    """One recording per script part: the audio file itself is the request body."""
+    voices = _voices(request)
+    partial = voices.begin_audio(slug, number, name)
     try:
-        recorded.path.unlink(missing_ok=True)
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Could not remove the pack: {exc}") from exc
-    return recorded.status()
+        received = await _receive(request, partial, MAX_AUDIO_BYTES, voices)
+        if received == 0:
+            raise HTTPException(status_code=422, detail="The file was empty.")
+        voices.finish_audio(slug, number, partial, name)
+    finally:
+        partial.unlink(missing_ok=True)
+    return _voice_detail(request, slug)
+
+
+@app.delete("/api/voices/{slug}/audio/{number}")
+async def api_voice_remove_audio(request: Request, slug: str, number: str) -> dict:
+    await asyncio.to_thread(_voices(request).remove_audio, slug, number)
+    return _voice_detail(request, slug)
+
+
+@app.post("/api/voices/{slug}/cut/{number}", status_code=202)
+async def api_voice_cut(request: Request, slug: str, number: str) -> dict:
+    _voices(request).queue_cut(slug, number)
+    return _voice_detail(request, slug)
+
+
+@app.post("/api/voices/{slug}/build", status_code=202)
+async def api_voice_build(request: Request, slug: str) -> dict:
+    _voices(request).queue_build(slug)
+    return _voice_detail(request, slug)
+
+
+@app.post("/api/voices/{slug}/extra")
+async def api_voice_extra(request: Request, slug: str, payload: VoiceExtra) -> dict:
+    wanted = [
+        {"key": key, "text": text}
+        for key, text in request.app.state.engine.recorded.missing.items()
+    ]
+    await asyncio.to_thread(_voices(request).add_extra, slug, payload.kind, wanted)
+    return _voice_detail(request, slug)
+
+
+@app.delete("/api/voices/{slug}/working")
+async def api_voice_free_working(request: Request, slug: str) -> dict:
+    await asyncio.to_thread(_voices(request).free_working, slug)
+    return _voice_detail(request, slug)
+
+
+# The review page asks for these; ``scripts/voicepack.py review`` serves the same
+# shapes under the voice "local".
+
+
+def _review_failure(exc: Exception) -> HTTPException:
+    if isinstance(exc, KeyError):
+        return HTTPException(status_code=404, detail="That clip is not in this voice.")
+    return HTTPException(status_code=404, detail=str(exc) or "That could not be read.")
+
+
+@app.get("/api/voices/{slug}/review/cuts")
+async def api_voice_review_cuts(request: Request, slug: str) -> dict:
+    return await asyncio.to_thread(_voices(request).review(slug).cuts)
+
+
+@app.get("/api/voices/{slug}/review/clip")
+async def api_voice_review_clip(request: Request, slug: str, key: str) -> Response:
+    try:
+        body = await asyncio.to_thread(_voices(request).review(slug).clip, key)
+    except (KeyError, OSError) as exc:
+        raise _review_failure(exc) from exc
+    return Response(body, media_type="audio/wav", headers=NO_CACHE)
+
+
+@app.get("/api/voices/{slug}/review/window")
+async def api_voice_review_window(
+    request: Request, slug: str, part: str, start: int, end: int
+) -> Response:
+    voices = _voices(request)
+    voices.check_part(part)
+    try:
+        body = await asyncio.to_thread(voices.review(slug).window, part, start, end)
+    except (KeyError, OSError, WorkshopError, CutError) as exc:
+        raise _review_failure(exc) from exc
+    return Response(body, media_type="audio/wav", headers=NO_CACHE)
+
+
+@app.post("/api/voices/{slug}/review/clip")
+async def api_voice_review_update(request: Request, slug: str, payload: ReviewChange) -> dict:
+    change = payload.model_dump(exclude={"key"}, exclude_none=True)
+    try:
+        return await asyncio.to_thread(_voices(request).review(slug).update, payload.key, change)
+    except (KeyError, OSError, WorkshopError, CutError) as exc:
+        raise _review_failure(exc) from exc
+
+
+@app.get("/admin/voice-review", include_in_schema=False)
+async def voice_review_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "voice-review.html", headers=NO_CACHE)
 
 
 @app.get("/api/stream")

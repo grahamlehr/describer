@@ -24,6 +24,8 @@
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }
   header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
   h1 { font-size: 16px; margin: 0 8px 0 0; }
+  #back { color: var(--accent); font-size: 14px; }
+  .error { color: var(--bad); background: var(--bad-bg); padding: 8px 12px; border-radius: 6px; margin: 8px 16px; }
   button, select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
   button:hover { border-color: var(--soft); }
   button:focus-visible, select:focus-visible, li:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -62,7 +64,8 @@
 </head>
 <body>
 <header>
-  <h1>Voice pack review</h1>
+  <h1 id="heading">Voice pack review</h1>
+  <a id="back" href="/admin" hidden>Back to admin</a>
   <div class="filters" id="filters">
     <button data-filter="check" aria-pressed="true">To check</button>
     <button data-filter="all" aria-pressed="false">All</button>
@@ -109,6 +112,25 @@ const list = document.getElementById('list');
 const editor = document.getElementById('editor');
 let ui = null;
 let audioContext = null;
+const voice = new URLSearchParams(location.search).get('voice') || 'local';
+const api = `/api/voices/${encodeURIComponent(voice)}/review`;
+if (voice !== 'local') {
+  document.getElementById('heading').textContent = `Voice review: ${voice}`;
+  document.title = `Review ${voice}`;
+  document.getElementById('back').hidden = false;
+}
+
+/** Show a failure in the page, using the server's own words when it gave any. */
+async function problem(response, fallback) {
+  let detail = fallback;
+  try { const data = await response.json(); if (typeof data.detail === 'string') detail = data.detail; } catch { /* not JSON */ }
+  const note = document.createElement('p');
+  note.className = 'error';
+  note.setAttribute('role', 'alert');
+  note.textContent = detail;
+  document.querySelector('header').after(note);
+  setTimeout(() => note.remove(), 8000);
+}
 
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const clips = () => Object.values(state.cuts.clips).sort((a, b) => a.part.localeCompare(b.part) || a.index - b.index);
@@ -117,7 +139,9 @@ const matches = (clip) => (!state.part || clip.part === state.part) && (
   (state.filter === 'rejected' && clip.rejected) || (state.filter === 'manual' && clip.manual));
 
 async function load() {
-  state.cuts = await (await fetch('/cuts')).json();
+  const response = await fetch(`${api}/cuts`);
+  if (!response.ok) { await problem(response, 'Could not load the clips.'); return; }
+  state.cuts = await response.json();
   state.rate = state.cuts.rate;
   const select = document.getElementById('part');
   select.replaceChildren(new Option('Every part', ''));
@@ -204,7 +228,8 @@ async function loadWindow() {
   const length = Math.round(state.cuts.parts[clip.part].seconds * state.rate);
   state.windowStart = Math.max(0, Math.min(clip.start, state.marks.start) - margin);
   state.windowEnd = Math.min(length, Math.max(clip.end, state.marks.end) + margin);
-  const response = await fetch(`/window?part=${clip.part}&start=${state.windowStart}&end=${state.windowEnd}`);
+  const response = await fetch(`${api}/window?part=${encodeURIComponent(clip.part)}&start=${state.windowStart}&end=${state.windowEnd}`);
+  if (!response.ok) { await problem(response, 'Could not load that part of the recording.'); return; }
   audioContext ||= new AudioContext();
   const buffer = await audioContext.decodeAudioData(await response.arrayBuffer());
   if (state.selected !== key) return;
@@ -337,7 +362,7 @@ function playSelection() {
 
 function playClip(then) {
   stop();
-  const audio = new Audio(`/clip?key=${encodeURIComponent(state.selected)}&v=${Date.now()}`);
+  const audio = new Audio(`${api}/clip?key=${encodeURIComponent(state.selected)}&v=${Date.now()}`);
   state.audio = audio;
   audio.onended = () => { state.audio = null; then?.(); };
   audio.play().catch(() => {});
@@ -371,8 +396,10 @@ function playThrough() {
 
 async function update(change, advance) {
   const key = state.selected;
-  const response = await fetch('/', { method: 'POST', body: JSON.stringify({ key, ...change }) });
-  if (!response.ok) { alert('Could not save that change.'); return; }
+  const response = await fetch(`${api}/clip`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, ...change }),
+  });
+  if (!response.ok) { await problem(response, 'Could not save that change.'); return; }
   state.cuts.clips[key] = await response.json();
   const at = state.visible.findIndex((clip) => clip.key === key);
   const next = state.visible[at + 1]?.key;

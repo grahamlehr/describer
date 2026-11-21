@@ -1,6 +1,7 @@
 /** Admin page: edits the same config.yaml the board reads. LAN-only, no login. */
 
 import { wireStationLookup } from '/static/stationsearch.js';
+import { initVoices, topUpVoiceInUse } from '/static/voices.js';
 
 const form = document.getElementById('config-form');
 const stationsEl = document.getElementById('stations');
@@ -1120,65 +1121,26 @@ function showKiosk(kiosk) {
 
 function renderVoicePack(pack) {
   const box = document.getElementById('voice-pack-status');
-  const remove = document.getElementById('voice-pack-remove');
   if (!box || !pack) return;
   const parts = [];
   parts.push(pack.installed
     ? `${escapeHtml(pack.name || 'Voice pack')}: ${pack.clips} clips, made ${escapeHtml(pack.created || 'at an unknown date')}`
-    : 'No voice pack installed. Piper speaks.');
+    : 'No recorded voice is built yet. Piper speaks.');
   if (pack.error) parts.push(bad(escapeHtml(pack.error)));
   const missing = pack.missing || [];
   if (missing.length) {
     parts.push(`<details><summary>${missing.length} clips were wanted and not in the pack</summary>
       <ul>${missing.map((m) => `<li>${escapeHtml(m.text)}</li>`).join('')}</ul>
-      <p>Record them with: <code>scripts/voicepack.py script --topup ${escapeHtml(location.origin)}</code></p></details>`);
+      <button type="button" class="ghost" id="voice-pack-topup">Add these to the voice's script</button></details>`);
   }
   box.innerHTML = parts.join('<br>');
-  remove.hidden = !pack.installed;
 }
 
-async function voicePackRequest(method, body, button, busyLabel) {
-  const label = button.textContent;
-  button.disabled = true;
-  if (busyLabel) button.textContent = busyLabel;
-  try {
-    const response = await fetch('/api/voicepack', {
-      method,
-      headers: body ? { 'Content-Type': 'application/zip' } : {},
-      body,
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      showMessage(formatErrors(data.detail || `Voice pack request failed (${response.status}).`), false);
-    } else {
-      showMessage(method === 'PUT' ? 'Voice pack installed.' : 'Voice pack removed.', true);
-    }
-  } catch (error) {
-    showMessage(`Voice pack request failed: ${error}`, false);
-  } finally {
-    button.disabled = false;
-    button.textContent = label;
-    loadStatus();
-  }
-}
-
-const voicePackFile = document.getElementById('voice-pack-file');
-// Choosing a file changes nothing the main Save writes: keep it from marking the form unsaved.
-for (const type of ['input', 'change']) {
-  voicePackFile.addEventListener(type, (event) => event.stopPropagation());
-}
-document.getElementById('voice-pack-install').addEventListener('click', (event) => {
-  const file = voicePackFile.files[0];
-  if (!file) {
-    showMessage('Choose a voice pack .zip first.', false);
-    return;
-  }
-  voicePackRequest('PUT', file, event.currentTarget, 'Uploading…').then(() => { voicePackFile.value = ''; });
+document.getElementById('voice-pack-status').addEventListener('click', (event) => {
+  const button = event.target.closest('#voice-pack-topup');
+  if (button) topUpVoiceInUse(button).then(() => loadStatus());
 });
-document.getElementById('voice-pack-remove').addEventListener('click', (event) => {
-  if (!confirm('Remove the installed voice pack? Piper will speak instead.')) return;
-  voicePackRequest('DELETE', null, event.currentTarget);
-});
+initVoices({ onChange: () => loadStatus() });
 
 async function loadStatus() {
   try {

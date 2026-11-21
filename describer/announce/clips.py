@@ -369,13 +369,15 @@ class RecordedVoice:
 
     @property
     def path(self) -> Path:
+        if self._config.recorded_voice:
+            return Path(self._config.voice_packs_dir) / self._config.recorded_voice / "pack.zip"
         return Path(self._config.voice_pack)
 
     def pack(self) -> VoicePack | None:
         """The pack to use now, or None: switched off, absent or unreadable."""
-        if not self._config.use_voice_pack or not self._config.voice_pack:
-            return None
         path = self.path
+        if not self._config.use_voice_pack or not str(path) or str(path) == ".":
+            return None
         try:
             stamp = (str(path), path.stat().st_mtime)
         except OSError:

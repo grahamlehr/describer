@@ -27,6 +27,10 @@ the full story.
   track**, and observe the block with a `ResizeObserver`. (`03`)
 - **`glide` reads the transform before setting `transition: none`**, or the
   route leaps to the foot mid-scroll. (`09`)
+- **The voices section of `/admin` has no `name` on any input.** `readForm`
+  would save them as config; `voices.js` also stops `input`/`change` at its
+  container and swallows Enter. A review save made while the same voice is
+  being cut can be lost (no lock on `cuts.json`). (`24`)
 - **Profile fields stay out of `readForm`'s sweep**; so do the station search
   box and the credential fields (no `name`, events stopped at the field).
   (`06`, `10`, `13`)
@@ -145,3 +149,4 @@ Change every home, or they drift silently.
 | the theme names | `ThemeName` in `config.py`; the radios in `admin.html`; the list in `admin.js` |
 | the heartbeat interval (15 s) and the stale limit (90 s) | `setInterval(heartbeat, 15000)` in `board.js`; `HEARTBEAT_SECONDS` and `STALE` in `kiosk.py` |
 | the backend's port (8080) | `PORT` in `setup.py` (the QR code's address); `--port` in the units, the kiosk URL and `.claude/launch.json` |
+| the clip review routes (`/api/voices/<voice>/review/*`) | `main.py`; the local server in `scripts/voicepack.py` (voice `local`); the fetches in `voice-review.html` |

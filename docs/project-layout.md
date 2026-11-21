@@ -34,7 +34,9 @@ describer/
       phrasing.py          # builds announcement text from Service
       catalogue.py         # every recorded clip and its wording (data/ holds operators, reasons)
       clips.py             # voice pack, clip plan, joining clips into a WAV
-      cutter.py            # aligns a recording to its script and cuts it into clips (scripts/voicepack.py)
+      cutter.py            # aligns a recording to its script and cuts it into clips
+      workshop.py          # a voice's working folder: script, cut, review, build; also `python -m describer.announce.workshop cut|build`
+      voices.py            # VoiceStore (one folder per voice under voice_packs_dir) and JobRunner (cuts and builds as low-priority subprocesses)
       tts.py               # Piper wrapper + cache + playback
       scheduler.py         # decides what to announce and when
     web/static/
@@ -42,6 +44,8 @@ describer/
       base.css             # structure and the sizing model; themes add the look
       board.js             # SSE client, renders the DOM, calls into the theme
       admin.html  admin.css  admin.js
+      voices.js            # Recorded voices section of /admin (talks to /api/voices)
+      voice-review.html    # the clip review page, for the board (/admin/voice-review) and scripts/voicepack.py
       setup.html  setup.css  setup.js   # the phone's first-run wizard
       stationsearch.js     # the station combobox, shared by admin and setup
       setup/               # screenshots for the key walkthrough (Graham's to add)
@@ -64,6 +68,7 @@ describer/
     shutdown-button.service  # systemd *system* unit for the above
   scripts/
     mock_board.py          # a board of invented trains for checking themes; calls no API
+    voicepack.py           # Mac command line over announce/workshop.py: script, cut, review, build, demo (docs/voice-pack.md)
   tests/
     conftest.py            # autouse guards: no credentials, no network, no update checks
     fixtures/              # recorded LDBWS, RTT, NaPTAN and Open-Meteo responses
