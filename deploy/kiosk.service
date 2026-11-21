@@ -27,8 +27,10 @@ Environment=WLR_LIBINPUT_NO_DEVICES=1
 # cage draws a pointer in the middle of the screen with no mouse attached and
 # has no flag to hide it. It ignores XCURSOR_THEME and XCURSOR_SIZE, loading
 # whatever theme is named "default", so deploy/install.sh writes a blank one
-# under that name and this path puts it ahead of the system's.
-Environment=XCURSOR_PATH=/usr/local/share/describer-cursors:/usr/share/icons
+# under that name. The path holds that directory and nothing else: with
+# /usr/share/icons on it, any cursor name the blank theme lacked was filled
+# from the system theme and showed (docs/design/24-blank-cursor-everywhere.md).
+Environment=XCURSOR_PATH=/usr/local/share/describer-cursors
 Environment=XCURSOR_THEME=describer-blank
 Environment=XCURSOR_SIZE=24
 # Wait for the backend to answer before painting anything.

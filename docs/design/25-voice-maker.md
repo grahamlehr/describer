@@ -1,4 +1,4 @@
-# Addendum 24 — the voice maker (recorded voices made on the board)
+# Addendum 25 — the voice maker (recorded voices made on the board)
 
 ## Decision
 

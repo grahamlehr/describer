@@ -5,7 +5,7 @@ _Updated 2026-11-21 · branch `claude/voice-maker-on-pi`, stacked on PR 35 (`cla
 Make a recorded voice on the board itself (`/admin` → Announcements → Recorded voices), so an owner needs no Mac. Announcements stay Piper-backed for anything the voice cannot say.
 
 ## Done
-- Voice maker (note `docs/design/24-voice-maker.md`, how-to `docs/voice-pack.md`): several named voices under `announcements.voice_packs_dir`; create, download script, upload audio, background cut, review page, build, use, free up space, delete, import a ready-made pack. `announcements.recorded_voice` holds the one in use.
+- Voice maker (note `docs/design/25-voice-maker.md`, how-to `docs/voice-pack.md`): several named voices under `announcements.voice_packs_dir`; create, download script, upload audio, background cut, review page, build, use, free up space, delete, import a ready-made pack. `announcements.recorded_voice` holds the one in use.
 - Code: `describer/announce/workshop.py`, `describer/announce/voices.py`, `/api/voices` routes in `main.py`, `web/static/voices.js`, `web/static/voice-review.html` (moved from `scripts/`), `tests/test_voices.py`. `scripts/voicepack.py` is a thin CLI over `workshop.py`. `ffmpeg` added to `deploy/install.sh`.
 - Checked in a browser on the Mac with real ElevenLabs recordings: upload, cut, review, build, use, free, delete; phone width.
 - The earlier pilot work (PR 35, note 23) is unchanged.
@@ -28,4 +28,4 @@ Make a recorded voice on the board itself (`/admin` → Announcements → Record
 - Never commit `voicepacks/`, `voicepack/` or a pack.
 
 ## Prompt for the next session
-"On the branch claude/voice-maker-on-pi, I've updated the Pi. Help me try the voice maker on it: read docs/voice-pack.md and docs/design/24-voice-maker.md, check `/api/status` over HTTP for what is running, and tell me what to look for while a part cuts." Sonnet is enough.
+"On the branch claude/voice-maker-on-pi, I've updated the Pi. Help me try the voice maker on it: read docs/voice-pack.md and docs/design/25-voice-maker.md, check `/api/status` over HTTP for what is running, and tell me what to look for while a part cuts." Sonnet is enough.

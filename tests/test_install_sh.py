@@ -117,3 +117,80 @@ def test_install_units_keeps_tty1_for_the_kiosk():
     )
     unit_lines = [line for line in KIOSK_UNIT.read_text().splitlines() if not line.startswith("#")]
     assert not any(line.startswith("Conflicts=") for line in unit_lines)
+
+
+#: Every CSS cursor keyword but `auto` and `none`: what Chromium and
+#: cursor-shape-v1 ask for. The blank theme must answer to each (design note 24).
+CSS_CURSORS = [
+    "default",
+    "context-menu",
+    "help",
+    "pointer",
+    "progress",
+    "wait",
+    "cell",
+    "crosshair",
+    "text",
+    "vertical-text",
+    "alias",
+    "copy",
+    "move",
+    "no-drop",
+    "not-allowed",
+    "grab",
+    "grabbing",
+    "all-scroll",
+    "col-resize",
+    "row-resize",
+    "n-resize",
+    "e-resize",
+    "s-resize",
+    "w-resize",
+    "ne-resize",
+    "nw-resize",
+    "se-resize",
+    "sw-resize",
+    "ew-resize",
+    "ns-resize",
+    "nesw-resize",
+    "nwse-resize",
+    "zoom-in",
+    "zoom-out",
+]
+
+#: The X names cage and older Chromium builds ask for.
+X_CURSORS = ["left_ptr", "left_ptr_watch", "watch", "xterm", "hand2", "fleur"]
+
+
+def test_the_blank_cursor_theme_answers_to_every_cursor_name(tmp_path):
+    # install(1) differs between GNU and BSD, and the real one would want root
+    # for /usr/local, so the function runs against a temp dir with a stand-in.
+    body = function_body("install_cursor_theme").replace(
+        "/usr/local/share/describer-cursors", str(tmp_path)
+    )
+    script = (
+        "set -euo pipefail\n"
+        "say() { :; }\n"
+        'install() { if [ "$1" = -d ]; then shift 3; mkdir -p "$@";'
+        ' else cat > "$4"; fi; }\n'
+        f"install_cursor_theme() {{\n{body}}}\n"
+        "install_cursor_theme\n"
+    )
+    subprocess.run(["bash", "-c", script], check=True)
+
+    cursors = tmp_path / "default" / "cursors"
+    blank = (cursors / "default").read_bytes()
+    assert blank.startswith(b"Xcur")
+    assert set(blank[-24 * 24 * 4 :]) == {0}, "the cursor image must be transparent"
+    for name in CSS_CURSORS + X_CURSORS:
+        assert (cursors / name).resolve() == (cursors / "default").resolve(), name
+
+    theme = (tmp_path / "default" / "index.theme").read_text()
+    assert "Inherits" not in theme
+    assert (tmp_path / "describer-blank").resolve() == (tmp_path / "default").resolve()
+
+
+def test_the_kiosk_finds_no_cursor_theme_but_the_blank_one():
+    """Any other directory on the path lends its visible cursors (note 24)."""
+    paths = re.findall(r"^Environment=XCURSOR_PATH=(.*)$", KIOSK_UNIT.read_text(), re.MULTILINE)
+    assert paths == ["/usr/local/share/describer-cursors"]

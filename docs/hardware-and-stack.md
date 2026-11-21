@@ -52,8 +52,9 @@ _Moved from the old CLAUDE.md ("Hardware and OS" and "Stack"). Rules summarised 
   or without a mouse and has no flag to hide it. It also ignores
   `XCURSOR_THEME` and `XCURSOR_SIZE` and loads whatever theme is named
   `default`, so `install.sh` writes a transparent theme under that name in
-  `/usr/local/share/describer-cursors` and the unit puts that directory first
-  on `XCURSOR_PATH`. The board's `cursor: none` alone is not enough, because
+  `/usr/local/share/describer-cursors`, under every cursor name, and the unit
+  makes that directory the whole of `XCURSOR_PATH`, so nothing can fall back
+  to the system's visible cursors (`docs/design/24`). The board's `cursor: none` alone is not enough, because
   with no input device no pointer ever enters the window.
   `Restart=always` only covers Chromium exiting, so the backend also watches
   for a dead page: the board posts a heartbeat every 15 s and
