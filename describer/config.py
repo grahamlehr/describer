@@ -343,6 +343,11 @@ class AnnouncementsConfig(BaseModel):
     use_voice_pack: bool = True
     #: The voice pack: one zip of recorded clips. Piper speaks when it is absent.
     voice_pack: str = "voicepack.zip"
+    #: Where voices made on the board live, one folder each.
+    voice_packs_dir: str = "voicepacks"
+    #: The made voice in use: its folder name under ``voice_packs_dir``. When set
+    #: it is played instead of ``voice_pack``. Machine state, never profile-overridable.
+    recorded_voice: str = Field(default="", pattern=r"^([a-z0-9][a-z0-9-]{0,39})?$")
 
 
 class ScheduleConfig(BaseModel):
@@ -428,7 +433,8 @@ class AnnouncementsOverride(BaseModel):
     """The announcement keys a profile may set.
 
     Piper's paths (``voices_dir``, ``piper_binary``, ``cache_dir``) and the
-    voice pack's are not here: they describe the machine, not the hour.
+    voice pack's (``voice_pack``, ``voice_packs_dir``, ``recorded_voice``) are not here:
+    they describe the machine, not the hour.
     """
 
     enabled: bool | None = None

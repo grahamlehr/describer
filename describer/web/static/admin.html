@@ -372,16 +372,59 @@
         <label class="check"><input type="checkbox" name="announcements.announce_cancellations"> Announce cancellations</label>
       </div>
 
-      <h3>Recorded voice</h3>
-      <p class="hint">Announcements are spoken by Piper unless a voice pack is installed. A voice pack is a zip of recorded clips made with scripts/voicepack.py.</p>
+      <h3>Recorded voices</h3>
+      <p class="hint">Announcements are spoken by Piper unless you make a recorded voice here. You write a script, record it with an AI voice service such as ElevenLabs, and upload the audio. The board cuts it into clips for you.</p>
       <div class="grid checks">
         <label class="check"><input type="checkbox" name="announcements.use_voice_pack"> Use the recorded voice when a pack is installed</label>
       </div>
       <div id="voice-pack-status" class="hint"></div>
-      <div class="inline-actions">
-        <input type="file" id="voice-pack-file" accept=".zip" aria-label="Voice pack zip file">
-        <button type="button" class="ghost" id="voice-pack-install">Install voice pack</button>
-        <button type="button" class="ghost" id="voice-pack-remove" hidden>Remove</button>
+
+      <div id="voices" class="voices">
+        <p id="voices-note" class="hint voice-note" role="status" hidden></p>
+        <p id="voices-ffmpeg" class="hint voice-note bad" hidden>MP3 files cannot be read until the board has been updated (Status tab, then Update). WAV files still work.</p>
+        <p id="voices-off" class="hint voice-note warn" hidden>A recorded voice is chosen but switched off by the tick box above, so Piper is still speaking.</p>
+        <ul id="voices-list" class="voice-list" aria-label="Voices"></ul>
+        <div id="voices-detail" class="voice-detail" hidden></div>
+        <p id="voices-space" class="hint"></p>
+
+        <div class="inline-actions">
+          <label class="voice-file ghost">Install a ready-made voice pack (.zip)
+            <input type="file" id="voices-import-file" accept=".zip" class="visually-hidden">
+          </label>
+          <progress id="voices-import-progress" max="100" value="0" hidden></progress>
+        </div>
+
+        <h3>New voice</h3>
+        <div id="voices-new" class="voice-new">
+          <div class="grid">
+            <label>Name
+              <input type="text" id="voices-name" maxlength="60" placeholder="Station voice" autocomplete="off">
+            </label>
+            <label>Stations <span class="unit">three-letter codes, separated by commas</span>
+              <input type="text" id="voices-near" placeholder="PAD, RDG" autocomplete="off" autocapitalize="characters">
+            </label>
+            <label>Distance <span class="unit">km around those stations</span>
+              <input type="number" id="voices-km" min="0" max="500" step="1">
+            </label>
+          </div>
+          <div class="grid checks">
+            <label class="check"><input type="checkbox" id="voices-board" checked> Also every station on the trains showing now</label>
+            <label class="check"><input type="checkbox" id="voices-all"> Every station in Britain (a much longer script)</label>
+            <div>
+              <label class="check"><input type="checkbox" id="voices-once"> Record each station once</label>
+              <small class="hint">Tick this if your voice says a name the same in a list and at the end of a sentence. Halves the recording.</small>
+            </div>
+          </div>
+          <fieldset class="voice-limit">
+            <legend>How much text the voice service takes at once</legend>
+            <label class="check"><input type="radio" id="voices-limit-5000" data-limit="5000" checked> About 5,000 characters (most)</label>
+            <label class="check"><input type="radio" id="voices-limit-100000" data-limit="100000"> 100,000 characters (ElevenLabs v4)</label>
+          </fieldset>
+          <div class="inline-actions">
+            <button type="button" id="voices-create">Create voice</button>
+          </div>
+        </div>
+
       </div>
 
       <details class="advanced">

@@ -57,7 +57,7 @@ install_packages() {
     python3 python3-venv python3-pip \
     cage chromium \
     alsa-utils curl ca-certificates \
-    wlr-randr git \
+    wlr-randr git ffmpeg \
     python3-gpiozero python3-lgpio
 }
 
