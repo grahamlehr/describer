@@ -372,6 +372,18 @@
         <label class="check"><input type="checkbox" name="announcements.announce_cancellations"> Announce cancellations</label>
       </div>
 
+      <h3>Recorded voice</h3>
+      <p class="hint">Announcements are spoken by Piper unless a voice pack is installed. A voice pack is a zip of recorded clips made with scripts/voicepack.py.</p>
+      <div class="grid checks">
+        <label class="check"><input type="checkbox" name="announcements.use_voice_pack"> Use the recorded voice when a pack is installed</label>
+      </div>
+      <div id="voice-pack-status" class="hint"></div>
+      <div class="inline-actions">
+        <input type="file" id="voice-pack-file" accept=".zip" aria-label="Voice pack zip file">
+        <button type="button" class="ghost" id="voice-pack-install">Install voice pack</button>
+        <button type="button" class="ghost" id="voice-pack-remove" hidden>Remove</button>
+      </div>
+
       <details class="advanced">
         <summary>Piper paths and limits</summary>
         <div class="grid">
@@ -383,6 +395,9 @@
           </label>
           <label class="wide">Clip cache directory
             <input type="text" name="announcements.cache_dir">
+          </label>
+          <label class="wide">Voice pack file
+            <input type="text" name="announcements.voice_pack">
           </label>
           <label>Max calling points spoken
             <input type="number" name="announcements.max_calling_points" min="1" max="30" step="1">

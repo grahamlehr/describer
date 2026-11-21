@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from ..rail.models import Service
+from ..rail.models import CallingPoint, Service
 
 _UNITS = (
     "zero",
@@ -28,7 +28,7 @@ _UNITS = (
     "eighteen",
     "nineteen",
 )
-_TENS = ("", "", "twenty", "thirty", "forty", "fifty")
+_TENS = ("", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
 
 
 class AnnouncementKind(StrEnum):
@@ -38,7 +38,13 @@ class AnnouncementKind(StrEnum):
 
 
 def spell_number(value: int) -> str:
-    """0-59 as words, so Piper never guesses at a bare numeral."""
+    """0-999 as words, so Piper never guesses at a bare numeral."""
+    if value < 0 or value > 999:
+        return str(value)
+    if value >= 100:
+        hundreds, rest = divmod(value, 100)
+        words = f"{_UNITS[hundreds]} hundred"
+        return words if not rest else f"{words} and {spell_number(rest)}"
     if value < 20:
         return _UNITS[value]
     tens, units = divmod(value, 10)
@@ -71,14 +77,17 @@ def join_places(names: list[str]) -> str:
     return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
+def calling_points(service: Service, limit: int = 8) -> list[CallingPoint]:
+    """The stops to read out, trimmed to ``limit`` while keeping the final one."""
+    points = [point for point in service.calling_points if not point.cancelled and point.name]
+    if len(points) > limit:
+        points = points[: limit - 1] + [points[-1]]
+    return points
+
+
 def calling_points_phrase(service: Service, limit: int = 8) -> str:
-    """Calling points, trimmed to ``limit`` while keeping the final stop."""
-    names = [point.name for point in service.calling_points if not point.cancelled]
-    if not names:
-        return ""
-    if len(names) > limit:
-        names = names[: limit - 1] + [names[-1]]
-    return join_places(names)
+    """Calling points as words: "A, B and C"."""
+    return join_places([point.name for point in calling_points(service, limit)])
 
 
 def _service_phrase(service: Service, mode: str) -> str:

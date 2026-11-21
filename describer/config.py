@@ -339,6 +339,10 @@ class AnnouncementsConfig(BaseModel):
     announce_cancellations: bool = True
     #: Maximum calling points read out before "and <final destination>".
     max_calling_points: int = Field(default=8, ge=1, le=30)
+    #: Speak in the recorded voice when a voice pack is installed.
+    use_voice_pack: bool = True
+    #: The voice pack: one zip of recorded clips. Piper speaks when it is absent.
+    voice_pack: str = "voicepack.zip"
 
 
 class ScheduleConfig(BaseModel):
@@ -423,8 +427,8 @@ class DisplayOverride(BaseModel):
 class AnnouncementsOverride(BaseModel):
     """The announcement keys a profile may set.
 
-    Piper's paths (``voices_dir``, ``piper_binary``, ``cache_dir``) are not
-    here: they describe the machine, not the hour.
+    Piper's paths (``voices_dir``, ``piper_binary``, ``cache_dir``) and the
+    voice pack's are not here: they describe the machine, not the hour.
     """
 
     enabled: bool | None = None

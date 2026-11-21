@@ -70,6 +70,10 @@ specifics are in `docs/design/03`; the palette roles in `/05` and `/11`.
   the standard apology wording. Classic phrasing: "The next train to arrive
   at platform 2 will be the 14:32 Great Western Railway service to London
   Paddington, calling at Reading, Slough and London Paddington."
+- **Recorded voice** (`docs/voice-pack.md`, `docs/design/23`): with a voice
+  pack installed (`/admin` → Announcements), announcements are joined from
+  recorded clips. Piper speaks any announcement the pack cannot say in full,
+  and everything when there is no pack. `scripts/voicepack.py` makes one.
 - Each service is announced at most once per event type (arriving, delayed,
   cancelled), in memory, reset on restart. Keyed by
   `(crs, mode, scheduled_time, destination)` so a source switch cannot

@@ -541,6 +541,12 @@ volume, so repeated wording costs one file read. Playback goes through
 `aplay` (or `paplay`, or `afplay` in development), preceded by an optional
 two-tone chime that the app generates itself.
 
+**Recorded voice.** The board can speak in a recorded voice instead: record
+the script that `scripts/voicepack.py` writes (in ElevenLabs, say), let it cut
+the audio into clips, and install the resulting `voicepack.zip` from `/admin` →
+Announcements. Piper remains the fallback for anything the pack cannot say.
+The steps are in [docs/voice-pack.md](docs/voice-pack.md).
+
 Each service is announced at most once per event type (arriving, delayed,
 cancelled). The record is in memory and resets on restart.
 

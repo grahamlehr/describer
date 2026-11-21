@@ -22,6 +22,17 @@
         "8090"
       ],
       "port": 8090
+    },
+    {
+      "name": "voicepack-review",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": [
+        "scripts/voicepack.py",
+        "review",
+        "--port",
+        "8091"
+      ],
+      "port": 8091
     }
   ]
 }

@@ -20,7 +20,8 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from . import credentials, setup
-from .announce.scheduler import AnnouncementScheduler
+from .announce.clips import MAX_PACK_BYTES, VoicePack, VoicePackError
+from .announce.scheduler import TEST_TEXT, AnnouncementScheduler
 from .announce.tts import TtsEngine, TtsError
 from .config import Config, ConfigStore, config_path, load_config
 from .kiosk import KioskError, KioskWatchdog
@@ -62,7 +63,7 @@ def configure_logging() -> None:
 
 
 class TestAnnouncement(BaseModel):
-    text: str = "This is a test announcement from the departure board."
+    text: str = TEST_TEXT
     #: Play through this output rather than the saved one: /setup tests the
     #: choice before it is saved.
     audio_device: Literal["hdmi", "jack", "default"] | None = None
@@ -231,6 +232,7 @@ async def api_status(request: Request) -> dict:
         "display_mode": poller.display_mode,
         "weather": request.app.state.weather.status(),
         "tts": request.app.state.engine.availability(),
+        "voice_pack": request.app.state.engine.recorded.status(),
         "last_announcement": announcer.last_spoken,
         "last_announcement_at": (
             announcer.last_spoken_at.isoformat() if announcer.last_spoken_at else None
@@ -450,6 +452,50 @@ async def api_test_announcement(request: Request, payload: TestAnnouncement) -> 
     except TtsError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"spoken": payload.text}
+
+
+@app.put("/api/voicepack")
+async def api_install_voice_pack(request: Request) -> dict:
+    """Install a voice pack: the zip itself is the request body.
+
+    Streamed to a file beside the pack and checked before it replaces
+    anything, so a broken upload leaves the old voice in place.
+    """
+    recorded = request.app.state.engine.recorded
+    target: Path = recorded.path
+    if not str(target) or str(target) == ".":
+        raise HTTPException(status_code=409, detail="No voice pack path is configured")
+    partial = target.with_name(target.name + ".upload")
+    received = 0
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with partial.open("wb") as sink:
+            async for chunk in request.stream():
+                received += len(chunk)
+                if received > MAX_PACK_BYTES:
+                    raise HTTPException(status_code=413, detail="Voice pack is too large")
+                sink.write(chunk)
+        pack = await asyncio.to_thread(VoicePack, partial)
+        partial.replace(target)
+    except VoicePackError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not save the pack: {exc}") from exc
+    finally:
+        partial.unlink(missing_ok=True)
+    log.info("Installed voice pack %s (%d clips, %d bytes)", pack.name, len(pack), received)
+    return recorded.status()
+
+
+@app.delete("/api/voicepack")
+async def api_remove_voice_pack(request: Request) -> dict:
+    """Remove the voice pack; Piper speaks again."""
+    recorded = request.app.state.engine.recorded
+    try:
+        recorded.path.unlink(missing_ok=True)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Could not remove the pack: {exc}") from exc
+    return recorded.status()
 
 
 @app.get("/api/stream")
