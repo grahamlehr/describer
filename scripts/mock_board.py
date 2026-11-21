@@ -21,6 +21,7 @@ Change what is on screen while it runs (every open board follows at once):
     /mock?messages=1             an NRCC message on the first board
     /mock?name=London+St+Pancras+International   the first board's station name
     /mock?clock=0                display.clock off
+    /mock?both=1                 display.clock_both
     /mock?opt.ground=dark        an option for the current theme
 
 The trains roll: one every few minutes, for ever, with the names that break
@@ -298,6 +299,7 @@ settings: dict[str, object] = {
     "messages": False,
     "name": "",
     "clock": True,
+    "both": False,
     "options": {},
 }
 changed = threading.Condition()
@@ -450,6 +452,7 @@ def state() -> dict:
         "display": {
             "theme": theme,
             "clock": bool(settings["clock"]),
+            "clock_both": bool(settings["both"]),
             "show_calling_points": True,
             "show_position": True,
             "show_formation": True,
@@ -493,7 +496,7 @@ def apply(query: list[tuple[str, str]]) -> None:
             settings[key] = int(value)
         elif key in ("mode", "source", "name"):
             settings[key] = value
-        elif key in ("stale", "empty", "times", "messages", "clock"):
+        elif key in ("stale", "empty", "times", "messages", "clock", "both"):
             settings[key] = value not in ("0", "false", "")
 
 
