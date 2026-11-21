@@ -189,8 +189,16 @@ install_cursor_theme() {
   # with no mouse attached, and has no flag to hide it. It builds its cursor
   # manager with a null theme name and a hardcoded size, so XCURSOR_THEME and
   # XCURSOR_SIZE are both ignored: it loads whatever theme is named "default".
-  # So we ship a theme *called* default, of transparent pixels, and put its
-  # directory first on XCURSOR_PATH.
+  # So we ship a theme *called* default, of transparent pixels, and make its
+  # directory the only one on XCURSOR_PATH (deploy/kiosk.service).
+  #
+  # Every name a compositor or Chromium might ask for is here, not just the
+  # arrow. The Xcursor loader scans every directory on the path for a theme of
+  # that name and follows the first Inherits= it finds, so with the system
+  # icons on the path, any name missing here was filled from the real theme
+  # (the system "default" inherits Adwaita) and a visible cursor came back,
+  # for instance Chromium's loading cursor after a kiosk restart.
+  # docs/design/24-blank-cursor-everywhere.md.
   say "Installing the blank cursor theme"
   local cursor_dir=/usr/local/share/describer-cursors
   # install -d, not mkdir -p: mkdir takes the caller's umask, and a umask of
@@ -206,8 +214,24 @@ out += struct.pack("<IIIIIIIII", 36, 0xfffd0002, size, 1, size, size, 0, 0, 0)
 out += b"\x00" * (size * size * 4)
 sys.stdout.buffer.write(out)
 ' | install -m 644 /dev/stdin "$cursor_dir/default/cursors/default"
+  # CSS cursor names (what cursor-shape-v1 and Chromium ask for), then the
+  # older X names and aliases cursor themes carry for them.
   local name
-  for name in left_ptr arrow top_left_arrow pointer hand1 hand2 xterm text watch; do
+  for name in \
+    alias all-scroll cell col-resize context-menu copy crosshair \
+    e-resize ew-resize grab grabbing help move n-resize ne-resize nesw-resize \
+    no-drop not-allowed ns-resize nw-resize nwse-resize pointer progress \
+    row-resize s-resize se-resize sw-resize text vertical-text w-resize wait \
+    zoom-in zoom-out \
+    X_cursor arrow bd_double_arrow bottom_left_corner bottom_right_corner \
+    bottom_side circle closedhand cross crossed_circle dnd-move dnd-none \
+    dnd-copy dnd-link dnd-no-drop dnd-ask double_arrow draft fd_double_arrow \
+    fleur hand hand1 hand2 h_double_arrow left_ptr left_ptr_help \
+    left_ptr_watch left_side link openhand plus question_arrow right_ptr \
+    right_side sb_h_double_arrow sb_v_double_arrow size_all size_bdiag \
+    size_fdiag size_hor size_ver split_h split_v tcross top_left_arrow \
+    top_left_corner top_right_corner top_side v_double_arrow watch xterm \
+    ibeam pencil pirate whats_this wayland-cursor; do
     ln -sf default "$cursor_dir/default/cursors/$name"
   done
   printf '[Icon Theme]\nName=default\n' | install -m 644 /dev/stdin "$cursor_dir/default/index.theme"

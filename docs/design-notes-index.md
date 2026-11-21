@@ -33,6 +33,7 @@ over both.
 | 21 | `victorian-station-clock` | victorian's clock as a mechanical dial with a stepping seconds hand; one clock a screen in every theme; station names on two lines; `themeApi.now` |
 | 22 | `clock-size-and-clock-both` | victorian's clock half as big again (26vh); `display.clock_both` puts a clock on each board of a split screen |
 | 23 | `recorded-voice` | Voice packs: announcements from recorded clips, Piper as fallback; the clip catalogue, the cutter, why a pack is one zip and never committed |
+| 24 | `blank-cursor-everywhere` | The mouse cursor came back on the kiosk: the blank theme now covers every cursor name and `XCURSOR_PATH` holds nothing else |
 
 A new feature gets the next number. Write it the way the others are: the
 decision, the reason, the numbers measured, the trap found, and how it was
