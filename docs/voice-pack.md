@@ -58,7 +58,10 @@ recording**; `--topup` (below) adds parts without disturbing it.
 4. Then each remaining part: paste, generate, save as `audio/<number>.mp3`
    (`03 take 2.mp3` is fine; the newest name wins).
 
-Each part fits the 5,000 characters most models take in one go. If a name is
+Each part fits the 5,000 characters most models take in one go. Eleven v4
+takes 100,000, so for it write far fewer, larger parts with
+`script --chars 100000 --items 600` (600 items is as many as is worth risking
+in one take: a slip means recording that part again). If a name is
 said wrongly, respell it in the `.txt` and generate that part again; only the
 order of the lines matters.
 
