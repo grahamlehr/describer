@@ -288,6 +288,24 @@ def test_uploads_are_limited_by_size_and_by_free_disk(client, monkeypatch):
     assert full.status_code == 507
 
 
+def test_a_pack_file_put_there_by_hand_is_not_shown_as_piper(client, tmp_path, monkeypatch):
+    assert client.get("/api/voices").json()["legacy_pack"] is False
+
+    store = main_module.app.state.store
+    config = store.get()
+    pack = tmp_path / "by-hand.zip"
+    pack.write_bytes(b"zip")
+    store.set(
+        config.model_copy(
+            update={
+                "announcements": config.announcements.model_copy(update={"voice_pack": str(pack)})
+            }
+        )
+    )
+
+    assert client.get("/api/voices").json()["legacy_pack"] is True
+
+
 def test_a_voice_that_was_never_built_cannot_be_used(client):
     slug = make_voice(client)["slug"]
     assert client.post("/api/voices/use", json={"slug": slug}).status_code == 409

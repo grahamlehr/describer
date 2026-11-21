@@ -523,10 +523,20 @@ def _voice_overview(request: Request) -> dict:
     store: ConfigStore = request.app.state.store
     config = store.get()
     voices = _voices(request)
+    announcements = config.announcements
+    # A pack put in place by hand (announcements.voice_pack) still speaks when
+    # no made voice is chosen: say so, rather than show Piper as in use.
+    legacy = bool(
+        not announcements.recorded_voice
+        and announcements.use_voice_pack
+        and announcements.voice_pack
+        and Path(announcements.voice_pack).is_file()
+    )
     return {
-        "voices": voices.list(config.announcements.recorded_voice),
-        "in_use": config.announcements.recorded_voice,
-        "enabled": config.announcements.use_voice_pack,
+        "voices": voices.list(announcements.recorded_voice),
+        "in_use": announcements.recorded_voice,
+        "enabled": announcements.use_voice_pack,
+        "legacy_pack": legacy,
         "ffmpeg": has_ffmpeg(),
         "free_bytes": voices.free_bytes(),
         "defaults": {"near": [station.crs for station in config.stations], "km": 20},

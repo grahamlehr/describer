@@ -56,7 +56,7 @@ Python: use `.venv/bin/python`, never system `python` or pip. Run the tests and 
 - **Deploy path**: `deploy/` is applied by the root oneshot `describer-apply-deploy` from its own clone, never from the checkout. `provision` reads files from `$SCRIPT_DIR`, never `$TARGET_DIR`, and runs anything in `/opt/describer` through `as_describer`. A unit file not copied by `install_units` is not applied by an update. `install.sh` runs under `set -e`: end helpers in an `if`, not `[ … ] && …`.
 - **Lifecycle**: an SSE stream never ends on its own, so `Poller.close_streams()` must run before a restart.
 - **Frontend**: ES modules, no bundler, no dependencies. Themes share one DOM and data model; adding a theme touches no backend code except `ThemeName` in `config.py`. Raw API shapes never reach themes or announcements (normalise into `Service` / `Board`).
-- **Voice packs**: never commit a pack, its clips or a generated script (`voicepack/`, `voicepack.zip` are gitignored; the repo is public). A missing clip falls back to Piper for the whole announcement, never one word. A dev server with announcements on plays through the Mac's speakers.
+- **Voice packs**: never commit a pack, its clips or a generated script (`voicepack/`, `voicepacks/`, `voicepack.zip` are gitignored; the repo is public). Voices are made on the board (`/admin`, `announce/voices.py`); cutting runs as a subprocess, and non-WAV uploads need `ffmpeg` (in `install.sh`'s package list). `announcements.recorded_voice` and `voice_packs_dir` are never profile-overridable. Inputs in the voices section have no `name`, or they would be saved as config. A missing clip falls back to Piper for the whole announcement, never one word. A dev server with announcements on plays through the Mac's speakers.
 - **Logging**: stdlib `logging` to stdout. Type hints everywhere; pydantic for config and API payloads.
 - **Traps and two-place values**: read `docs/traps.md` before touching board layout, themes, the poller, admin form, setup screen or deploy. The "values that live in two places" table there must be updated in every home.
 
@@ -84,7 +84,7 @@ Python: use `.venv/bin/python`, never system `python` or pip. Run the tests and 
 - `docs/rtt-allowance.md`: the full RTT allowance rule
 - `docs/traps.md`: bugs that have happened, and values that live in two places
 - `docs/running.md`: local dev and Pi commands
-- `docs/voice-pack.md`: making and installing a recorded voice (`scripts/voicepack.py`)
+- `docs/voice-pack.md`: making a recorded voice on the board (and on a Mac with `scripts/voicepack.py`)
 - `docs/verifying-board.md`: how to check a board change by hand (no frontend test harness)
 - `docs/STATUS.md`, `docs/HISTORY.md`: status and field notes (create when needed)
 

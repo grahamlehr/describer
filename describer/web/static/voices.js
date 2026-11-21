@@ -230,9 +230,13 @@ function renderList() {
   }
   const rows = [];
   const piperInUse = !data.in_use;
+  // A pack file put on the board by hand speaks whenever no voice here is chosen.
+  const builtIn = data.legacy_pack
+    ? ['Voice pack file on the board', 'Put there by hand. Untick the box above to hear Piper instead']
+    : ['Piper (built-in voice)', 'The standard voice, always available'];
   rows.push(`<li class="voice-row">
-    <div class="voice-title"><strong>Piper (built-in voice)</strong>
-      <small>The standard voice, always available</small></div>
+    <div class="voice-title"><strong>${builtIn[0]}</strong>
+      <small>${builtIn[1]}</small></div>
     ${piperInUse ? '<span class="pill ok">In use</span>' : ''}
     <div class="voice-buttons">${piperInUse ? '' : '<button type="button" class="ghost" data-act="use" data-slug="">Use</button>'}</div>
   </li>`);
