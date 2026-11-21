@@ -1,4 +1,4 @@
-# Addendum 19 — kiosk watchdog
+# Addendum 20 — kiosk watchdog
 
 ## Decision
 

@@ -6,12 +6,15 @@
  *
  *  - the wording on the slips hung beside a train (nothing at all when it is
  *    on time, as a hung indicator showed nothing for a train that was right);
- *  - a destination with its "via" painted small after the name;
- *  - a tiny, stable hang for every board, from a hash of the id it carries,
- *    so a board is a hair crooked and stays so as it moves up the frame;
- *  - the calling points as little boards of their own, paged by whole boards
- *    on a timer when they will not all fit (the block owns them: board.js
- *    hands over the list, as it does to linemap);
+ *  - a destination with its "via" painted small on a second line;
+ *  - a slightly different black for every board, from a hash of the id it
+ *    carries, so it keeps its shade as it moves up the frame;
+ *  - the calling points as little boards of their own, in a block six slots
+ *    high under a one-line label (the stylesheet shows three trains, not the
+ *    configured number, while the stops are up; afterRender sets
+ *    data-vc-stops for it). The boards page by whole lines on a timer only
+ *    when they will not all fit (the block owns them: board.js hands over the
+ *    list, as it does to linemap);
  *  - the header rail's wording, the column headings and a station name fitted
  *    to its board.
  *
@@ -21,9 +24,8 @@
 
 /** How long one page of calling-point boards holds before the next. */
 const PAGE_MS = 6000;
-/** The largest hang of a finger board, in degrees; stops hang a little more. */
-const TILT_ROW = 0.35;
-const TILT_STOP = 0.55;
+/** Stop-board type as a multiple of the row's, tried largest first. */
+const STOP_SCALES = [1.3, 1.15, 1, 0.9, 0.8];
 /** Besley's own letters, so a board's black is never quite the same twice. */
 const TINT_STEPS = 7;
 
@@ -76,12 +78,16 @@ export function detach() {
   stopLists.clear();
   stops = new WeakMap();
   for (const el of document.querySelectorAll('.vc-columns')) el.remove();
-  for (const rows of document.querySelectorAll('.rows')) delete rows.dataset.vcMode;
+  for (const rows of document.querySelectorAll('.rows')) {
+    delete rows.dataset.vcMode;
+    delete rows.dataset.vcStops;
+  }
   for (const row of document.querySelectorAll('.row')) {
-    row.style.removeProperty('--vc-tilt');
     row.style.removeProperty('--vc-tint');
   }
+  for (const cell of document.querySelectorAll('.cell')) cell.classList.remove('vc-two-line');
   for (const list of document.querySelectorAll('.calling-points-list')) list.textContent = '';
+  for (const wrap of document.querySelectorAll('.calling-points')) wrap.style.removeProperty('--vc-stop-scale');
   for (const name of document.querySelectorAll('.station-name')) {
     name.style.removeProperty('--vc-fit');
     delete name.dataset.vcFit;
@@ -114,8 +120,8 @@ export function callingPointsLabel(mode) {
 }
 
 /**
- * The destination keeps its "via" in a span so the stylesheet can paint it
- * small after the name. "-" is board.js saying there is no platform yet: the
+ * A destination with a "via" is two lines: the name in a span, and the via
+ * small under it (the cell gets vc-two-line). One without is plain text. "-" is board.js saying there is no platform yet: the
  * enamel plate is then empty and hidden. board.js puts the cell back to plain
  * text when the theme is switched away from.
  */
@@ -132,10 +138,15 @@ export function renderText(cell, text) {
   cell.textContent = '';
   const match = /^(.*?)\s+(via\s.+)$/i.exec(text);
   if (!match) {
+    cell.classList.remove('vc-two-line');
     cell.textContent = text;
     return;
   }
-  cell.append(match[1]);
+  cell.classList.add('vc-two-line');
+  const dest = document.createElement('span');
+  dest.className = 'vc-dest';
+  dest.textContent = match[1];
+  cell.append(dest);
   const via = document.createElement('span');
   via.className = 'vc-via';
   via.textContent = match[2];
@@ -152,19 +163,12 @@ function hash(text) {
   return h;
 }
 
-/** A number in [-1, 1] from a hash, with a different draw for each `salt`. */
-function unit(text, salt) {
-  return ((hash(`${salt}:${text}`) % 2001) / 1000) - 1;
-}
-
 /**
- * Each board hangs a hair off true and is a hair off black. Set once per row,
+ * Each board is a hair off black. Set once per row,
  * from its id, so it does not change between renders or when the board moves.
  */
 export function renderRow(row) {
   const id = row.dataset.id || '';
-  const tilt = `${(unit(id, 'tilt') * TILT_ROW).toFixed(3)}deg`;
-  if (row.style.getPropertyValue('--vc-tilt') !== tilt) row.style.setProperty('--vc-tilt', tilt);
   if (!row.style.getPropertyValue('--vc-tint')) {
     const step = hash(`${id}:tint`) % TINT_STEPS;
     row.style.setProperty('--vc-tint', `hsl(32 ${6 + (step % 3) * 2}% ${5.5 + step * 0.45}%)`);
@@ -215,7 +219,6 @@ function build(list, data) {
   for (const stop of data) {
     const board = document.createElement('span');
     board.className = 'vc-stop';
-    board.style.setProperty('--vc-tilt', `${(unit(stop.name, 'stop') * TILT_STOP).toFixed(3)}deg`);
     board.style.setProperty('--vc-tint', `hsl(32 ${6 + (hash(stop.name) % 3) * 2}% ${5.5 + (hash(stop.name) % TINT_STEPS) * 0.45}%)`);
     if (stop.cancelled) board.dataset.cancelled = '';
     const name = document.createElement('span');
@@ -239,34 +242,55 @@ function build(list, data) {
  * Work out which whole boards go on which page and show the current one.
  *
  * Every board is shown first and its position read: boards are in one flex
- * wrap, so the distinct tops are the lines, and a page is as many lines as
- * the block is tall. Whole boards only, and page breaks fall on line breaks,
+ * wrap, so the distinct tops are the lines (offsetTop does not depend on the
+ * holder's height), and a page is as many lines as the track is tall. Six
+ * slots of block normally hold every stop, so there is usually one page. Whole boards only, and page breaks fall on line breaks,
  * so hiding the earlier pages never changes how the later ones wrap.
  */
 function layout(list) {
   const state = stops.get(list);
   const wrap = list.closest('.calling-points');
   const holder = list.firstElementChild;
-  if (!state || !holder || !wrap || wrap.hidden) return;
+  const track = wrap?.querySelector('.calling-points-track');
+  if (!state || !holder || !wrap || !track || wrap.hidden) return;
   const boards = Array.from(holder.children);
   if (!boards.length) return;
-  const measured = [holder.clientWidth, holder.clientHeight, document.fonts?.status].join('|');
+  // The room is the track's, which has an explicit height; the holder's own
+  // height follows --vc-lines and must not feed back into the measurement.
+  const measured = [track.clientWidth, track.clientHeight, document.fonts?.status].join('|');
   if (state.measured !== measured) {
     for (const board of boards) board.hidden = false;
-    const first = boards[0];
-    const margin = parseFloat(getComputedStyle(first).marginTop) || 0;
-    const pitch = first.offsetHeight + margin;
-    const perPage = Math.max(1, Math.floor(holder.clientHeight / pitch + 0.05));
-    const lines = [];
-    boards.forEach((board, index) => {
-      const top = board.offsetTop;
-      if (!lines.length || top - lines[lines.length - 1].top > 1) lines.push({ top, from: index });
-    });
+    // The boards are lettered as large as will get every stop on at once:
+    // a short route is read from across the room, and a long one drops a size
+    // at a time before it is ever paged.
+    let lines = [];
+    let perPage = 1;
+    for (const scale of STOP_SCALES) {
+      wrap.style.setProperty('--vc-stop-scale', String(scale));
+      const first = boards[0];
+      const margin = parseFloat(getComputedStyle(first).marginTop) || 0;
+      const pitch = first.offsetHeight + margin;
+      perPage = Math.max(1, Math.floor(track.clientHeight / pitch + 0.05));
+      lines = [];
+      boards.forEach((board, index) => {
+        const top = board.offsetTop;
+        if (!lines.length || top - lines[lines.length - 1].top > 1) lines.push({ top, from: index });
+      });
+      if (lines.length <= perPage) break;
+    }
     const pages = [];
     for (let i = 0; i < lines.length; i += perPage) {
       pages.push([lines[i].from, i + perPage < lines.length ? lines[i + perPage].from : boards.length]);
     }
     state.pages = pages.length ? pages : [[0, boards.length]];
+    // The holder is as tall as the busiest page, so it does not change height
+    // as the pages turn.
+    let most = 1;
+    for (const [from, to] of state.pages) {
+      const count = lines.filter((line) => line.from >= from && line.from < to).length;
+      if (count > most) most = count;
+    }
+    if (holder.style.getPropertyValue('--vc-lines') !== String(most)) holder.style.setProperty('--vc-lines', String(most));
     state.measured = measured;
   }
   state.page = Math.min(state.page, state.pages.length - 1);
@@ -323,6 +347,12 @@ export function afterRender(boardsEl) {
     // cannot read another element), and the mode is board.js's own text.
     const mode = board.querySelector('.board-mode')?.textContent || '';
     if (rows.dataset.vcMode !== mode) rows.dataset.vcMode = mode;
+
+    // Show three trains and six slots of stops while board.js is showing
+    // calling points. board.js has already set --calling-share (and raised it
+    // on both halves of a split screen) by the time this runs.
+    const stopsOn = parseFloat(getComputedStyle(rows).getPropertyValue('--calling-share')) > 0 ? '1' : '0';
+    if (rows.dataset.vcStops !== stopsOn) rows.dataset.vcStops = stopsOn;
 
     // Column headings, first child of .rows. The cells carry the same classes
     // as a service row's so they stand over the same tracks. board.js leaves

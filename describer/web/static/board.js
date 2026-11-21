@@ -161,6 +161,16 @@ function rowFor(rowsEl, service) {
   return row;
 }
 
+/**
+ * The service row that follows `after` (or the first one, given null),
+ * stepping over the stops, the reason and anything a theme has put between.
+ */
+function nextRow(rowsEl, after) {
+  let el = after ? after.nextElementSibling : rowsEl.firstElementChild;
+  while (el && !el.classList.contains('row')) el = el.nextElementSibling;
+  return el;
+}
+
 function renderRows(boardEl, board, station) {
   const rowsEl = boardEl.querySelector('.rows');
   // The height is shared between the configured slots, not the ones in use, so
@@ -168,6 +178,7 @@ function renderRows(boardEl, board, station) {
   rowsEl.style.setProperty('--rows', String(station.rows));
   const services = board.services.slice(0, station.rows);
   const seen = new Set();
+  let previous = null;
 
   services.forEach((service, index) => {
     const row = rowFor(rowsEl, service);
@@ -179,9 +190,16 @@ function renderRows(boardEl, board, station) {
     // In the tree before its cells are painted: a detached element has no
     // computed style, and splitflap sizes each field from the CSS --chars it
     // reads there. Painting first gave every cell a grid as wide as its own
-    // text, so nothing was ever abbreviated or padded. append() on a row that
-    // is already here re-orders it in place, so this stays the ordering step.
-    rowsEl.append(row);
+    // text, so nothing was ever abbreviated or padded. This is also the
+    // ordering step, and it moves a row only when it is out of place: putting
+    // every row back on every frame made the browser lay out and repaint the
+    // whole list each time, which a heavy theme on the Pi cannot afford.
+    const next = nextRow(rowsEl, previous);
+    if (next !== row) {
+      if (next) rowsEl.insertBefore(row, next);
+      else rowsEl.append(row);
+    }
+    previous = row;
 
     const place = board.mode === 'arrivals' ? service.origin : service.destination;
     setText(row.querySelector('[data-field="time"]'), service.scheduled_time || '');
@@ -847,8 +865,32 @@ function tickClock() {
     .map((n) => String(n).padStart(2, '0'))
     .join(':');
   for (const clock of boardsEl.querySelectorAll('.clock')) {
-    if (clock.textContent !== text) clock.textContent = text;
+    if (clock.textContent !== text) paintClock(clock, text);
   }
+}
+
+/**
+ * One span per character, and only the characters that changed are written.
+ * A theme whose face has no fixed-width figures gives `.clock-char` a width,
+ * so the clock does not shuffle sideways as the digits change; `data-sep`
+ * marks the colons, which want less. Left unstyled the spans are ordinary
+ * inline text, and `.clock`'s textContent is still the time for the themes
+ * that read it back (dial, led-matrix, nse).
+ */
+function paintClock(clock, text) {
+  while (clock.childNodes.length > text.length) clock.lastChild.remove();
+  Array.from(text).forEach((char, i) => {
+    let cell = clock.childNodes[i];
+    if (!cell || cell.nodeType !== Node.ELEMENT_NODE || !cell.classList.contains('clock-char')) {
+      const span = document.createElement('span');
+      span.className = 'clock-char';
+      if (cell) cell.replaceWith(span);
+      else clock.append(span);
+      cell = span;
+    }
+    if (cell.textContent !== char) cell.textContent = char;
+    cell.toggleAttribute('data-sep', char < '0' || char > '9');
+  });
 }
 
 /* -------------------------------------------------------------------- SSE */

@@ -50,7 +50,8 @@ _Moved from the old CLAUDE.md ("Features"): boards, themes, announcements, sched
 11. **deco**: Art Deco by restraint, ivory type and one double gold rule
     (`/17`, simplified in `/18`).
 12. **victorian**: a timber train indicator on a brick wall, every train and
-    calling point a hung, sign-written board (`/18`).
+    calling point a hung, sign-written board (`/18`). With stops to show it
+    lists three trains and gives the rest to the stops (`/19`).
 
 Themes share one DOM structure and one data model; a theme is a CSS file
 plus an optional JS module. Adding a theme touches no backend code except its
