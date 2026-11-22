@@ -98,3 +98,12 @@ def test_arrivals_mode_says_from(arrivals_payload):
 
     assert "service from London Paddington." in text
     assert "calling at" not in text
+
+
+def test_arriving_names_the_station_when_asked(services):
+    text = build_text(AnnouncementKind.ARRIVING, services[0], station="Sydenham")
+    assert text.startswith("The next train to arrive at Sydenham platform ")
+
+    no_platform = services[0].model_copy(update={"platform": None})
+    text = build_text(AnnouncementKind.ARRIVING, no_platform, station="Sydenham")
+    assert text.startswith("The next train to arrive at Sydenham will be the")

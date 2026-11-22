@@ -491,3 +491,44 @@ def test_a_made_voice_is_found_in_its_folder_and_else_the_single_pack(tmp_path):
 def test_a_voice_name_in_the_config_cannot_leave_its_folder():
     with pytest.raises(ValueError):
         AnnouncementsConfig(recorded_voice="../etc")
+
+
+# -- naming the station (two stations announcing) ------------------------------
+
+
+@pytest.mark.parametrize("platform", ["2", "12B", None])
+def test_a_named_station_is_said_the_same_by_both_voices(platform):
+    train = service(platform=platform)
+
+    plan, optional = build_plan(
+        AnnouncementKind.ARRIVING,
+        train,
+        "departures",
+        EveryClip(),
+        station="Sydenham",
+        station_crs="SYD",
+    )
+
+    stations = [point.name for point in train.calling_points] + ["Sydenham"]
+    expected = words(build_text(AnnouncementKind.ARRIVING, train, station="Sydenham"))
+    expected = expected.replace("platform 12b", "platform twelve b")
+    assert expected.startswith("the next train to arrive at sydenham")
+    assert plan.playable and not optional
+    assert plan.keys[:2] == ["p.next_at", "s.sydenham.mid"]
+    assert spoken(plan.keys, stations) == expected
+
+
+def test_a_pack_made_before_stations_were_named_asks_for_the_new_phrases():
+    class OlderPack(EveryClip):
+        def has(self, key: str) -> bool:
+            return key not in {"p.next_at", "p.platform"}
+
+    plan, _ = build_plan(
+        AnnouncementKind.ARRIVING, service(), "departures", OlderPack(), station="Sydenham"
+    )
+
+    assert not plan.playable
+    assert plan.missing == {
+        "p.next_at": "The next train to arrive at,",
+        "p.platform": "platform,",
+    }

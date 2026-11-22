@@ -70,6 +70,12 @@ specifics are in `docs/design/03`; the palette roles in `/05` and `/11`.
   the standard apology wording. Classic phrasing: "The next train to arrive
   at platform 2 will be the 14:32 Great Western Railway service to London
   Paddington, calling at Reading, Slough and London Paddington."
+- **Two stations announcing**: when two stations are on the screen and both
+  have announcements on, each arrival names its station: "The next train to
+  arrive at Sydenham platform 1 will be the…" (or "…at Sydenham will be the…"
+  with no platform). One station announcing, or one station on screen, keeps
+  the classic wording. Delay and cancellation apologies are unchanged
+  (`docs/design/26`).
 - **Recorded voice** (`docs/voice-pack.md`, `docs/design/23`, `24`): a voice
   is made on the board itself, in `/admin` → Announcements → Recorded voices:
   name it, download the script, record it in a voice service, upload the audio,

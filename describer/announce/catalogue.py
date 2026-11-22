@@ -45,6 +45,9 @@ STATIONS = Path(__file__).parent.parent / "web" / "static" / "stations.json"
 PHRASES: dict[str, str] = {
     "next_platform": "The next train to arrive at platform,",
     "next_station": "The next train to arrive at this station,",
+    # With two stations announcing: "The next train to arrive at / Sydenham / platform / one".
+    "next_at": "The next train to arrive at,",
+    "platform": "platform,",
     "will_be_the": "will be the,",
     "service_to": "service to,",
     "service_from": "service from,",

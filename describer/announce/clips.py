@@ -213,12 +213,17 @@ def build_plan(
     clips: Clips,
     *,
     max_calling_points: int = 8,
+    station: str | None = None,
+    station_crs: str | None = None,
 ) -> tuple[Plan, dict[str, str]]:
     """The plan for one announcement, and the optional clips it did without.
 
     The wording follows ``phrasing.build_text`` clause for clause. Two things
     differ on purpose: an operator or a reason with no clip is left out, and a
     delay of an hour or more is announced without its length.
+
+    ``station`` (with its CRS, to find the clip) names the station an arrival
+    is for, when the board is announcing for two.
     """
     builder = _Builder(clips)
     say, pause = builder.say, builder.pause
@@ -229,14 +234,19 @@ def build_plan(
         number, letter = match.groups() if match else (None, None)
         if number is not None and int(number) > 59:
             number = letter = None
-        if number or letter:
+        if station:
+            say("p.next_at")
+            builder.station(station, station_crs, "mid")
+            if number or letter:
+                say("p.platform")
+        elif number or letter:
             say("p.next_platform")
-            if number:
-                say(f"n.{int(number)}")
-            if letter:
-                say(f"l.{letter.lower()}")
         else:
             say("p.next_station")
+        if number:
+            say(f"n.{int(number)}")
+        if letter:
+            say(f"l.{letter.lower()}")
         say("p.will_be_the")
         builder.service(service, mode, "mid" if stops else "end")
         if stops:
@@ -276,7 +286,9 @@ def build_plan(
     plan = builder.plan
     for key in plan.keys:
         if key not in plan.missing and not clips.has(key):
-            plan.missing[key] = ""
+            # A fixed phrase the pack predates can go in a top-up script.
+            phrase = key[2:] if key.startswith("p.") else ""
+            plan.missing[key] = catalogue.PHRASES.get(phrase, "")
     return plan, builder.optional
 
 
@@ -395,14 +407,26 @@ class RecordedVoice:
         return self._pack
 
     def plan(
-        self, kind: AnnouncementKind, service: Service, mode: str, max_calling_points: int
+        self,
+        kind: AnnouncementKind,
+        service: Service,
+        mode: str,
+        max_calling_points: int,
+        station: str | None = None,
+        station_crs: str | None = None,
     ) -> Plan | None:
         """A playable plan, or None when Piper should speak this one."""
         pack = self.pack()
         if pack is None:
             return None
         plan, optional = build_plan(
-            kind, service, mode, pack, max_calling_points=max_calling_points
+            kind,
+            service,
+            mode,
+            pack,
+            max_calling_points=max_calling_points,
+            station=station,
+            station_crs=station_crs,
         )
         for key, text in {**optional, **plan.missing}.items():
             if text and len(self.missing) < MAX_MISSING:
