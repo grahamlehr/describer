@@ -36,6 +36,7 @@ over both.
 | 24 | `blank-cursor-everywhere` | The mouse cursor came back on the kiosk: the blank theme now covers every cursor name and `XCURSOR_PATH` holds nothing else |
 | 25 | `voice-maker` | Voices made on the board in /admin: several named voices, cutting as a low-priority subprocess, one review page for board and CLI, ffmpeg from apt |
 | 26 | `station-name-in-announcements` | Two stations both announcing: each arrival names its station; two new phrase clips, and what an older voice does without them |
+| 27 | `announcements-page-layout` | The Announcements tab grouped as what is announced, sound, voice, built-in voice, file locations; why the stations-read-out limit exists |
 
 A new feature gets the next number. Write it the way the others are: the
 decision, the reason, the numbers measured, the trap found, and how it was

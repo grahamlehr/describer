@@ -342,21 +342,32 @@
     <div class="panel-head">
       <div>
         <h2>Announcements</h2>
-        <p class="hint">Spoken by Piper on the Pi itself, in platform phrasing.</p>
+        <p class="hint">Spoken through the board's speaker as each train approaches, in platform phrasing. Choose which stations are announced on the Stations tab.</p>
       </div>
       <label class="switch"><input type="checkbox" name="announcements.enabled" data-gate="announcements"> Enabled</label>
     </div>
 
     <div class="gated" id="announcements-gate">
+      <h3>What is announced</h3>
       <div class="grid">
-        <label>Voice
-          <input type="text" name="announcements.voice" placeholder="en_GB-alan-medium">
-        </label>
-        <label>Volume
-          <input type="range" name="announcements.volume" min="0" max="1" step="0.05">
-        </label>
         <label>Lead time <span class="unit">seconds before the train</span>
           <input type="number" name="announcements.lead_time" min="0" max="1800" step="10">
+        </label>
+        <label>Stations read out <span class="unit">most in one announcement, 1 to 30</span>
+          <input type="number" name="announcements.max_calling_points" min="1" max="30" step="1">
+          <small class="hint">A train with more stops is cut short: the first stops are read, then the last one.</small>
+        </label>
+      </div>
+      <div class="grid checks">
+        <label class="check"><input type="checkbox" name="announcements.announce_delays"> Announce delays</label>
+        <label class="check"><input type="checkbox" name="announcements.announce_cancellations"> Announce cancellations</label>
+      </div>
+      <p class="hint">When two stations are both announced, each arrival says which station it is for.</p>
+
+      <h3>Sound</h3>
+      <div class="grid">
+        <label>Volume
+          <input type="range" name="announcements.volume" min="0" max="1" step="0.05">
         </label>
         <label>Audio output
           <select name="announcements.audio_device">
@@ -368,21 +379,26 @@
       </div>
       <div class="grid checks">
         <label class="check"><input type="checkbox" name="announcements.chime"> Two-tone chime first</label>
-        <label class="check"><input type="checkbox" name="announcements.announce_delays"> Announce delays</label>
-        <label class="check"><input type="checkbox" name="announcements.announce_cancellations"> Announce cancellations</label>
+      </div>
+      <div class="inline-actions">
+        <input type="text" id="test-text" placeholder="Words to say (optional)">
+        <button type="button" id="test-announce" class="ghost">Test announcement</button>
       </div>
 
-      <h3>Recorded voices</h3>
-      <p class="hint">Announcements are spoken by Piper unless you make a recorded voice here. You write a script, record it with an AI voice service such as ElevenLabs, and upload the audio. The board cuts it into clips for you.</p>
-      <div class="grid checks">
-        <label class="check"><input type="checkbox" name="announcements.use_voice_pack"> Use the recorded voice when a pack is installed</label>
-      </div>
+      <h3>Voice</h3>
+      <p class="hint">The board has a built-in voice (Piper). You can also make a recorded voice: download a script, record it with an AI voice service such as ElevenLabs, and upload the audio. The board cuts it into clips for you.</p>
       <div id="voice-pack-status" class="hint"></div>
+      <div class="grid checks">
+        <div>
+          <label class="check"><input type="checkbox" name="announcements.use_voice_pack"> Speak with the recorded voice</label>
+          <small class="hint">Untick to hear the built-in voice for everything, without deleting your recorded voices.</small>
+        </div>
+      </div>
 
       <div id="voices" class="voices">
         <p id="voices-note" class="hint voice-note" role="status" hidden></p>
         <p id="voices-ffmpeg" class="hint voice-note bad" hidden>MP3 files cannot be read until the board has been updated (Status tab, then Update). WAV files still work.</p>
-        <p id="voices-off" class="hint voice-note warn" hidden>A recorded voice is chosen but switched off by the tick box above, so Piper is still speaking.</p>
+        <p id="voices-off" class="hint voice-note warn" hidden>A recorded voice is chosen but switched off by "Speak with the recorded voice" above, so Piper is still speaking.</p>
         <ul id="voices-list" class="voice-list" aria-label="Voices"></ul>
         <div id="voices-detail" class="voice-detail" hidden></div>
         <p id="voices-space" class="hint"></p>
@@ -394,7 +410,8 @@
           <progress id="voices-import-progress" max="100" value="0" hidden></progress>
         </div>
 
-        <h3>New voice</h3>
+        <details class="advanced">
+          <summary>Make a new voice</summary>
         <div id="voices-new" class="voice-new">
           <div class="grid">
             <label>Name
@@ -424,34 +441,34 @@
             <button type="button" id="voices-create">Create voice</button>
           </div>
         </div>
+        </details>
+      </div>
 
+      <h3>Built-in voice</h3>
+      <p class="hint">Speaks when no recorded voice is in use, and any announcement the recorded voice has no clip for.</p>
+      <div class="grid">
+        <label>Piper voice
+          <input type="text" name="announcements.voice" placeholder="en_GB-alan-medium">
+        </label>
       </div>
 
       <details class="advanced">
-        <summary>Piper paths and limits</summary>
+        <summary>File locations</summary>
         <div class="grid">
-          <label class="wide">Piper binary
+          <label class="wide">Piper program
             <input type="text" name="announcements.piper_binary">
           </label>
-          <label class="wide">Voices directory
+          <label class="wide">Piper voices folder
             <input type="text" name="announcements.voices_dir">
           </label>
-          <label class="wide">Clip cache directory
+          <label class="wide">Spoken-audio cache folder
             <input type="text" name="announcements.cache_dir">
           </label>
-          <label class="wide">Voice pack file
+          <label class="wide">Voice pack file <span class="unit">only for a pack copied onto the board by hand</span>
             <input type="text" name="announcements.voice_pack">
-          </label>
-          <label>Max calling points spoken
-            <input type="number" name="announcements.max_calling_points" min="1" max="30" step="1">
           </label>
         </div>
       </details>
-
-      <div class="inline-actions">
-        <input type="text" id="test-text" placeholder="Test announcement text (optional)">
-        <button type="button" id="test-announce" class="ghost">Test announcement</button>
-      </div>
     </div>
   </section>
 

@@ -142,7 +142,7 @@ voice in the list shows *In use*. **Test announcement** (with the box empty)
 plays the voice's own test line. **Stop using** (or the **Use** button on
 *Piper*) returns the board to Piper.
 
-If you have unticked "Use the recorded voice when a pack is installed" higher
+If you have unticked "Speak with the recorded voice" higher
 up, the page warns that Piper is still speaking. **Use this voice** ticks it
 again for you.
 
