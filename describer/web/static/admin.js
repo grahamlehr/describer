@@ -1125,7 +1125,7 @@ function renderVoicePack(pack) {
   const parts = [];
   parts.push(pack.installed
     ? `${escapeHtml(pack.name || 'Voice pack')}: ${pack.clips} clips, made ${escapeHtml(pack.created || 'at an unknown date')}`
-    : 'No recorded voice is built yet. Piper speaks.');
+    : 'No recorded voice is in use. The built-in voice speaks.');
   if (pack.error) parts.push(bad(escapeHtml(pack.error)));
   const missing = pack.missing || [];
   if (missing.length) {
