@@ -15,7 +15,7 @@ Ceefax, and can announce trains out loud like a platform does.
 
 [![Watch Describer on YouTube](https://img.youtube.com/vi/sGLvWYd0sHg/maxresdefault.jpg)](https://youtu.be/sGLvWYd0sHg)
 
-`WATCH` [Describer in a couple of minutes, on YouTube](https://youtu.be/sGLvWYd0sHg)
+`WATCH` [See the board running, on YouTube](https://youtu.be/sGLvWYd0sHg)
 
 ---
 
