@@ -76,6 +76,9 @@ Python: use `.venv/bin/python`, never system `python` or pip. Run the tests and 
 - `docs/HANDOFF.md`: current state and the prompt for the next session (`/handoff`)
 - `docs/DECISIONS.md`: decisions already made (including out of scope). Don't relitigate them.
 - `docs/design/`: one note per addendum, the why; index in `docs/design-notes-index.md`. Newer notes beat older ones; this file beats both.
+- `docs/configuration.md`: every option, for a person (stations, themes, colours, weather, announcements, schedule, profiles)
+- `docs/pi-install-and-upkeep.md`: installing by hand, services, credentials, updating, shutdown button
+- `docs/development.md`: local dev for a person, how it fits together, tests
 - `docs/features.md`: boards, themes, announcements, schedule and profiles, `/setup`, `/admin`
 - `docs/hardware-and-stack.md`: hardware, shutdown button, system layout, kiosk, config location
 - `docs/data-sources.md`: RDM, RTT, failover, poll intervals
@@ -90,7 +93,7 @@ Python: use `.venv/bin/python`, never system `python` or pip. Run the tests and 
 
 ## Definition of done
 1. Tests pass and `ruff format` / `ruff check` are clean.
-2. A feature lands with its docs in the same PR: `config.example.yaml`, README (user-facing), this file if it adds a rule or changes a command, and a new numbered note in `docs/design/` (decision, reason, numbers measured, trap found, how checked).
+2. A feature lands with its docs in the same PR: `config.example.yaml`, the user-facing docs (README is the quick start only; detail goes in `docs/configuration.md` and `docs/pi-install-and-upkeep.md`), this file if it adds a rule or changes a command, and a new numbered note in `docs/design/` (decision, reason, numbers measured, trap found, how checked).
 3. Board changes are checked by hand per `docs/verifying-board.md` (both resolutions, one and two stations, every theme touched).
 4. The PR says where it was verified: local, device or prod.
 5. Use `/ship` to commit and open the PR, and `/tidy` to clean up afterwards.
