@@ -13,6 +13,10 @@ Ceefax, and can announce trains out loud like a platform does.
 
 `NO TERMINAL` · `NO SOLDERING` · `ABOUT 30 MINUTES`
 
+[![Watch Describer on YouTube](https://img.youtube.com/vi/sGLvWYd0sHg/maxresdefault.jpg)](https://youtu.be/sGLvWYd0sHg)
+
+`WATCH` [Describer in a couple of minutes, on YouTube](https://youtu.be/sGLvWYd0sHg)
+
 ---
 
 ## `01` What you need
