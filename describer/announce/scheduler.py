@@ -50,6 +50,9 @@ class Announcement:
     service: Service | None = None
     mode: str = "departures"
     max_calling_points: int = 8
+    #: The station to name in an arrival, set only when two stations announce.
+    station: str | None = None
+    station_crs: str | None = None
 
 
 class AnnouncementScheduler:
@@ -110,6 +113,14 @@ class AnnouncementScheduler:
         if not config.announce_any:
             return
         now = datetime.now().astimezone()
+        # With one station announcing, "platform one" can only mean one place.
+        # With two it cannot, so each arrival says which station it is for.
+        announcing = sum(
+            1
+            for index in range(min(len(boards), len(config.stations)))
+            if config.stations[index].announce
+        )
+        name_station = announcing >= 2
 
         for index, board in enumerate(boards):
             if index >= len(config.stations) or not config.stations[index].announce:
@@ -129,11 +140,13 @@ class AnnouncementScheduler:
                     if (identity, kind.value) in self._announced:
                         continue
                     self._announced[(identity, kind.value)] = now
+                    named = board.name if name_station and board.name else None
                     text = build_text(
                         kind,
                         service,
                         board.mode,
                         max_calling_points=config.announcements.max_calling_points,
+                        station=named,
                     )
                     self._enqueue(
                         Announcement(
@@ -142,6 +155,8 @@ class AnnouncementScheduler:
                             service,
                             board.mode,
                             config.announcements.max_calling_points,
+                            named,
+                            board.crs if named else None,
                         )
                     )
 
@@ -181,6 +196,8 @@ class AnnouncementScheduler:
             announcement.service,
             announcement.mode,
             announcement.max_calling_points,
+            announcement.station,
+            announcement.station_crs,
         )
         return plan.parts if plan else None
 

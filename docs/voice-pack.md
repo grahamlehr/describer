@@ -19,7 +19,7 @@ a time.
 
 | Group | Clips | What |
 |---|---:|---|
-| Phrases | 21 | "The next train to arrive at platform", "will be the", "calling at", the apologies, the test line |
+| Phrases | 23 | "The next train to arrive at platform", "will be the", "calling at", the apologies, the test line; "The next train to arrive at" and "platform" on their own, for a board announcing two stations |
 | Numbers | 60 + 10 | "zero" to "fifty nine" (hours, minutes, platforms, minutes late); "hundred hours", "oh one" to "oh nine" |
 | Platform letters | 16 | A to P ("platform four B") |
 | Operators | 36 | as the feeds name them |

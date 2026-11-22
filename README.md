@@ -554,6 +554,12 @@ for anything the voice cannot say. MP3 and other non-WAV recordings need
 Each service is announced at most once per event type (arriving, delayed,
 cancelled). The record is in memory and resets on restart.
 
+When two stations are on the screen and both have announcements on, each
+arrival says which station it is for: "The next train to arrive at Sydenham
+platform 1 will be the…". A recorded voice made before this needs two short
+clips added (`/admin` lists them as missing); until then Piper speaks those
+arrivals.
+
 ### Display schedule
 
 With `schedule.enabled`, the board blanks outside the daily window, puts the

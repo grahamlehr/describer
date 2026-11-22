@@ -209,3 +209,49 @@ async def test_a_source_switch_does_not_re_announce_a_train(scheduler):
     await drain(announcer)
 
     assert len(engine.spoken) == 1
+
+
+def sydenham_with(*services: Service) -> Board:
+    return Board(crs="SYD", name="Sydenham", mode="departures", services=list(services))
+
+
+async def test_two_stations_announcing_each_say_which_station(scheduler):
+    announcer, engine = scheduler
+    config = Config(stations=[{"crs": "PAD", "announce": True}, {"crs": "SYD", "announce": True}])
+    boards = [
+        board_with(service_at(1)),
+        sydenham_with(service_at(1, id="svc2", platform=None, destination="West Croydon")),
+    ]
+
+    await announcer.on_boards(boards, config)
+    await drain(announcer)
+
+    assert engine.spoken[0].startswith(
+        "The next train to arrive at London Paddington platform nine will be the"
+    )
+    assert engine.spoken[1].startswith("The next train to arrive at Sydenham will be the")
+
+
+async def test_one_station_announcing_of_two_is_not_named(scheduler):
+    announcer, engine = scheduler
+    config = Config(stations=[{"crs": "PAD", "announce": True}, {"crs": "SYD", "announce": False}])
+    boards = [board_with(service_at(1)), sydenham_with(service_at(1, id="svc2"))]
+
+    await announcer.on_boards(boards, config)
+    await drain(announcer)
+
+    assert len(engine.spoken) == 1
+    assert engine.spoken[0].startswith("The next train to arrive at platform nine")
+
+
+async def test_a_delay_does_not_name_the_station(scheduler):
+    announcer, engine = scheduler
+    config = Config(stations=[{"crs": "PAD", "announce": True}, {"crs": "SYD", "announce": True}])
+    config.announcements.announce_delays = True
+    late = service_at(30, status=ServiceStatus.DELAYED, expected_time="Delayed", delay_minutes=5)
+
+    await announcer.on_boards([board_with(late), sydenham_with()], config)
+    await drain(announcer)
+
+    assert engine.spoken[0].startswith("We are sorry to announce that the")
+    assert "Paddington" not in engine.spoken[0]

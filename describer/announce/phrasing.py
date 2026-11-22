@@ -113,11 +113,22 @@ def _platform_phrase(service: Service) -> str:
 
 
 def arriving_text(
-    service: Service, mode: str = "departures", *, max_calling_points: int = 8
+    service: Service,
+    mode: str = "departures",
+    *,
+    max_calling_points: int = 8,
+    station: str | None = None,
 ) -> str:
-    """The standard "next train to arrive" announcement."""
+    """The standard "next train to arrive" announcement.
+
+    ``station`` is named when the board is announcing for two stations, so a
+    listener knows which one "platform one" belongs to.
+    """
     platform = _platform_phrase(service)
-    where = "at " + platform if platform else "at this station"
+    if station:
+        where = f"at {station} {platform}".rstrip()
+    else:
+        where = "at " + platform if platform else "at this station"
     sentence = f"The next train to arrive {where} will be {_service_phrase(service, mode)}"
 
     if mode == "departures":
@@ -173,10 +184,14 @@ def build_text(
     mode: str = "departures",
     *,
     max_calling_points: int = 8,
+    station: str | None = None,
 ) -> str:
+    """The words for one announcement. ``station`` only changes an arrival."""
     match kind:
         case AnnouncementKind.ARRIVING:
-            return arriving_text(service, mode, max_calling_points=max_calling_points)
+            return arriving_text(
+                service, mode, max_calling_points=max_calling_points, station=station
+            )
         case AnnouncementKind.DELAYED:
             return delayed_text(service, mode)
         case AnnouncementKind.CANCELLED:
