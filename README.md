@@ -54,7 +54,7 @@ You'll need it in step `05`.
 2. Open Imager. Under **App Options → Content repository**, paste this address:
 
    ```
-   https://raw.githubusercontent.com/grahamlehr/describer-image/main/os_list.json
+   https://raw.githubusercontent.com/grahamlehr/describer-image/imager/os_list.json
    ```
 
 3. Choose **Raspberry Pi 4** as the device, then **Describer** as the operating system.
